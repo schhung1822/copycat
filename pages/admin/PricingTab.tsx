@@ -40,20 +40,36 @@ const EditableCell: React.FC<{
   );
 };
 
+interface AdminPlan {
+  id: number;
+  code: string;
+  name: string;
+  months: number;
+  priceVnd: number;
+  pricePerMonthVnd: number;
+  monthlyTokenAllowance: number;
+  description: string | null;
+  isPopular: boolean;
+  isActive: boolean;
+}
+
 export const PricingTab: React.FC = () => {
   const [models, setModels] = useState<AdminModelPricing[]>([]);
   const [packages, setPackages] = useState<AdminPackage[]>([]);
+  const [plans, setPlans] = useState<AdminPlan[]>([]);
   const [usdToVnd, setUsdToVnd] = useState(28000);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
   const load = useCallback(async () => {
-    const [modelData, packageData] = await Promise.all([
+    const [modelData, packageData, planData] = await Promise.all([
       api.get<{ models: AdminModelPricing[]; usdToVnd: number }>('/admin/pricing'),
       api.get<{ packages: AdminPackage[] }>('/admin/packages'),
+      api.get<{ plans: AdminPlan[] }>('/admin/plans'),
     ]);
     setModels(modelData.models);
     setUsdToVnd(modelData.usdToVnd);
     setPackages(packageData.packages);
+    setPlans(planData.plans);
   }, []);
 
   useEffect(() => {
@@ -84,9 +100,100 @@ export const PricingTab: React.FC = () => {
     }
   };
 
+  const updatePlan = async (id: number, patch: Record<string, unknown>) => {
+    setMessage(null);
+    try {
+      await api.patch(`/admin/plans/${id}`, patch);
+      await load();
+      setMessage({ tone: 'success', text: 'Đã lưu gói dịch vụ.' });
+    } catch (err) {
+      setMessage({ tone: 'error', text: err instanceof ApiError ? err.message : 'Lưu thất bại.' });
+      await load();
+    }
+  };
+
   return (
     <div className="space-y-6">
       {message && <Alert tone={message.tone}>{message.text}</Alert>}
+
+      <Card className="p-5">
+        <div className="mb-4">
+          <h2 className="font-bold text-white">Gói dịch vụ theo tháng</h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Khách bắt buộc mua gói này trước khi tạo ảnh. <strong>Hạn mức</strong> được cấp lại mỗi tháng và không cộng
+            dồn, kể cả khi mua chu kỳ dài. 1 token = 1đ giá vốn, nên hạn mức 500.000 token đúng bằng 500.000đ tiền
+            token theo giá gốc.
+          </p>
+        </div>
+
+        <TableWrap>
+          <thead>
+            <tr className="text-[11px] uppercase tracking-wider text-gray-500 border-b border-dark-800">
+              <th className="text-left font-bold py-2">Mã</th>
+              <th className="text-left font-bold py-2">Tên gói</th>
+              <th className="text-right font-bold py-2">Chu kỳ</th>
+              <th className="text-right font-bold py-2">Giá cả kỳ</th>
+              <th className="text-right font-bold py-2">Quy ra/tháng</th>
+              <th className="text-right font-bold py-2">Hạn mức/tháng</th>
+              <th className="text-center font-bold py-2">Nổi bật</th>
+              <th className="text-center font-bold py-2">Bán</th>
+            </tr>
+          </thead>
+          <tbody>
+            {plans.map((plan) => (
+              <tr key={plan.id} className="border-b border-dark-850 last:border-0">
+                <td className="py-2 text-gray-500 text-xs font-mono">{plan.code}</td>
+                <td className="py-2">
+                  <EditableCell
+                    value={plan.name}
+                    align="left"
+                    width="w-32"
+                    onSave={(value) => updatePlan(plan.id, { name: value })}
+                  />
+                </td>
+                <td className="py-2 text-right">
+                  <EditableCell
+                    value={plan.months}
+                    width="w-14"
+                    onSave={(value) => updatePlan(plan.id, { months: Number(value) })}
+                  />
+                </td>
+                <td className="py-2 text-right">
+                  <EditableCell
+                    value={plan.priceVnd}
+                    width="w-28"
+                    onSave={(value) => updatePlan(plan.id, { priceVnd: Number(value) })}
+                  />
+                </td>
+                <td className="py-2 text-right text-gray-400 text-xs">{formatVnd(plan.pricePerMonthVnd)}</td>
+                <td className="py-2 text-right">
+                  <EditableCell
+                    value={plan.monthlyTokenAllowance}
+                    width="w-24"
+                    onSave={(value) => updatePlan(plan.id, { monthlyTokenAllowance: Number(value) })}
+                  />
+                </td>
+                <td className="py-2 text-center">
+                  <input
+                    type="checkbox"
+                    checked={plan.isPopular}
+                    onChange={(e) => updatePlan(plan.id, { isPopular: e.target.checked })}
+                    className="accent-brand-500 cursor-pointer"
+                  />
+                </td>
+                <td className="py-2 text-center">
+                  <input
+                    type="checkbox"
+                    checked={plan.isActive}
+                    onChange={(e) => updatePlan(plan.id, { isActive: e.target.checked })}
+                    className="accent-brand-500 cursor-pointer"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </TableWrap>
+      </Card>
 
       <Card className="p-5">
         <div className="mb-4">
@@ -168,9 +275,10 @@ export const PricingTab: React.FC = () => {
 
       <Card className="p-5">
         <div className="mb-4">
-          <h2 className="font-bold text-white">Gói nạp tiền</h2>
+          <h2 className="font-bold text-white">Gói token lẻ</h2>
           <p className="text-xs text-gray-500 mt-1">
-            Token khách nhận = token cơ bản + token thưởng. Sửa xong bấm ra ngoài ô để lưu.
+            Dành cho khách đã dùng hết hạn mức tháng. Quy tắc định giá: bán <strong>gấp đôi giá vốn</strong>, tức số
+            token nhận được bằng nửa số tiền nạp. Token mua thêm không hết hạn theo chu kỳ tháng.
           </p>
         </div>
 

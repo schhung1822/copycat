@@ -16,8 +16,18 @@ CREATE TABLE IF NOT EXISTS users (
   phone           VARCHAR(32)     NULL,
   role            ENUM('user','admin') NOT NULL DEFAULT 'user',
   status          ENUM('active','banned') NOT NULL DEFAULT 'active',
-  -- Số dư token hiện tại. Luôn được cập nhật cùng transaction với token_transactions.
+  -- Token MUA THÊM (gói lẻ). Không hết hạn, chỉ dùng khi hạn mức tháng đã cạn.
   token_balance   INT             NOT NULL DEFAULT 0,
+
+  -- --- Thuê bao tháng (ghi đè phẳng vào đây để thao tác trừ token chỉ khoá 1 dòng) ---
+  subscription_expires_at DATETIME NULL,
+  -- Hạn mức token được cấp mỗi tháng theo gói đang dùng
+  monthly_allowance   INT         NOT NULL DEFAULT 0,
+  -- Hạn mức còn lại của chu kỳ tháng hiện tại. KHÔNG cộng dồn sang tháng sau.
+  monthly_tokens      INT         NOT NULL DEFAULT 0,
+  -- Thời điểm kết thúc chu kỳ tháng hiện tại; qua mốc này hạn mức được cấp lại.
+  monthly_period_end  DATETIME    NULL,
+
   -- Số liệu tích luỹ, phục vụ báo cáo nhanh không phải quét bảng ledger.
   total_topup_vnd BIGINT          NOT NULL DEFAULT 0,
   total_tokens_in INT             NOT NULL DEFAULT 0,
@@ -31,7 +41,55 @@ CREATE TABLE IF NOT EXISTS users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
--- 2. GÓI NẠP TIỀN  (bảng giá ở ảnh 2, mục 3)
+-- 1b. GÓI THUÊ BAO THÁNG
+--     Khách bắt buộc mua gói này trước khi được tạo ảnh. Giá gói đã gồm chi phí
+--     duy trì, nhân sự và một hạn mức token dùng trong tháng.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS subscription_plans (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  code          VARCHAR(50)  NOT NULL,           -- vd: MONTHLY_1, MONTHLY_12
+  name          VARCHAR(120) NOT NULL,
+  months        INT          NOT NULL,           -- chu kỳ: 1, 3, 6, 12
+  price_vnd     BIGINT       NOT NULL,           -- tổng tiền cho cả chu kỳ
+  -- Hạn mức token cấp lại MỖI THÁNG (không cộng dồn sang tháng sau)
+  monthly_token_allowance INT NOT NULL,
+  description   VARCHAR(255) NULL,
+  is_popular    TINYINT(1)   NOT NULL DEFAULT 0,
+  is_active     TINYINT(1)   NOT NULL DEFAULT 1,
+  sort_order    INT          NOT NULL DEFAULT 0,
+  created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_plans_code (code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- 1c. THUÊ BAO ĐÃ MUA — lịch sử, dùng để đối soát và gia hạn
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id       BIGINT UNSIGNED NOT NULL,
+  plan_id       INT UNSIGNED    NULL,
+  -- Snapshot thông tin gói lúc mua, để đổi bảng giá không làm sai lịch sử
+  plan_code     VARCHAR(50)     NULL,
+  plan_name     VARCHAR(120)    NOT NULL,
+  months        INT             NOT NULL,
+  price_vnd     BIGINT          NOT NULL,
+  monthly_token_allowance INT   NOT NULL,
+  status        ENUM('active','expired','cancelled') NOT NULL DEFAULT 'active',
+  order_id      BIGINT UNSIGNED NULL,
+  started_at    DATETIME        NOT NULL,
+  expires_at    DATETIME        NOT NULL,
+  created_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_subs_user (user_id, created_at),
+  KEY idx_subs_status (status, expires_at),
+  CONSTRAINT fk_subs_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- 2. GÓI TOKEN LẺ  (mua thêm khi đã dùng hết hạn mức tháng)
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS token_packages (
   id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -81,6 +139,10 @@ CREATE TABLE IF NOT EXISTS orders (
   id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   code            VARCHAR(32)     NOT NULL,   -- mã ghi trong nội dung chuyển khoản, vd: NAP7K3Q2M
   user_id         BIGINT UNSIGNED NOT NULL,
+  -- subscription = mua/gia hạn gói tháng | token_package = mua thêm token lẻ
+  order_type      ENUM('subscription','token_package') NOT NULL DEFAULT 'token_package',
+  plan_id         INT UNSIGNED    NULL,
+  subscription_months INT         NULL,
   package_id      INT UNSIGNED    NULL,
   -- Snapshot thông tin gói tại thời điểm đặt, để đổi bảng giá không làm sai lịch sử.
   package_code    VARCHAR(50)     NULL,
@@ -114,10 +176,13 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE TABLE IF NOT EXISTS token_transactions (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id       BIGINT UNSIGNED NOT NULL,
-  -- topup: nạp tiền | spend: tạo ảnh | refund: hoàn khi lỗi | adjust: admin cộng/trừ tay
-  type          ENUM('topup','spend','refund','adjust') NOT NULL,
+  -- topup: mua token lẻ | spend: tạo ảnh | refund: hoàn khi lỗi | adjust: admin sửa tay
+  -- grant: cấp hạn mức đầu chu kỳ tháng | expire: xoá hạn mức thừa khi sang tháng mới
+  type          ENUM('topup','spend','refund','adjust','grant','expire') NOT NULL,
+  -- monthly: hạn mức tháng (reset, không cộng dồn) | purchased: token mua thêm (không hết hạn)
+  bucket        ENUM('monthly','purchased') NOT NULL DEFAULT 'purchased',
   amount        INT             NOT NULL,   -- dương = cộng, âm = trừ
-  balance_after INT             NOT NULL,
+  balance_after INT             NOT NULL,   -- số dư của đúng nguồn ở cột bucket
   ref_type      VARCHAR(40)     NULL,       -- 'order' | 'generation' | NULL
   ref_id        BIGINT UNSIGNED NULL,
   description   VARCHAR(255)    NULL,
@@ -147,6 +212,9 @@ CREATE TABLE IF NOT EXISTS generations (
   -- Ảnh đầu vào đã lưu trên server: {"reference": "...", "products": ["..."]}
   input_images     JSON            NULL,
   token_cost       INT             NOT NULL, -- token đã trừ của khách
+  -- Tách rõ token lấy từ nguồn nào, để khi lỗi thì hoàn về đúng nguồn đó
+  monthly_cost     INT             NOT NULL DEFAULT 0, -- lấy từ hạn mức tháng
+  purchased_cost   INT             NOT NULL DEFAULT 0, -- lấy từ token mua thêm
   api_cost_usd     DECIMAL(10,4)   NOT NULL, -- giá vốn ước tính
   status           ENUM('queued','processing','success','failed','refunded') NOT NULL DEFAULT 'queued',
   provider_task_id VARCHAR(190)    NULL,

@@ -3,6 +3,7 @@ import { query, queryOne, type RowDataPacket } from '../db.js';
 import { requireAuth } from '../lib/auth.js';
 import { asyncHandler } from '../lib/errors.js';
 import { parsePaging } from '../lib/validate.js';
+import { readAccountState, type SubscriptionRow } from '../services/subscriptionService.js';
 import type { LedgerRow } from '../services/tokenService.js';
 
 export const walletRouter = Router();
@@ -24,8 +25,22 @@ walletRouter.get(
       [req.user!.id],
     );
 
+    const state = await readAccountState(req.user!.id);
+    const subscription = await queryOne<SubscriptionRow>(
+      `SELECT * FROM subscriptions WHERE user_id = ? ORDER BY id DESC LIMIT 1`,
+      [req.user!.id],
+    );
+
     res.json({
-      tokenBalance: summary?.token_balance ?? 0,
+      // Tổng dùng được ngay = hạn mức tháng còn lại + token đã mua thêm
+      tokenBalance: state.availableTokens,
+      monthlyTokens: state.monthlyTokens,
+      monthlyAllowance: state.monthlyAllowance,
+      monthlyPeriodEnd: state.monthlyPeriodEnd,
+      purchasedTokens: state.purchasedTokens,
+      isSubscribed: state.isSubscribed,
+      subscriptionExpiresAt: state.subscriptionExpiresAt,
+      subscriptionName: subscription?.plan_name ?? null,
       totalTopupVnd: summary?.total_topup_vnd ?? 0,
       totalTokensIn: summary?.total_tokens_in ?? 0,
       totalTokensOut: summary?.total_tokens_out ?? 0,
@@ -54,6 +69,7 @@ walletRouter.get(
       transactions: rows.map((row) => ({
         id: row.id,
         type: row.type,
+        bucket: row.bucket,
         amount: row.amount,
         balanceAfter: row.balance_after,
         description: row.description,

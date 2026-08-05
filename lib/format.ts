@@ -52,9 +52,16 @@ export const STATUS_LABEL: Record<string, string> = {
   banned: 'Đã khoá',
 };
 
+export const BUCKET_LABEL: Record<string, string> = {
+  monthly: 'Hạn mức tháng',
+  purchased: 'Token mua thêm',
+};
+
 export const TX_TYPE_LABEL: Record<string, string> = {
   topup: 'Nạp token',
   spend: 'Tạo ảnh',
   refund: 'Hoàn token',
   adjust: 'Điều chỉnh',
+  grant: 'Cấp hạn mức tháng',
+  expire: 'Hết hạn mức tháng',
 };

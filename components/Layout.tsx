@@ -7,7 +7,7 @@ const navItems = [
   { to: '/', label: 'Tạo ảnh', end: true },
   { to: '/lich-su', label: 'Lịch sử' },
   { to: '/vi-token', label: 'Ví token' },
-  { to: '/nap-tien', label: 'Nạp tiền' },
+  { to: '/nap-tien', label: 'Gói dịch vụ' },
 ];
 
 const Logo: React.FC = () => (
@@ -59,17 +59,29 @@ export const Layout: React.FC = () => {
         </nav>
 
         <div className="ml-auto flex items-center gap-3">
-          <Link
-            to="/nap-tien"
-            className="flex items-center gap-2 bg-dark-850 hover:bg-dark-800 border border-dark-700 rounded-full pl-3 pr-2 py-1.5 transition-colors group"
-            title="Nạp thêm token"
-          >
-            <span className="text-sm font-bold text-brand-500">{formatNumber(user?.tokenBalance ?? 0)}</span>
-            <span className="text-[10px] uppercase text-gray-500 tracking-wider hidden sm:inline">token</span>
-            <span className="w-5 h-5 rounded-full bg-brand-500/15 text-brand-500 flex items-center justify-center text-sm leading-none group-hover:bg-brand-500 group-hover:text-white transition-colors">
-              +
-            </span>
-          </Link>
+          {user?.isSubscribed ? (
+            <Link
+              to="/nap-tien"
+              className="flex items-center gap-2 bg-dark-850 hover:bg-dark-800 border border-dark-700 rounded-full pl-3 pr-2 py-1.5 transition-colors group"
+              title={
+                `Hạn mức tháng: ${formatNumber(user.monthlyTokens)} token\n` +
+                `Đã mua thêm: ${formatNumber(user.purchasedTokens)} token`
+              }
+            >
+              <span className="text-sm font-bold text-brand-500">{formatNumber(user.tokenBalance)}</span>
+              <span className="text-[10px] uppercase text-gray-500 tracking-wider hidden sm:inline">token</span>
+              <span className="w-5 h-5 rounded-full bg-brand-500/15 text-brand-500 flex items-center justify-center text-sm leading-none group-hover:bg-brand-500 group-hover:text-white transition-colors">
+                +
+              </span>
+            </Link>
+          ) : (
+            <Link
+              to="/nap-tien"
+              className="bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-full px-4 py-2 transition-colors"
+            >
+              Đăng ký gói
+            </Link>
+          )}
 
           <div className="relative group">
             <button className="w-8 h-8 rounded-full bg-dark-800 border border-dark-700 text-gray-300 text-xs font-bold hover:border-gray-500 transition-colors">

@@ -12,6 +12,7 @@ import {
 } from '../lib/auth.js';
 import { asyncHandler, conflict, forbidden, unauthorized } from '../lib/errors.js';
 import { optionalString, requireEmail, requireString } from '../lib/validate.js';
+import { readAccountState, type AccountState } from '../services/subscriptionService.js';
 
 export const authRouter = Router();
 
@@ -25,24 +26,34 @@ const cookieOptions = {
   path: '/',
 };
 
-const publicUser = (user: AuthUser) => ({
+type PublicUser = AuthUser & { state: AccountState };
+
+const publicUser = (user: PublicUser) => ({
   id: user.id,
   email: user.email,
   fullName: user.full_name,
   phone: user.phone,
   role: user.role,
-  tokenBalance: user.token_balance,
   createdAt: user.created_at,
+
+  // Thuê bao và hạn mức — giao diện dựa vào đây để mở/khoá chức năng tạo ảnh.
+  isSubscribed: user.state.isSubscribed,
+  subscriptionExpiresAt: user.state.subscriptionExpiresAt,
+  monthlyAllowance: user.state.monthlyAllowance,
+  monthlyTokens: user.state.monthlyTokens,
+  monthlyPeriodEnd: user.state.monthlyPeriodEnd,
+  purchasedTokens: user.state.purchasedTokens,
+  tokenBalance: user.state.availableTokens,
 });
 
-async function loadPublicUser(userId: number) {
+async function loadPublicUser(userId: number): Promise<PublicUser> {
   const user = await queryOne<AuthUser>(
     `SELECT id, email, full_name, phone, role, status, token_balance, created_at FROM users WHERE id = ?`,
     [userId],
   );
   if (!user) throw unauthorized();
   user.role = isAdminEmail(user.email) ? 'admin' : 'user';
-  return user;
+  return Object.assign(user, { state: await readAccountState(userId) });
 }
 
 authRouter.post(
@@ -70,8 +81,8 @@ authRouter.post(
 
     // Token tặng khi đăng ký (mặc định 0, admin bật trong bảng settings).
     if (Number.isFinite(freeTokens) && freeTokens > 0) {
-      const { applyLedgerStandalone } = await import('../services/tokenService.js');
-      await applyLedgerStandalone({
+      const { creditPurchasedStandalone } = await import('../services/tokenService.js');
+      await creditPurchasedStandalone({
         userId: result.insertId,
         amount: Math.trunc(freeTokens),
         type: 'adjust',

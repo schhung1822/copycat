@@ -19,8 +19,33 @@ export interface User {
   fullName: string | null;
   phone: string | null;
   role: 'user' | 'admin';
-  tokenBalance: number;
   createdAt: string;
+
+  /** Đang có gói dịch vụ còn hiệu lực hay không — quyết định có được tạo ảnh */
+  isSubscribed: boolean;
+  subscriptionExpiresAt: string | null;
+  /** Hạn mức token được cấp mỗi tháng theo gói */
+  monthlyAllowance: number;
+  /** Hạn mức còn lại của chu kỳ tháng hiện tại (không cộng dồn sang tháng sau) */
+  monthlyTokens: number;
+  /** Thời điểm hạn mức được cấp lại */
+  monthlyPeriodEnd: string | null;
+  /** Token mua thêm từ gói lẻ — không hết hạn */
+  purchasedTokens: number;
+  /** Tổng dùng được ngay = monthlyTokens + purchasedTokens */
+  tokenBalance: number;
+}
+
+export interface SubscriptionPlan {
+  id: number;
+  code: string;
+  name: string;
+  months: number;
+  priceVnd: number;
+  pricePerMonthVnd: number;
+  monthlyTokenAllowance: number;
+  description: string | null;
+  isPopular: boolean;
 }
 
 export interface ModelOption {
@@ -55,6 +80,7 @@ export interface BankInfo {
 }
 
 export interface Catalog {
+  plans: SubscriptionPlan[];
   models: ModelOption[];
   packages: TokenPackage[];
   bank: BankInfo;
@@ -86,6 +112,8 @@ export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'expired';
 export interface Order {
   id: number;
   code: string;
+  orderType: 'subscription' | 'token_package';
+  subscriptionMonths: number | null;
   packageName: string;
   amountVnd: number;
   baseTokens: number;
@@ -104,7 +132,8 @@ export interface Order {
 
 export interface TokenTransaction {
   id: number;
-  type: 'topup' | 'spend' | 'refund' | 'adjust';
+  type: 'topup' | 'spend' | 'refund' | 'adjust' | 'grant' | 'expire';
+  bucket: 'monthly' | 'purchased';
   amount: number;
   balanceAfter: number;
   description: string | null;
@@ -115,6 +144,13 @@ export interface TokenTransaction {
 
 export interface WalletSummary {
   tokenBalance: number;
+  monthlyTokens: number;
+  monthlyAllowance: number;
+  monthlyPeriodEnd: string | null;
+  purchasedTokens: number;
+  isSubscribed: boolean;
+  subscriptionExpiresAt: string | null;
+  subscriptionName: string | null;
   totalTopupVnd: number;
   totalTokensIn: number;
   totalTokensOut: number;
@@ -135,6 +171,13 @@ export interface AdminOverview {
     paidOrders: number;
     pendingOrders: number;
     averageOrderValue: number;
+    subscriptionRevenue: number;
+    extraTokenRevenue: number;
+  };
+  subscribers: {
+    active: number;
+    expiringIn7Days: number;
+    monthlyTokensRemaining: number;
   };
   users: {
     total: number;

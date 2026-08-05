@@ -72,7 +72,62 @@ export async function withTransaction<T>(fn: (conn: PoolConnection) => Promise<T
   }
 }
 
-/** Tạo database nếu chưa có rồi chạy schema.sql. */
+/**
+ * Thêm cột nếu bảng chưa có.
+ *
+ * `CREATE TABLE IF NOT EXISTS` trong schema.sql không đụng tới bảng đã tồn tại,
+ * nên cài đặt cũ sẽ thiếu cột mới. MySQL 8 lại không hỗ trợ `ADD COLUMN IF NOT
+ * EXISTS`, vì vậy phải tự tra information_schema.
+ */
+async function ensureColumn(
+  conn: mysql.Connection,
+  table: string,
+  column: string,
+  definition: string,
+): Promise<void> {
+  const [rows] = await conn.query<RowDataPacket[]>(
+    `SELECT 1 FROM information_schema.columns
+      WHERE table_schema = ? AND table_name = ? AND column_name = ? LIMIT 1`,
+    [env.db.name, table, column],
+  );
+  if (rows.length > 0) return;
+
+  await conn.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
+  console.log(`[migrate] Đã thêm cột ${table}.${column}`);
+}
+
+/** Nâng cấp cấu trúc cho những cài đặt đã chạy từ phiên bản trước. */
+async function applyMigrations(conn: mysql.Connection): Promise<void> {
+  // Thuê bao tháng
+  await ensureColumn(conn, 'users', 'subscription_expires_at', 'DATETIME NULL');
+  await ensureColumn(conn, 'users', 'monthly_allowance', 'INT NOT NULL DEFAULT 0');
+  await ensureColumn(conn, 'users', 'monthly_tokens', 'INT NOT NULL DEFAULT 0');
+  await ensureColumn(conn, 'users', 'monthly_period_end', 'DATETIME NULL');
+
+  // Đơn hàng phân loại thuê bao / token lẻ
+  await ensureColumn(
+    conn,
+    'orders',
+    'order_type',
+    "ENUM('subscription','token_package') NOT NULL DEFAULT 'token_package'",
+  );
+  await ensureColumn(conn, 'orders', 'plan_id', 'INT UNSIGNED NULL');
+  await ensureColumn(conn, 'orders', 'subscription_months', 'INT NULL');
+
+  // Ảnh ghi rõ token lấy từ nguồn nào, để hoàn đúng nguồn khi lỗi
+  await ensureColumn(conn, 'generations', 'monthly_cost', 'INT NOT NULL DEFAULT 0');
+  await ensureColumn(conn, 'generations', 'purchased_cost', 'INT NOT NULL DEFAULT 0');
+
+  // Sổ cái tách hai nguồn token
+  await ensureColumn(conn, 'token_transactions', 'bucket', "ENUM('monthly','purchased') NOT NULL DEFAULT 'purchased'");
+  // MODIFY chạy lại vô hại, dùng để bổ sung giá trị enum mới.
+  await conn.query(
+    `ALTER TABLE token_transactions
+       MODIFY COLUMN type ENUM('topup','spend','refund','adjust','grant','expire') NOT NULL`,
+  );
+}
+
+/** Tạo database nếu chưa có, chạy schema.sql rồi nâng cấp cấu trúc cũ. */
 export async function migrate(): Promise<void> {
   const bootstrap = await mysql.createConnection({
     host: env.db.host,
@@ -90,6 +145,7 @@ export async function migrate(): Promise<void> {
 
     const schema = await fs.readFile(path.join(__dirname, 'schema.sql'), 'utf8');
     await bootstrap.query(schema);
+    await applyMigrations(bootstrap);
   } finally {
     await bootstrap.end();
   }

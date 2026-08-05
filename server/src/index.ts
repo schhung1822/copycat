@@ -16,6 +16,7 @@ import { webhookRouter } from './routes/webhook.routes.js';
 import { seed } from './seed.js';
 import { recoverStaleGenerations } from './services/generationService.js';
 import { expireStaleOrders } from './services/orderService.js';
+import { expireStaleSubscriptions } from './services/subscriptionService.js';
 import { ensureStorage } from './services/storageService.js';
 
 const app = express();
@@ -77,9 +78,12 @@ async function start(): Promise<void> {
   await ensureStorage();
   await recoverStaleGenerations();
 
-  // Dọn các đơn nạp quá hạn mỗi 5 phút.
+  // Dọn đơn quá hạn và đánh dấu thuê bao hết hạn, mỗi 5 phút.
+  // Hạn mức tháng KHÔNG reset ở đây — nó được cấp lại ngay lúc khách dùng tới,
+  // nên số liệu luôn đúng kể cả khi server vừa khởi động lại.
   const cleanupTimer = setInterval(() => {
     void expireStaleOrders().catch((error) => console.error('[dọn đơn hết hạn]', error));
+    void expireStaleSubscriptions().catch((error) => console.error('[dọn thuê bao hết hạn]', error));
   }, 5 * 60 * 1000);
   cleanupTimer.unref();
 

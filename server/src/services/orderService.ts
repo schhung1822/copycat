@@ -2,7 +2,8 @@ import crypto from 'node:crypto';
 import { execute, query, queryOne, withTransaction, type PoolConnection, type ResultSetHeader, type RowDataPacket } from '../db.js';
 import { env } from '../env.js';
 import { badRequest, conflict, notFound } from '../lib/errors.js';
-import { applyLedger } from './tokenService.js';
+import { activateSubscription, type PlanRow } from './subscriptionService.js';
+import { creditPurchasedTokens } from './tokenService.js';
 
 export interface PackageRow extends RowDataPacket {
   id: number;
@@ -21,6 +22,9 @@ export interface OrderRow extends RowDataPacket {
   id: number;
   code: string;
   user_id: number;
+  order_type: 'subscription' | 'token_package';
+  plan_id: number | null;
+  subscription_months: number | null;
   package_id: number | null;
   package_code: string | null;
   package_name: string;
@@ -111,9 +115,54 @@ export async function createOrder(userId: number, packageId: number): Promise<Or
   const pkg = await queryOne<PackageRow>('SELECT * FROM token_packages WHERE id = ? AND is_active = 1', [packageId]);
   if (!pkg) throw badRequest('Gói nạp không tồn tại hoặc đã ngừng bán.');
 
+  return insertOrder({
+    userId,
+    orderType: 'token_package',
+    packageId: pkg.id,
+    packageCode: pkg.code,
+    itemName: pkg.name,
+    amountVnd: pkg.price_vnd,
+    baseTokens: pkg.base_tokens,
+    bonusTokens: pkg.bonus_tokens,
+  });
+}
+
+/** Tạo đơn mua / gia hạn gói thuê bao tháng. */
+export async function createSubscriptionOrder(userId: number, planId: number): Promise<OrderRow> {
+  const plan = await queryOne<PlanRow>('SELECT * FROM subscription_plans WHERE id = ? AND is_active = 1', [planId]);
+  if (!plan) throw badRequest('Gói dịch vụ không tồn tại hoặc đã ngừng bán.');
+
+  return insertOrder({
+    userId,
+    orderType: 'subscription',
+    planId: plan.id,
+    packageCode: plan.code,
+    itemName: plan.name,
+    amountVnd: plan.price_vnd,
+    subscriptionMonths: plan.months,
+    // Thuê bao không cộng token ngay; hạn mức được cấp khi kích hoạt.
+    baseTokens: 0,
+    bonusTokens: 0,
+  });
+}
+
+interface InsertOrderInput {
+  userId: number;
+  orderType: 'subscription' | 'token_package';
+  itemName: string;
+  amountVnd: number;
+  baseTokens: number;
+  bonusTokens: number;
+  packageId?: number | null;
+  planId?: number | null;
+  packageCode?: string | null;
+  subscriptionMonths?: number | null;
+}
+
+async function insertOrder(input: InsertOrderInput): Promise<OrderRow> {
   const pending = await queryOne<RowDataPacket & { total: number }>(
     `SELECT COUNT(*) AS total FROM orders WHERE user_id = ? AND status = 'pending'`,
-    [userId],
+    [input.userId],
   );
   if ((pending?.total ?? 0) >= 5) {
     throw conflict('Bạn đang có quá nhiều đơn chờ thanh toán. Vui lòng hoàn tất hoặc huỷ bớt.', 'too_many_pending');
@@ -125,19 +174,22 @@ export async function createOrder(userId: number, packageId: number): Promise<Or
     try {
       const result = await execute(
         `INSERT INTO orders
-           (code, user_id, package_id, package_code, package_name, amount_vnd,
-            base_tokens, bonus_tokens, total_tokens, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE))`,
+           (code, user_id, order_type, plan_id, subscription_months, package_id, package_code,
+            package_name, amount_vnd, base_tokens, bonus_tokens, total_tokens, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE))`,
         [
           code,
-          userId,
-          pkg.id,
-          pkg.code,
-          pkg.name,
-          pkg.price_vnd,
-          pkg.base_tokens,
-          pkg.bonus_tokens,
-          pkg.base_tokens + pkg.bonus_tokens,
+          input.userId,
+          input.orderType,
+          input.planId ?? null,
+          input.subscriptionMonths ?? null,
+          input.packageId ?? null,
+          input.packageCode ?? null,
+          input.itemName,
+          input.amountVnd,
+          input.baseTokens,
+          input.bonusTokens,
+          input.baseTokens + input.bonusTokens,
           env.orderExpireMinutes,
         ],
       );
@@ -163,7 +215,7 @@ export interface MarkPaidInput {
 }
 
 export type MarkPaidOutcome =
-  | { ok: true; order: OrderRow; tokensCredited: number }
+  | { ok: true; order: OrderRow; tokensCredited: number; subscriptionExpiresAt: Date | null }
   | { ok: false; reason: 'already_paid' | 'not_pending' | 'amount_mismatch'; order: OrderRow; message: string };
 
 /**
@@ -212,15 +264,37 @@ export async function markOrderPaid(orderCode: string, input: MarkPaidInput): Pr
       [input.source, input.paymentRef ?? null, paidAmount, input.approvedBy ?? null, input.note ?? null, order.id],
     );
 
-    await applyLedger(conn, {
-      userId: order.user_id,
-      amount: order.total_tokens,
-      type: 'topup',
-      refType: 'order',
-      refId: order.id,
-      description: `Nạp gói ${order.package_name} · đơn ${order.code}`,
-      createdBy: input.approvedBy ?? null,
-    });
+    let subscriptionExpiresAt: Date | null = null;
+
+    if (order.order_type === 'subscription') {
+      // Gói tháng không cộng token vào ví; hạn mức được cấp theo chu kỳ tháng.
+      const plan = await queryOne<PlanRow>('SELECT * FROM subscription_plans WHERE id = ?', [order.plan_id]);
+      const activated = await activateSubscription(
+        conn,
+        order.user_id,
+        {
+          id: order.plan_id,
+          code: order.package_code,
+          name: order.package_name,
+          months: order.subscription_months ?? plan?.months ?? 1,
+          priceVnd: order.amount_vnd,
+          // Gói bị xoá khỏi bảng giá thì vẫn dùng được hạn mức mặc định 500.000.
+          allowance: plan?.monthly_token_allowance ?? 500_000,
+        },
+        order.id,
+      );
+      subscriptionExpiresAt = activated.expiresAt;
+    } else {
+      await creditPurchasedTokens(conn, {
+        userId: order.user_id,
+        amount: order.total_tokens,
+        type: 'topup',
+        refType: 'order',
+        refId: order.id,
+        description: `Mua thêm token · gói ${order.package_name} · đơn ${order.code}`,
+        createdBy: input.approvedBy ?? null,
+      });
+    }
 
     await conn.query('UPDATE users SET total_topup_vnd = total_topup_vnd + ? WHERE id = ?', [
       order.amount_vnd,
@@ -228,7 +302,7 @@ export async function markOrderPaid(orderCode: string, input: MarkPaidInput): Pr
     ]);
 
     const [updated] = await conn.query<OrderRow[]>('SELECT * FROM orders WHERE id = ?', [order.id]);
-    return { ok: true, order: updated[0], tokensCredited: order.total_tokens };
+    return { ok: true, order: updated[0], tokensCredited: order.total_tokens, subscriptionExpiresAt };
   });
 }
 
@@ -252,6 +326,8 @@ export function serializeOrder(order: OrderRow) {
   return {
     id: order.id,
     code: order.code,
+    orderType: order.order_type,
+    subscriptionMonths: order.subscription_months,
     packageName: order.package_name,
     amountVnd: order.amount_vnd,
     baseTokens: order.base_tokens,

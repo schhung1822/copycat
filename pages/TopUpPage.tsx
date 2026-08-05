@@ -5,23 +5,23 @@ import { Alert, Badge, Card, EmptyState, PageLoader, TableWrap } from '../compon
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
 import { countdown, formatDateTime, formatNumber, formatVnd, STATUS_LABEL } from '../lib/format';
-import type { BankInfo, Catalog, Order, TokenPackage } from '../types';
+import type { BankInfo, Catalog, Order, SubscriptionPlan, TokenPackage } from '../types';
 
 const ORDER_POLL_MS = 5000;
 
 /**
  * Đơn hết hạn vẫn được coi là "đang chờ thanh toán" ở giao diện: nếu khách đã
- * chuyển khoản muộn, webhook vẫn cộng token nên phải để khách nhìn thấy kết quả.
+ * chuyển khoản muộn, webhook vẫn xử lý nên phải để khách nhìn thấy kết quả.
  */
 const isAwaitingPayment = (order: Order) => order.status === 'pending' || order.status === 'expired';
 
 export const TopUpPage: React.FC = () => {
-  const { refreshUser } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [creatingId, setCreatingId] = useState<number | null>(null);
+  const [creatingId, setCreatingId] = useState<string | null>(null);
 
   const load = async () => {
     const [catalogData, orderData] = await Promise.all([
@@ -30,7 +30,6 @@ export const TopUpPage: React.FC = () => {
     ]);
     setCatalog(catalogData);
     setOrders(orderData.orders);
-    // Nếu còn đơn chưa thanh toán thì mở lại luôn màn hình chuyển khoản.
     setActiveOrder((current) => current ?? orderData.orders.find((order) => isAwaitingPayment(order)) ?? null);
   };
 
@@ -38,7 +37,7 @@ export const TopUpPage: React.FC = () => {
     void load().catch((err) => setError(err instanceof ApiError ? err.message : 'Không tải được dữ liệu.'));
   }, []);
 
-  // Hỏi server xem webhook đã cộng token chưa.
+  // Hỏi server xem webhook đã xử lý đơn chưa.
   useEffect(() => {
     if (!activeOrder || !isAwaitingPayment(activeOrder)) return;
 
@@ -60,15 +59,15 @@ export const TopUpPage: React.FC = () => {
     return () => clearInterval(timer);
   }, [activeOrder, refreshUser]);
 
-  const handleCreateOrder = async (pkg: TokenPackage) => {
+  const createOrder = async (path: string, body: unknown, key: string) => {
     setError(null);
-    setCreatingId(pkg.id);
+    setCreatingId(key);
     try {
-      const data = await api.post<{ order: Order }>('/orders', { packageId: pkg.id });
+      const data = await api.post<{ order: Order }>(path, body);
       setActiveOrder(data.order);
       setOrders((current) => [data.order, ...current]);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Không tạo được đơn nạp.');
+      setError(err instanceof ApiError ? err.message : 'Không tạo được đơn hàng.');
     } finally {
       setCreatingId(null);
     }
@@ -86,12 +85,14 @@ export const TopUpPage: React.FC = () => {
 
   if (!catalog) return <PageLoader />;
 
+  const isSubscribed = user?.isSubscribed ?? false;
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-white">Nạp token</h1>
+        <h1 className="text-2xl font-bold text-white">Gói dịch vụ</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Token dùng để tạo ảnh. Gói càng lớn, giá mỗi token càng rẻ.
+          Đăng ký gói theo tháng để sử dụng dịch vụ. Hết hạn mức token trong tháng có thể mua thêm gói lẻ.
         </p>
       </div>
 
@@ -105,124 +106,211 @@ export const TopUpPage: React.FC = () => {
           onBack={() => setActiveOrder(null)}
         />
       ) : activeOrder && activeOrder.status === 'paid' ? (
-        <Card className="p-6 border-green-900/50 bg-green-500/5">
-          <h2 className="text-xl font-bold text-green-400">Nạp thành công!</h2>
-          <p className="text-sm text-gray-300 mt-2">
-            Đơn <strong>{activeOrder.code}</strong> đã được cộng{' '}
-            <strong className="text-white">{formatNumber(activeOrder.totalTokens)} token</strong> vào tài khoản.
-          </p>
-          <div className="flex gap-3 mt-5">
-            <Link to="/">
-              <Button className="!rounded-xl">Bắt đầu tạo ảnh</Button>
-            </Link>
-            <Button variant="ghost" onClick={() => setActiveOrder(null)}>
-              Nạp thêm
-            </Button>
-          </div>
-        </Card>
+        <PaidPanel order={activeOrder} onContinue={() => setActiveOrder(null)} />
       ) : (
-        <PackageGrid packages={catalog.packages} creatingId={creatingId} onSelect={handleCreateOrder} />
+        <>
+          <SubscriptionStatus />
+
+          <section>
+            <div className="flex items-baseline justify-between gap-4 mb-3">
+              <h2 className="text-lg font-bold text-white">
+                {isSubscribed ? 'Gia hạn gói dịch vụ' : '1. Chọn gói dịch vụ'}
+              </h2>
+              <span className="text-xs text-gray-500">Chu kỳ dài hơn có giá tốt hơn</span>
+            </div>
+            <PlanGrid
+              plans={catalog.plans}
+              creatingId={creatingId}
+              onSelect={(plan) => createOrder('/orders/subscription', { planId: plan.id }, `plan-${plan.id}`)}
+            />
+          </section>
+
+          <section>
+            <div className="flex items-baseline justify-between gap-4 mb-3">
+              <h2 className="text-lg font-bold text-white">2. Mua thêm token</h2>
+              <span className="text-xs text-gray-500">Token mua thêm không hết hạn theo tháng</span>
+            </div>
+
+            {isSubscribed ? (
+              <PackageGrid
+                packages={catalog.packages}
+                creatingId={creatingId}
+                onSelect={(pkg) => createOrder('/orders', { packageId: pkg.id }, `pkg-${pkg.id}`)}
+              />
+            ) : (
+              <Card className="p-6">
+                <p className="text-sm text-gray-400">
+                  Cần có gói dịch vụ đang hoạt động mới mua thêm token được. Hãy chọn một gói ở mục 1 phía trên.
+                </p>
+              </Card>
+            )}
+          </section>
+        </>
       )}
 
       <PricingReference catalog={catalog} />
-
-      <div>
-        <h2 className="text-lg font-bold text-white mb-3">Lịch sử nạp tiền</h2>
-        <Card className="p-4">
-          {orders.length === 0 ? (
-            <EmptyState title="Chưa có đơn nạp nào." />
-          ) : (
-            <TableWrap>
-              <thead>
-                <tr className="text-[11px] uppercase tracking-wider text-gray-500 border-b border-dark-800">
-                  <th className="text-left font-bold py-2">Mã đơn</th>
-                  <th className="text-left font-bold py-2">Gói</th>
-                  <th className="text-right font-bold py-2">Số tiền</th>
-                  <th className="text-right font-bold py-2">Token</th>
-                  <th className="text-left font-bold py-2 pl-4">Trạng thái</th>
-                  <th className="text-left font-bold py-2">Thời gian</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map((order) => (
-                  <tr key={order.id} className="border-b border-dark-850 last:border-0">
-                    <td className="py-2.5 font-mono text-xs text-gray-300">{order.code}</td>
-                    <td className="py-2.5 text-gray-300">{order.packageName}</td>
-                    <td className="py-2.5 text-right text-gray-300">{formatVnd(order.amountVnd)}</td>
-                    <td className="py-2.5 text-right text-brand-500 font-semibold">
-                      +{formatNumber(order.totalTokens)}
-                    </td>
-                    <td className="py-2.5 pl-4">
-                      <Badge status={order.status}>{STATUS_LABEL[order.status]}</Badge>
-                    </td>
-                    <td className="py-2.5 text-xs text-gray-500">{formatDateTime(order.createdAt)}</td>
-                    <td className="py-2.5 text-right">
-                      {order.status === 'pending' && (
-                        <button
-                          onClick={() => setActiveOrder(order)}
-                          className="text-xs text-brand-500 hover:underline whitespace-nowrap"
-                        >
-                          Thanh toán →
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </TableWrap>
-          )}
-        </Card>
-      </div>
+      <OrderHistory orders={orders} onResume={setActiveOrder} />
     </div>
   );
 };
 
 // ---------------------------------------------------------------------------
 
+/** Nhắc trạng thái gói hiện tại: còn hạn tới bao giờ, hạn mức còn bao nhiêu. */
+const SubscriptionStatus: React.FC = () => {
+  const { user } = useAuth();
+  if (!user) return null;
+
+  if (!user.isSubscribed) {
+    return (
+      <Alert tone="warning">
+        Bạn <strong>chưa có gói dịch vụ</strong> nên chưa tạo được ảnh. Chọn một gói bên dưới để bắt đầu.
+      </Alert>
+    );
+  }
+
+  const usedPercent =
+    user.monthlyAllowance > 0
+      ? Math.round(((user.monthlyAllowance - user.monthlyTokens) / user.monthlyAllowance) * 100)
+      : 0;
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">Gói đang dùng</p>
+          <p className="text-white font-semibold mt-1">
+            Còn hiệu lực tới {formatDateTime(user.subscriptionExpiresAt)}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">Hạn mức tháng còn lại</p>
+          <p className="text-brand-500 font-bold text-lg mt-1">
+            {formatNumber(user.monthlyTokens)}
+            <span className="text-gray-600 text-sm font-normal"> / {formatNumber(user.monthlyAllowance)}</span>
+          </p>
+        </div>
+      </div>
+
+      <div className="h-1.5 bg-dark-800 rounded-full overflow-hidden mt-4">
+        <div className="h-full bg-brand-500 rounded-full transition-all" style={{ width: `${usedPercent}%` }} />
+      </div>
+
+      <p className="text-[11px] text-gray-500 mt-2">
+        Hạn mức được cấp lại vào {formatDateTime(user.monthlyPeriodEnd)}.{' '}
+        <strong className="text-gray-400">Không cộng dồn</strong> — phần chưa dùng của tháng này sẽ mất khi sang chu kỳ mới.
+        {user.purchasedTokens > 0 && (
+          <> Ngoài ra bạn còn {formatNumber(user.purchasedTokens)} token mua thêm, phần này không hết hạn.</>
+        )}
+      </p>
+    </Card>
+  );
+};
+
+const PlanGrid: React.FC<{
+  plans: SubscriptionPlan[];
+  creatingId: string | null;
+  onSelect: (plan: SubscriptionPlan) => void;
+}> = ({ plans, creatingId, onSelect }) => {
+  // Mốc so sánh để tính % tiết kiệm: giá mỗi tháng của gói ngắn nhất.
+  const basePerMonth = Math.max(...plans.map((plan) => plan.pricePerMonthVnd), 0);
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      {plans.map((plan) => {
+        const savedPercent = basePerMonth > 0 ? Math.round((1 - plan.pricePerMonthVnd / basePerMonth) * 100) : 0;
+
+        return (
+          <Card
+            key={plan.id}
+            className={`p-5 flex flex-col relative ${plan.isPopular ? 'border-brand-500 shadow-lg shadow-brand-500/10' : ''}`}
+          >
+            {plan.isPopular && (
+              <span className="absolute -top-2.5 left-5 bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                Đáng tiền nhất
+              </span>
+            )}
+            {savedPercent > 0 && (
+              <span className="absolute -top-2.5 right-5 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                −{savedPercent}%
+              </span>
+            )}
+
+            <h3 className="font-bold text-white">{plan.name}</h3>
+            <p className="text-2xl font-bold text-white mt-2">{formatVnd(plan.priceVnd)}</p>
+            <p className="text-[11px] text-gray-500 mt-1">
+              {plan.months > 1 ? `${formatVnd(plan.pricePerMonthVnd)}/tháng` : 'thanh toán hàng tháng'}
+            </p>
+
+            <div className="mt-3 pt-3 border-t border-dark-800 flex-1">
+              <p className="text-brand-500 font-bold">{formatNumber(plan.monthlyTokenAllowance)} token/tháng</p>
+              <p className="text-[11px] text-gray-500 mt-0.5">cấp lại mỗi tháng, không cộng dồn</p>
+              {plan.description && <p className="text-[11px] text-gray-500 mt-2">{plan.description}</p>}
+            </div>
+
+            <Button
+              onClick={() => onSelect(plan)}
+              isLoading={creatingId === `plan-${plan.id}`}
+              variant={plan.isPopular ? 'primary' : 'secondary'}
+              className="w-full mt-4 !rounded-xl !py-2.5 !text-sm"
+            >
+              Chọn gói
+            </Button>
+          </Card>
+        );
+      })}
+    </div>
+  );
+};
+
 const PackageGrid: React.FC<{
   packages: TokenPackage[];
-  creatingId: number | null;
+  creatingId: string | null;
   onSelect: (pkg: TokenPackage) => void;
 }> = ({ packages, creatingId, onSelect }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
     {packages.map((pkg) => (
-      <Card
-        key={pkg.id}
-        className={`p-5 flex flex-col relative ${pkg.isPopular ? 'border-brand-500 shadow-lg shadow-brand-500/10' : ''}`}
-      >
-        {pkg.isPopular && (
-          <span className="absolute -top-2.5 left-5 bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-            Phổ biến
-          </span>
-        )}
-
+      <Card key={pkg.id} className={`p-5 flex flex-col ${pkg.isPopular ? 'border-brand-500/60' : ''}`}>
         <h3 className="font-bold text-white">{pkg.name}</h3>
-        <p className="text-2xl font-bold text-white mt-2">{formatVnd(pkg.priceVnd)}</p>
-
-        <div className="mt-3 pb-3 border-b border-dark-800">
-          <p className="text-brand-500 font-bold text-lg">{formatNumber(pkg.totalTokens)} token</p>
-          {pkg.bonusTokens > 0 && (
-            <p className="text-[11px] text-green-400 mt-0.5">
-              gồm {formatNumber(pkg.bonusTokens)} token thưởng (+{pkg.bonusPercent}%)
-            </p>
-          )}
-        </div>
-
-        <p className="text-[11px] text-gray-500 mt-3 flex-1">{pkg.description}</p>
-        <p className="text-[11px] text-gray-600 mt-2">≈ {pkg.pricePerToken.toLocaleString('vi-VN')}đ / token</p>
+        <p className="text-brand-500 font-bold text-lg mt-2">{formatNumber(pkg.totalTokens)} token</p>
+        <p className="text-[11px] text-gray-500 mt-1 flex-1">{pkg.description}</p>
 
         <Button
           onClick={() => onSelect(pkg)}
-          isLoading={creatingId === pkg.id}
-          variant={pkg.isPopular ? 'primary' : 'secondary'}
+          isLoading={creatingId === `pkg-${pkg.id}`}
+          variant="secondary"
           className="w-full mt-4 !rounded-xl !py-2.5 !text-sm"
         >
-          Chọn gói
+          Mua {formatVnd(pkg.priceVnd)}
         </Button>
       </Card>
     ))}
   </div>
+);
+
+const PaidPanel: React.FC<{ order: Order; onContinue: () => void }> = ({ order, onContinue }) => (
+  <Card className="p-6 border-green-900/50 bg-green-500/5">
+    <h2 className="text-xl font-bold text-green-400">Thanh toán thành công!</h2>
+    {order.orderType === 'subscription' ? (
+      <p className="text-sm text-gray-300 mt-2">
+        Đơn <strong>{order.code}</strong> đã kích hoạt <strong className="text-white">{order.packageName}</strong>. Bạn
+        có thể bắt đầu tạo ảnh ngay.
+      </p>
+    ) : (
+      <p className="text-sm text-gray-300 mt-2">
+        Đơn <strong>{order.code}</strong> đã cộng{' '}
+        <strong className="text-white">{formatNumber(order.totalTokens)} token</strong> vào tài khoản.
+      </p>
+    )}
+    <div className="flex gap-3 mt-5">
+      <Link to="/">
+        <Button className="!rounded-xl">Bắt đầu tạo ảnh</Button>
+      </Link>
+      <Button variant="ghost" onClick={onContinue}>
+        Quay lại bảng giá
+      </Button>
+    </div>
+  </Card>
 );
 
 const PaymentPanel: React.FC<{
@@ -277,9 +365,11 @@ const PaymentPanel: React.FC<{
     <Card className="p-6">
       <div className="flex items-start justify-between gap-4 mb-5">
         <div>
-          <h2 className="text-xl font-bold text-white">Chuyển khoản để nhận token</h2>
+          <h2 className="text-xl font-bold text-white">Chuyển khoản để hoàn tất</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Gói {order.packageName} · nhận {formatNumber(order.totalTokens)} token
+            {order.orderType === 'subscription'
+              ? `${order.packageName} · ${order.subscriptionMonths} tháng`
+              : `${order.packageName} · nhận ${formatNumber(order.totalTokens)} token`}
           </p>
         </div>
         <button onClick={onBack} className="text-xs text-gray-500 hover:text-white whitespace-nowrap">
@@ -323,8 +413,8 @@ const PaymentPanel: React.FC<{
           </div>
 
           <Alert tone="warning">
-            <strong>Bắt buộc</strong> ghi đúng nội dung <strong>{order.transferContent}</strong> để hệ thống cộng token
-            tự động. Ghi sai vẫn nhận được token nhưng phải chờ quản trị viên duyệt tay.
+            <strong>Bắt buộc</strong> ghi đúng nội dung <strong>{order.transferContent}</strong> để hệ thống xử lý tự
+            động. Ghi sai vẫn được xử lý nhưng phải chờ quản trị viên duyệt tay.
           </Alert>
 
           <div className="flex items-center justify-between mt-4 text-xs">
@@ -334,7 +424,7 @@ const PaymentPanel: React.FC<{
                   Đơn hết hạn sau <strong className="text-amber-400">{remaining}</strong>
                 </>
               ) : (
-                'Đơn đã quá hạn giữ chỗ — nếu bạn đã chuyển khoản thì token vẫn được cộng bình thường.'
+                'Đơn đã quá hạn giữ chỗ — nếu bạn đã chuyển khoản thì vẫn được xử lý bình thường.'
               )}
             </span>
             {order.status === 'pending' && (
@@ -354,34 +444,98 @@ const PaymentPanel: React.FC<{
   );
 };
 
-/** Bảng giá token cho từng loại ảnh, để khách ước lượng nạp bao nhiêu là đủ. */
-const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => (
-  <div>
-    <h2 className="text-lg font-bold text-white mb-3">Token tiêu hao mỗi ảnh</h2>
-    <Card className="p-4">
-      <TableWrap>
-        <thead>
-          <tr className="text-[11px] uppercase tracking-wider text-gray-500 border-b border-dark-800">
-            <th className="text-left font-bold py-2">Model</th>
-            <th className="text-left font-bold py-2">Chất lượng</th>
-            <th className="text-right font-bold py-2">Token / ảnh</th>
-            <th className="text-right font-bold py-2">Tương đương</th>
-          </tr>
-        </thead>
-        <tbody>
-          {catalog.models.map((model) => (
-            <tr key={model.code} className="border-b border-dark-850 last:border-0">
-              <td className="py-2.5 text-gray-300">{model.label.split('—')[0].trim()}</td>
-              <td className="py-2.5 text-gray-400">{model.resolution}</td>
-              <td className="py-2.5 text-right text-brand-500 font-semibold">{model.tokenCost}</td>
-              <td className="py-2.5 text-right text-gray-500 text-xs">{formatVnd(model.tokenCost * 100)}</td>
+/** Bảng token tiêu hao mỗi ảnh, để khách ước lượng hạn mức dùng được bao nhiêu ảnh. */
+const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
+  const allowance = catalog.plans[0]?.monthlyTokenAllowance ?? 0;
+
+  return (
+    <div>
+      <h2 className="text-lg font-bold text-white mb-3">Token tiêu hao mỗi ảnh</h2>
+      <Card className="p-4">
+        <TableWrap>
+          <thead>
+            <tr className="text-[11px] uppercase tracking-wider text-gray-500 border-b border-dark-800">
+              <th className="text-left font-bold py-2">Model</th>
+              <th className="text-left font-bold py-2">Chất lượng</th>
+              <th className="text-right font-bold py-2">Token / ảnh</th>
+              <th className="text-right font-bold py-2">Số ảnh trong hạn mức tháng</th>
             </tr>
-          ))}
-        </tbody>
-      </TableWrap>
-      <p className="text-[11px] text-gray-600 mt-3">
-        Giá tương đương tính theo mệnh giá 100đ/token của gói nhỏ nhất. Mua gói lớn sẽ rẻ hơn mức này.
-      </p>
+          </thead>
+          <tbody>
+            {catalog.models.map((model) => (
+              <tr key={model.code} className="border-b border-dark-850 last:border-0">
+                <td className="py-2.5 text-gray-300">{model.label.split('—')[0].trim()}</td>
+                <td className="py-2.5 text-gray-400">{model.resolution}</td>
+                <td className="py-2.5 text-right text-brand-500 font-semibold">{formatNumber(model.tokenCost)}</td>
+                <td className="py-2.5 text-right text-gray-500 text-xs">
+                  {model.tokenCost > 0 ? `~${formatNumber(Math.floor(allowance / model.tokenCost))} ảnh` : '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </TableWrap>
+        <p className="text-[11px] text-gray-600 mt-3">
+          Cột cuối tính trên hạn mức {formatNumber(allowance)} token/tháng nếu chỉ dùng một loại ảnh duy nhất.
+        </p>
+      </Card>
+    </div>
+  );
+};
+
+const OrderHistory: React.FC<{ orders: Order[]; onResume: (order: Order) => void }> = ({ orders, onResume }) => (
+  <div>
+    <h2 className="text-lg font-bold text-white mb-3">Lịch sử đơn hàng</h2>
+    <Card className="p-4">
+      {orders.length === 0 ? (
+        <EmptyState title="Chưa có đơn hàng nào." />
+      ) : (
+        <TableWrap>
+          <thead>
+            <tr className="text-[11px] uppercase tracking-wider text-gray-500 border-b border-dark-800">
+              <th className="text-left font-bold py-2">Mã đơn</th>
+              <th className="text-left font-bold py-2">Loại</th>
+              <th className="text-left font-bold py-2">Nội dung</th>
+              <th className="text-right font-bold py-2">Số tiền</th>
+              <th className="text-left font-bold py-2 pl-4">Trạng thái</th>
+              <th className="text-left font-bold py-2">Thời gian</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((order) => (
+              <tr key={order.id} className="border-b border-dark-850 last:border-0">
+                <td className="py-2.5 font-mono text-xs text-gray-300">{order.code}</td>
+                <td className="py-2.5">
+                  <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
+                    {order.orderType === 'subscription' ? 'Gói tháng' : 'Token lẻ'}
+                  </span>
+                </td>
+                <td className="py-2.5 text-gray-300 text-xs">
+                  {order.packageName}
+                  {order.orderType === 'token_package' && (
+                    <span className="text-brand-500 ml-2">+{formatNumber(order.totalTokens)}</span>
+                  )}
+                </td>
+                <td className="py-2.5 text-right text-gray-300">{formatVnd(order.amountVnd)}</td>
+                <td className="py-2.5 pl-4">
+                  <Badge status={order.status}>{STATUS_LABEL[order.status]}</Badge>
+                </td>
+                <td className="py-2.5 text-xs text-gray-500">{formatDateTime(order.createdAt)}</td>
+                <td className="py-2.5 text-right">
+                  {order.status === 'pending' && (
+                    <button
+                      onClick={() => onResume(order)}
+                      className="text-xs text-brand-500 hover:underline whitespace-nowrap"
+                    >
+                      Thanh toán →
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </TableWrap>
+      )}
     </Card>
   </div>
 );

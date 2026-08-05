@@ -7,13 +7,20 @@ import { optionalString, parsePaging, requireInt, requireString } from '../lib/v
 import { providerStatus } from '../providers/index.js';
 import { queueStatus, serializeGeneration, type GenerationRow, type ModelPricingRow } from '../services/generationService.js';
 import { markOrderPaid, serializeOrder, type OrderRow, type PackageRow } from '../services/orderService.js';
-import { applyLedger } from '../services/tokenService.js';
+import { expireStaleSubscriptions, type PlanRow } from '../services/subscriptionService.js';
+import { creditPurchasedTokens } from '../services/tokenService.js';
 
 export const adminRouter = Router();
 
 adminRouter.use(requireAdmin);
 
 const num = (value: unknown): number => Number(value ?? 0) || 0;
+
+/**
+ * Giá bán mỗi token ở gói lẻ. Quy ước 1 token = 1đ giá vốn nhà cung cấp và gói lẻ
+ * bán gấp đôi giá vốn, nên mỗi token thu về 2đ.
+ */
+const TOKEN_SELL_PRICE_VND = 2;
 
 // ---------------------------------------------------------------------------
 //  BẢNG ĐIỀU KHIỂN & BÁO CÁO
@@ -36,8 +43,18 @@ adminRouter.get(
          COALESCE(SUM(CASE WHEN paid_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)  THEN amount_vnd END), 0) AS last7,
          COALESCE(SUM(CASE WHEN paid_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN amount_vnd END), 0) AS last30,
          COUNT(*)                                                                          AS paid_orders,
-         COALESCE(SUM(total_tokens), 0)                                                    AS tokens_sold
+         COALESCE(SUM(total_tokens), 0)                                                    AS tokens_sold,
+         COALESCE(SUM(CASE WHEN order_type = 'subscription'  THEN amount_vnd END), 0)      AS subscription_revenue,
+         COALESCE(SUM(CASE WHEN order_type = 'token_package' THEN amount_vnd END), 0)      AS extra_revenue
        FROM orders WHERE status = 'paid'`,
+    );
+
+    const subscribers = await queryOne<RowDataPacket & Record<string, number>>(
+      `SELECT
+         COALESCE(SUM(subscription_expires_at > NOW()), 0)                                 AS active,
+         COALESCE(SUM(subscription_expires_at > NOW() AND subscription_expires_at <= DATE_ADD(NOW(), INTERVAL 7 DAY)), 0) AS expiring_7d,
+         COALESCE(SUM(CASE WHEN subscription_expires_at > NOW() THEN monthly_tokens END), 0) AS monthly_remaining
+       FROM users`,
     );
 
     const pendingOrders = await queryOne<RowDataPacket & { total: number }>(
@@ -77,14 +94,23 @@ adminRouter.get(
         paidOrders: num(revenue?.paid_orders),
         pendingOrders: num(pendingOrders?.total),
         averageOrderValue: num(revenue?.paid_orders) > 0 ? Math.round(totalRevenue / num(revenue?.paid_orders)) : 0,
+        subscriptionRevenue: num(revenue?.subscription_revenue),
+        extraTokenRevenue: num(revenue?.extra_revenue),
+      },
+      subscribers: {
+        active: num(subscribers?.active),
+        expiringIn7Days: num(subscribers?.expiring_7d),
+        // Hạn mức tháng chưa dùng của toàn bộ khách đang có gói
+        monthlyTokensRemaining: num(subscribers?.monthly_remaining),
       },
       users: {
         total: num(users?.total),
         newToday: num(users?.new_today),
         new30Days: num(users?.new_30d),
-        // Token khách đã mua nhưng chưa dùng — đây là nghĩa vụ phải phục vụ.
+        // Token khách đã BỎ TIỀN MUA nhưng chưa dùng — nghĩa vụ phải phục vụ.
+        // 1 token = 1đ giá vốn, bán ra gấp đôi nên quy tiền là ×2.
         outstandingTokens: num(users?.outstanding_tokens),
-        outstandingLiabilityVnd: Math.round(num(users?.outstanding_tokens) * 100),
+        outstandingLiabilityVnd: Math.round(num(users?.outstanding_tokens) * 2),
       },
       tokens: {
         sold: num(revenue?.tokens_sold),
@@ -196,8 +222,8 @@ adminRouter.get(
 
     res.json({
       models: rows.map((row) => {
-        // Token quy ra tiền theo mệnh giá 100đ/token để so với chi phí vốn.
-        const tokenValueVnd = num(row.tokens) * 100;
+        // 1 token = 1đ giá vốn, bán gấp đôi → doanh thu quy đổi = số token × 2.
+        const tokenValueVnd = num(row.tokens) * TOKEN_SELL_PRICE_VND;
         const costVnd = num(row.cost_usd) * env.usdToVnd;
         return {
           modelCode: row.model_code,
@@ -308,8 +334,8 @@ adminRouter.post(
     if (amount === 0) throw badRequest('Số token phải khác 0.');
     const reason = requireString(req.body, 'reason', { label: 'Lý do', max: 200 });
 
-    const balance = await withTransaction((conn) =>
-      applyLedger(conn, {
+    const result = await withTransaction((conn) =>
+      creditPurchasedTokens(conn, {
         userId: Number(req.params.id),
         amount,
         type: 'adjust',
@@ -318,7 +344,7 @@ adminRouter.post(
       }),
     );
 
-    res.json({ ok: true, tokenBalance: balance.balanceAfter });
+    res.json({ ok: true, tokenBalance: result.balanceAfter });
   }),
 );
 
@@ -443,12 +469,13 @@ adminRouter.get(
         apiCostUsd: Number(row.api_cost_usd),
         apiCostVnd: Math.round(Number(row.api_cost_usd) * env.usdToVnd),
         tokenCost: row.token_cost,
-        // Giá bán danh nghĩa = số token × 100đ.
-        sellPriceVnd: row.token_cost * 100,
-        marginPercent:
-          row.token_cost > 0
-            ? Math.round(((row.token_cost * 100 - Number(row.api_cost_usd) * env.usdToVnd) / (row.token_cost * 100)) * 1000) / 10
-            : 0,
+        // Giá bán khi khách dùng token mua thêm = số token × 2đ.
+        sellPriceVnd: row.token_cost * TOKEN_SELL_PRICE_VND,
+        marginPercent: (() => {
+          const sell = row.token_cost * TOKEN_SELL_PRICE_VND;
+          if (sell <= 0) return 0;
+          return Math.round(((sell - Number(row.api_cost_usd) * env.usdToVnd) / sell) * 1000) / 10;
+        })(),
         isActive: Boolean(row.is_active),
         sortOrder: row.sort_order,
         notes: row.notes,
@@ -588,6 +615,100 @@ adminRouter.post(
       ],
     );
     res.status(201).json({ ok: true, id: result.insertId });
+  }),
+);
+
+// ---------------------------------------------------------------------------
+//  GÓI THUÊ BAO THÁNG
+// ---------------------------------------------------------------------------
+
+adminRouter.get(
+  '/plans',
+  asyncHandler(async (_req, res) => {
+    const rows = await query<PlanRow>('SELECT * FROM subscription_plans ORDER BY sort_order, months');
+    res.json({
+      plans: rows.map((row) => ({
+        id: row.id,
+        code: row.code,
+        name: row.name,
+        months: row.months,
+        priceVnd: row.price_vnd,
+        pricePerMonthVnd: Math.round(row.price_vnd / row.months),
+        monthlyTokenAllowance: row.monthly_token_allowance,
+        // Hạn mức quy ra tiền vốn: 1 token = 1đ giá vốn
+        allowanceCostVnd: row.monthly_token_allowance,
+        description: row.description,
+        isPopular: Boolean(row.is_popular),
+        isActive: Boolean(row.is_active),
+        sortOrder: row.sort_order,
+      })),
+    });
+  }),
+);
+
+adminRouter.patch(
+  '/plans/:id',
+  asyncHandler(async (req, res) => {
+    const allowed: Record<string, string> = {
+      name: 'name',
+      months: 'months',
+      priceVnd: 'price_vnd',
+      monthlyTokenAllowance: 'monthly_token_allowance',
+      description: 'description',
+      isPopular: 'is_popular',
+      isActive: 'is_active',
+      sortOrder: 'sort_order',
+    };
+
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    for (const [key, column] of Object.entries(allowed)) {
+      if (req.body[key] === undefined) continue;
+      sets.push(`${column} = ?`);
+      params.push(['isPopular', 'isActive'].includes(key) ? (req.body[key] ? 1 : 0) : req.body[key]);
+    }
+    if (sets.length === 0) throw badRequest('Không có trường nào để cập nhật.');
+
+    params.push(Number(req.params.id));
+    const result = await execute(`UPDATE subscription_plans SET ${sets.join(', ')} WHERE id = ?`, params);
+    if (result.affectedRows === 0) throw notFound('Không tìm thấy gói dịch vụ.');
+    res.json({ ok: true });
+  }),
+);
+
+/** Danh sách thuê bao đang chạy, sắp xếp theo ngày hết hạn để tiện nhắc gia hạn. */
+adminRouter.get(
+  '/subscriptions',
+  asyncHandler(async (req, res) => {
+    const { limit, offset, page } = parsePaging(req.query as Record<string, unknown>, 25);
+
+    const rows = await query<RowDataPacket & Record<string, any>>(
+      `SELECT u.id, u.email, u.full_name, u.subscription_expires_at, u.monthly_allowance, u.monthly_tokens,
+              u.monthly_period_end, u.token_balance,
+              (SELECT s.plan_name FROM subscriptions s WHERE s.user_id = u.id ORDER BY s.id DESC LIMIT 1) AS plan_name
+         FROM users u
+        WHERE u.subscription_expires_at IS NOT NULL
+        ORDER BY (u.subscription_expires_at > NOW()) DESC, u.subscription_expires_at ASC
+        LIMIT ? OFFSET ?`,
+      [limit, offset],
+    );
+
+    res.json({
+      subscriptions: rows.map((row) => ({
+        userId: row.id,
+        email: row.email,
+        fullName: row.full_name,
+        planName: row.plan_name,
+        expiresAt: row.subscription_expires_at,
+        isActive: new Date(row.subscription_expires_at).getTime() > Date.now(),
+        monthlyAllowance: num(row.monthly_allowance),
+        monthlyTokens: num(row.monthly_tokens),
+        monthlyPeriodEnd: row.monthly_period_end,
+        purchasedTokens: num(row.token_balance),
+      })),
+      page,
+      limit,
+    });
   }),
 );
 

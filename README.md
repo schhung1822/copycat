@@ -221,32 +221,97 @@ Admin vào mục **Quản trị** trên thanh điều hướng, gồm 5 tab:
 
 ---
 
-## 3. Luồng hoạt động
+## 3. Mô hình kinh doanh
+
+Khách **bắt buộc mua gói thuê bao theo tháng** trước khi dùng dịch vụ. Gói tháng đã bao gồm
+chi phí duy trì, nhân sự và một hạn mức token dùng trong tháng. Dùng hết hạn mức thì mua thêm
+gói token lẻ.
+
+### Đơn vị token
+
+> **1 token = 1đ giá vốn nhà cung cấp.**
+
+Đây là điểm mấu chốt để mọi con số khớp nhau:
+
+| Khái niệm | Cách tính | Kết quả |
+|---|---|---|
+| Hạn mức tháng | 500.000đ tiền token theo giá gốc | **500.000 token** |
+| Token tiêu hao mỗi ảnh | `api_cost_usd × USD_TO_VND` | GPT 1K = 840 · Pro 4K = 3.360 |
+| Gói token lẻ | bán gấp đôi giá vốn | 200.000đ → **100.000 token** |
+
+### Hai nguồn token, tiêu theo thứ tự
+
+| Nguồn | Nguồn gốc | Hết hạn |
+|---|---|---|
+| **Hạn mức tháng** | Kèm theo gói thuê bao, cấp lại đầu mỗi chu kỳ tháng | **Có** — không cộng dồn, sang tháng mới là mất |
+| **Token mua thêm** | Khách bỏ tiền mua gói lẻ | Không |
+
+Khi tạo ảnh, hệ thống **trừ hạn mức tháng trước**, cạn mới dùng tới token đã mua. Thứ tự này
+có lợi cho khách: phần sắp hết hạn được tiêu trước, phần đã trả tiền được để dành.
+
+### Luồng hoạt động
 
 ```
 Đăng ký / Đăng nhập
         │
         ▼
-Chọn gói nạp ──► Tạo đơn (mã NAPxxxxxx) ──► Hiện QR VietQR + thông tin CK
-        │                                            │
-        │                          khách chuyển khoản│
-        │                                            ▼
-        │                              Ngân hàng ──► Webhook SePay/Casso
-        │                                            │
-        │                            khớp mã đơn ────┤
-        │                                            ▼
-        └──────────────────────────────► Cộng token vào ví (ghi sổ cái)
-                                                     │
-                                                     ▼
-                          Tạo ảnh ──► Trừ token ──► Gọi API nhà cung cấp
-                                                     │
-                                        ┌────────────┴────────────┐
-                                     thành công                 lỗi
-                                        │                         │
-                          Tải ảnh về server              Hoàn token tự động
+Mua gói tháng (1 / 3 / 6 / 12 tháng) ──► Tạo đơn (mã NAPxxxxxx) ──► QR VietQR
+        │                                              │
+        │                            khách chuyển khoản│
+        │                                              ▼
+        │                                Ngân hàng ──► Webhook SePay/Casso
+        │                                              │
+        │                              khớp mã đơn ────┤
+        │                                              ▼
+        │                          Kích hoạt gói + cấp 500.000 token hạn mức
+        │                                              │
+        │      ┌───────────────────────────────────────┤
+        │      ▼                                       ▼
+        │  Hết hạn mức?                    Tạo ảnh ──► Trừ token
+        │      │                                       │  (hạn mức tháng trước,
+        │      ▼                                       │   token mua thêm sau)
+        └─ Mua gói token lẻ ──► Cộng token             ▼
+           (không hết hạn)              ┌──────────────┴──────────────┐
+                                     thành công                     lỗi
+                                        │                            │
+                          Tải ảnh về server              Hoàn đúng nguồn đã trừ
+
+        Đầu chu kỳ tháng mới ──► Xoá hạn mức thừa ──► Cấp lại 500.000 token
 ```
 
+### Bảng giá gói thuê bao
+
+| Chu kỳ | Giá niêm yết | Thực trả | Quy ra mỗi tháng | Chiết khấu |
+|---|---|---|---|---|
+| 1 tháng | 1.500.000đ | **1.500.000đ** | 1.500.000đ | — |
+| 3 tháng | 4.500.000đ | **4.275.000đ** | 1.425.000đ | 5% |
+| 6 tháng | 9.000.000đ | **8.100.000đ** | 1.350.000đ | 10% |
+| 12 tháng | 18.000.000đ | **15.300.000đ** | 1.275.000đ | 15% |
+
+Mua chu kỳ dài **không** cấp nhiều hạn mức hơn một lần: hạn mức vẫn là 500.000 token và vẫn
+được cấp lại theo từng tháng. Chu kỳ dài chỉ rẻ hơn và khỏi phải gia hạn thường xuyên.
+
+### Bảng giá gói token lẻ
+
+| Gói | Giá | Token nhận | Đơn giá |
+|---|---|---|---|
+| 200.000đ | 200.000đ | 100.000 | 2đ/token |
+| 500.000đ | 500.000đ | 250.000 | 2đ/token |
+| 1.000.000đ | 1.000.000đ | 500.000 | 2đ/token |
+| 2.000.000đ | 2.000.000đ | 1.000.000 | 2đ/token |
+
 ### Điểm quan trọng về tiền và token
+
+- **Chưa có gói thuê bao thì không tạo ảnh được, cũng không mua token lẻ được.** Token lẻ là
+  phần mua thêm cho khách đang dùng dịch vụ, không phải đường vòng để né gói tháng.
+- **Hạn mức tháng được cấp lại ngay lúc khách dùng tới** (lazy), không cần cron. Nhờ vậy số
+  liệu luôn đúng kể cả khi server vừa khởi động lại hay dừng vài ngày.
+- **Gia hạn khi gói cũ còn hạn thì nối tiếp vào ngày hết hạn cũ**, khách không mất những ngày
+  còn lại, và hạn mức đang dùng dở không bị reset.
+- **Hết hạn thuê bao: hạn mức tháng bị thu hồi, token đã mua thêm vẫn còn nguyên** — đó là tiền
+  thật khách đã bỏ ra.
+- **Hoàn token khi ảnh lỗi trả về đúng nguồn đã trừ.** Phần hạn mức tháng bị chặn không cho
+  vượt quá hạn mức của gói, nên ảnh lỗi sau khi đã sang chu kỳ mới không tạo ra token khống.
 
 - **Mọi biến động token đều được ghi vào bảng `token_transactions`** kèm số dư sau giao dịch.
   Không có đường nào sửa `users.token_balance` mà không ghi sổ.
@@ -268,12 +333,14 @@ khởi động (`DB_AUTO_MIGRATE=true`).
 
 | Bảng | Vai trò |
 |---|---|
-| `users` | Khách hàng, số dư token, số liệu tích luỹ |
-| `token_packages` | Các gói nạp tiền |
+| `users` | Khách hàng, hạn mức tháng, token đã mua, ngày hết hạn thuê bao |
+| `subscription_plans` | Bảng giá gói thuê bao 1 / 3 / 6 / 12 tháng |
+| `subscriptions` | Lịch sử thuê bao đã mua, dùng để đối soát và gia hạn |
+| `token_packages` | Các gói token lẻ mua thêm |
 | `model_pricing` | Bảng giá từng model: giá vốn USD ↔ số token thu của khách |
 | `orders` | Đơn nạp tiền, có snapshot thông tin gói tại thời điểm đặt |
-| `token_transactions` | Sổ cái token — nguồn sự thật cho mọi biến động số dư |
-| `generations` | Từng lệnh tạo ảnh, kèm chi phí vốn và ảnh đầu vào/kết quả |
+| `token_transactions` | Sổ cái token — mỗi dòng ghi rõ tác động vào nguồn nào (`bucket`) |
+| `generations` | Từng lệnh tạo ảnh, kèm chi phí vốn và token đã trừ từ mỗi nguồn |
 | `payment_events` | Nhật ký webhook ngân hàng, chống xử lý trùng |
 | `settings` | Cấu hình sửa nóng không cần restart |
 
@@ -285,16 +352,19 @@ Số tiền lưu dạng số nguyên VNĐ (`BIGINT`), không có phần thập p
 
 ### Token tiêu hao mỗi ảnh
 
-| Model | Slug gửi API | Giá vốn (Kie.ai) | Token thu | Giá bán danh nghĩa |
+`token_cost = api_cost_usd × USD_TO_VND` (1 token = 1đ giá vốn). Cột cuối tính trên hạn mức
+500.000 token/tháng nếu chỉ dùng một loại ảnh duy nhất.
+
+| Model | Slug gửi API | Giá vốn (Kie.ai) | Token/ảnh | Số ảnh trong hạn mức tháng |
 |---|---|---|---|---|
-| GPT Image 2 — 1K | `gpt-image-2-image-to-image` | $0.03 | 30 | 3.000đ |
-| GPT Image 2 — 2K | `gpt-image-2-image-to-image` | $0.05 | 45 | 4.500đ |
-| GPT Image 2 — 4K | `gpt-image-2-image-to-image` | $0.08 | 70 | 7.000đ |
-| Nano Banana 2 — 1K | `nano-banana-2` | $0.04 | 40 | 4.000đ |
-| Nano Banana 2 — 2K | `nano-banana-2` | $0.06 | 55 | 5.500đ |
-| Nano Banana 2 — 4K | `nano-banana-2` | $0.09 | 80 | 8.000đ |
-| Nano Banana Pro — 1K/2K | `nano-banana-pro` | $0.09 | 80 | 8.000đ |
-| Nano Banana Pro — 4K | `nano-banana-pro` | $0.12 | 105 | 10.500đ |
+| GPT Image 2 — 1K | `gpt-image-2-image-to-image` | $0.03 | 840 | ~595 |
+| GPT Image 2 — 2K | `gpt-image-2-image-to-image` | $0.05 | 1.400 | ~357 |
+| GPT Image 2 — 4K | `gpt-image-2-image-to-image` | $0.08 | 2.240 | ~223 |
+| Nano Banana 2 — 1K | `nano-banana-2` | $0.04 | 1.120 | ~446 |
+| Nano Banana 2 — 2K | `nano-banana-2` | $0.06 | 1.680 | ~297 |
+| Nano Banana 2 — 4K | `nano-banana-2` | $0.09 | 2.520 | ~198 |
+| Nano Banana Pro — 1K/2K | `nano-banana-pro` | $0.09 | 2.520 | ~198 |
+| Nano Banana Pro — 4K | `nano-banana-pro` | $0.12 | 3.360 | ~148 |
 | Nano Banana 2 Lite | `nano-banana-2-lite` | *chưa rõ* | — | **đang tắt bán** |
 
 **Nano Banana 2 Lite** đã được nối sẵn nhưng để trạng thái tắt: Kie.ai không công bố
@@ -326,18 +396,20 @@ khi trừ token** và báo lỗi cụ thể, thay vì trừ rồi hoàn.
 Các model Imagen 4 của Google không được đưa vào vì chúng chỉ sinh ảnh từ chữ, không nhận
 ảnh sản phẩm nên không dùng được cho luồng sao chép bố cục của ứng dụng này.
 
-### Gói nạp tiền
-
-| Gói | Giá nạp | Token nhận | Giá thực tế/token | Thưởng |
-|---|---|---|---|---|
-| Trải nghiệm | 49.000đ | 490 | 100đ | 0% |
-| Creator | 99.000đ | 1.020 | 97,1đ | 3% |
-| Creator Plus | 199.000đ | 2.100 | 94,8đ | 5,5% |
-| Studio | 499.000đ | 5.500 | 90,7đ | 10,2% |
-| Agency | 999.000đ | 11.500 | 86,9đ | 15,1% |
+Bảng giá gói thuê bao và gói token lẻ nằm ở [mục 3](#3-mô-hình-kinh-doanh).
 
 Dữ liệu này chỉ được nạp **một lần** lúc khởi tạo (`INSERT IGNORE`). Sau đó sửa trong tab
 **Bảng giá & gói nạp** của trang Quản trị; server không ghi đè lại.
+
+> **Nâng cấp từ bản cũ:** phiên bản trước tính 1 token ≈ 100đ giá bán, bản này neo vào giá vốn
+> nên các con số lệch nhau khoảng 28 lần. Khi khởi động, server tự quy đổi `token_cost` của
+> những model còn giữ đúng giá trị mặc định cũ, và ngừng bán 5 gói token đời cũ (Trải nghiệm,
+> Creator, Creator Plus, Studio, Agency) vì chúng sai đơn vị. Dòng nào bạn đã tự chỉnh trong
+> trang Quản trị thì được giữ nguyên — kiểm tra lại sau khi nâng cấp.
+>
+> Số dư `token_balance` cũ của khách cũng đang ở đơn vị cũ và **không** được tự quy đổi (không
+> có cách quy đổi nào đúng cho mọi trường hợp). Số dư cũ giờ mang giá trị rất nhỏ; nếu có khách
+> thật đang giữ token, hãy dùng Quản trị → Khách hàng → **Sửa token** để cấp bù cho đúng.
 
 Riêng slug model là ngoại lệ: khi khởi động, server tự sửa những slug đã biết chắc là sai
 (xem `repairKnownBadModelSlugs` trong [seed.ts](server/src/seed.ts)). Slug nào bạn tự đặt

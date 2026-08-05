@@ -7,10 +7,12 @@ import {
   bankInfo,
   cancelOrder,
   createOrder,
+  createSubscriptionOrder,
   expireStaleOrders,
   serializeOrder,
   type OrderRow,
 } from '../services/orderService.js';
+import { readAccountState, requireSubscription } from '../services/subscriptionService.js';
 
 export const orderRouter = Router();
 
@@ -37,12 +39,30 @@ orderRouter.get(
   }),
 );
 
-/** Tạo đơn nạp mới, trả về mã QR + nội dung chuyển khoản. */
+/**
+ * Tạo đơn mua thêm token lẻ.
+ *
+ * Chỉ dành cho khách đã có gói dịch vụ — token lẻ là phần mua thêm khi dùng hết
+ * hạn mức tháng, không phải đường vòng để dùng dịch vụ mà không đăng ký gói.
+ */
 orderRouter.post(
   '/',
   asyncHandler(async (req, res) => {
-    const packageId = requireInt(req.body, 'packageId', { min: 1, label: 'Gói nạp' });
+    const state = await readAccountState(req.user!.id);
+    requireSubscription(state);
+
+    const packageId = requireInt(req.body, 'packageId', { min: 1, label: 'Gói token' });
     const order = await createOrder(req.user!.id, packageId);
+    res.status(201).json({ order: serializeOrder(order), bank: bankInfo() });
+  }),
+);
+
+/** Tạo đơn mua hoặc gia hạn gói dịch vụ theo tháng. */
+orderRouter.post(
+  '/subscription',
+  asyncHandler(async (req, res) => {
+    const planId = requireInt(req.body, 'planId', { min: 1, label: 'Gói dịch vụ' });
+    const order = await createSubscriptionOrder(req.user!.id, planId);
     res.status(201).json({ order: serializeOrder(order), bank: bankInfo() });
   }),
 );

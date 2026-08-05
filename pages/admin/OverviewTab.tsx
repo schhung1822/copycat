@@ -75,6 +75,33 @@ export const OverviewTab: React.FC = () => {
         />
       </div>
 
+      {/* ---- Thuê bao ---- */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Thuê bao đang chạy"
+          value={formatNumber(overview.subscribers.active)}
+          sub={`${overview.subscribers.expiringIn7Days} gói hết hạn trong 7 ngày`}
+          tone={overview.subscribers.expiringIn7Days > 0 ? 'warning' : 'positive'}
+        />
+        <StatCard
+          label="Doanh thu gói tháng"
+          value={formatVnd(overview.revenue.subscriptionRevenue)}
+          sub={`${Math.round(
+            (overview.revenue.subscriptionRevenue / Math.max(overview.revenue.total, 1)) * 100,
+          )}% tổng doanh thu`}
+        />
+        <StatCard
+          label="Doanh thu token lẻ"
+          value={formatVnd(overview.revenue.extraTokenRevenue)}
+          sub="khách mua thêm ngoài hạn mức"
+        />
+        <StatCard
+          label="Hạn mức chưa dùng"
+          value={formatNumber(overview.subscribers.monthlyTokensRemaining)}
+          sub="token, sẽ mất khi sang chu kỳ mới"
+        />
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Khách hàng"
@@ -87,9 +114,9 @@ export const OverviewTab: React.FC = () => {
           sub={`${overview.generations.today} hôm nay · tỉ lệ thành công ${overview.generations.successRate}%`}
         />
         <StatCard
-          label="Token đang lưu hành"
+          label="Token lẻ chưa dùng"
           value={formatNumber(overview.users.outstandingTokens)}
-          sub={`Nghĩa vụ ~${formatVnd(overview.users.outstandingLiabilityVnd)}`}
+          sub={`Khách đã trả ~${formatVnd(overview.users.outstandingLiabilityVnd)} cho số này`}
           tone="warning"
         />
         <StatCard

@@ -4,7 +4,8 @@ import { env } from '../env.js';
 import { AppError, badRequest, notFound } from '../lib/errors.js';
 import { getProvider } from '../providers/index.js';
 import { downloadResult, readAsDataUri, saveBase64Image, toPublicUrl } from './storageService.js';
-import { applyLedger } from './tokenService.js';
+import { refundTokens, spendTokens } from './tokenService.js';
+import { lockAccountState, requireSubscription } from './subscriptionService.js';
 
 export interface ModelPricingRow extends RowDataPacket {
   id: number;
@@ -34,6 +35,8 @@ export interface GenerationRow extends RowDataPacket {
   prompt: string | null;
   input_images: { reference: string | null; products: string[] } | string | null;
   token_cost: number;
+  monthly_cost: number;
+  purchased_cost: number;
   api_cost_usd: number;
   status: 'queued' | 'processing' | 'success' | 'failed' | 'refunded';
   provider_task_id: string | null;
@@ -131,15 +134,23 @@ export async function createGenerations(
   const prompt = input.prompt.trim().slice(0, 4000);
 
   const { generationIds, balance } = await withTransaction(async (conn) => {
-    const ledger = await applyLedger(conn, {
-      userId,
-      amount: -totalCost,
-      type: 'spend',
-      description: `Tạo ${jobCount} ảnh · ${model.label}`,
-    });
+    // Kiểm tra đủ token cho CẢ LÔ trước khi tạo dòng nào, để không rơi vào cảnh
+    // vẽ được nửa lô rồi hết token giữa chừng.
+    const opening = await lockAccountState(conn, userId);
+    requireSubscription(opening);
+    if (opening.availableTokens < totalCost) {
+      throw new AppError(
+        402,
+        `Không đủ token cho ${jobCount} ảnh. Cần ${totalCost.toLocaleString('vi-VN')}, ` +
+          `hiện có ${opening.availableTokens.toLocaleString('vi-VN')}.`,
+        'insufficient_tokens',
+        { required: totalCost, available: opening.availableTokens },
+      );
+    }
 
     const ids: number[] = [];
     const slots = referencePaths.length > 0 ? referencePaths : [null];
+    let latest = opening;
 
     for (const referencePath of slots) {
       for (let i = 0; i < quantity; i += 1) {
@@ -163,18 +174,28 @@ export async function createGenerations(
             model.api_cost_usd,
           ],
         );
+
+        // Trừ token riêng cho từng ảnh: mỗi ảnh biết chính xác đã lấy bao nhiêu
+        // từ hạn mức tháng và bao nhiêu từ token mua thêm, nên hoàn được đúng nguồn.
+        const spend = await spendTokens(
+          conn,
+          userId,
+          model.token_cost,
+          `Tạo ảnh #${result.insertId} · ${model.label}`,
+          result.insertId,
+        );
+        await conn.query('UPDATE generations SET monthly_cost = ?, purchased_cost = ? WHERE id = ?', [
+          spend.split.monthly,
+          spend.split.purchased,
+          result.insertId,
+        ]);
+
+        latest = spend.state;
         ids.push(result.insertId);
       }
     }
 
-    // Gắn ledger vào ảnh đầu tiên của lô để tra soát ngược được.
-    await conn.query('UPDATE token_transactions SET ref_type = ?, ref_id = ? WHERE id = ?', [
-      'generation',
-      ids[0],
-      ledger.ledgerId,
-    ]);
-
-    return { generationIds: ids, balance: ledger.balanceAfter };
+    return { generationIds: ids, balance: latest.availableTokens };
   });
 
   for (const id of generationIds) enqueue(id);
@@ -208,12 +229,6 @@ export async function redoGeneration(
   if (rejection) throw badRequest(rejection, 'unsupported_combination');
 
   const { newId, balance } = await withTransaction(async (conn) => {
-    const ledger = await applyLedger(conn, {
-      userId,
-      amount: -model.token_cost,
-      type: 'spend',
-      description: `Vẽ lại ảnh #${generationId} · ${model.label}`,
-    });
 
     const [result] = await conn.query<ResultSetHeader>(
       `INSERT INTO generations
@@ -236,13 +251,20 @@ export async function redoGeneration(
       ],
     );
 
-    await conn.query('UPDATE token_transactions SET ref_type = ?, ref_id = ? WHERE id = ?', [
-      'generation',
+    const spend = await spendTokens(
+      conn,
+      userId,
+      model.token_cost,
+      `Vẽ lại ảnh #${generationId} thành #${result.insertId} · ${model.label}`,
       result.insertId,
-      ledger.ledgerId,
+    );
+    await conn.query('UPDATE generations SET monthly_cost = ?, purchased_cost = ? WHERE id = ?', [
+      spend.split.monthly,
+      spend.split.purchased,
+      result.insertId,
     ]);
 
-    return { newId: result.insertId, balance: ledger.balanceAfter };
+    return { newId: result.insertId, balance: spend.state.availableTokens };
   });
 
   enqueue(newId);
@@ -346,14 +368,17 @@ async function failAndRefund(row: GenerationRow, message: string, durationMs: nu
         [message.slice(0, 1000), durationMs, row.id],
       );
 
-      await applyLedger(conn, {
-        userId: row.user_id,
-        amount: row.token_cost,
-        type: 'refund',
-        refType: 'generation',
-        refId: row.id,
-        description: `Hoàn token do tạo ảnh #${row.id} thất bại`,
-      });
+      await refundTokens(
+        conn,
+        row.user_id,
+        // Ảnh tạo trước khi tách hai nguồn thì hai cột này bằng 0 — khi đó hoàn
+        // toàn bộ vào token mua thêm, phần chắc chắn là tiền thật của khách.
+        row.monthly_cost + row.purchased_cost > 0
+          ? { monthly: row.monthly_cost, purchased: row.purchased_cost }
+          : { monthly: 0, purchased: row.token_cost },
+        row.id,
+        `Hoàn token do tạo ảnh #${row.id} thất bại`,
+      );
     });
   } catch (refundError) {
     console.error(`[generation ${row.id}] hoàn token thất bại`, refundError);

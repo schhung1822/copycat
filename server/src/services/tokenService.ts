@@ -1,88 +1,15 @@
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from '../db.js';
 import { withTransaction } from '../db.js';
-import { AppError, badRequest, notFound } from '../lib/errors.js';
+import { AppError, badRequest } from '../lib/errors.js';
+import { lockAccountState, requireSubscription, type AccountState } from './subscriptionService.js';
 
-export type LedgerType = 'topup' | 'spend' | 'refund' | 'adjust';
-
-interface LedgerInput {
-  userId: number;
-  /** Dương = cộng token, âm = trừ token. */
-  amount: number;
-  type: LedgerType;
-  refType?: 'order' | 'generation' | null;
-  refId?: number | null;
-  description?: string | null;
-  createdBy?: number | null;
-}
-
-/**
- * Ghi một biến động token vào sổ cái và cập nhật số dư trong cùng transaction.
- *
- * Bắt buộc gọi bên trong một transaction đang mở (`conn`): dòng users được khoá
- * bằng SELECT ... FOR UPDATE nên hai request tạo ảnh song song không thể cùng
- * đọc một số dư cũ rồi trừ đè lên nhau.
- */
-export interface LedgerResult {
-  balanceAfter: number;
-  ledgerId: number;
-}
-
-export async function applyLedger(conn: PoolConnection, input: LedgerInput): Promise<LedgerResult> {
-  const { userId, amount, type, refType = null, refId = null, description = null, createdBy = null } = input;
-
-  if (!Number.isInteger(amount) || amount === 0) {
-    throw badRequest('Số token không hợp lệ.');
-  }
-
-  const [rows] = await conn.query<(RowDataPacket & { token_balance: number })[]>(
-    'SELECT token_balance FROM users WHERE id = ? FOR UPDATE',
-    [userId],
-  );
-  const current = rows[0];
-  if (!current) throw notFound('Không tìm thấy tài khoản.');
-
-  const balanceAfter = current.token_balance + amount;
-  if (balanceAfter < 0) {
-    throw new AppError(
-      402,
-      `Không đủ token. Số dư hiện tại ${current.token_balance}, cần ${Math.abs(amount)}.`,
-      'insufficient_tokens',
-      { balance: current.token_balance, required: Math.abs(amount) },
-    );
-  }
-
-  // Hoàn token là đảo ngược một lần chi, nên trừ ngược vào total_tokens_out
-  // thay vì cộng vào total_tokens_in — nếu không, thống kê "đã sử dụng" và
-  // "đã nhận" đều bị thổi phồng mỗi lần có ảnh lỗi.
-  const tokensIn = amount > 0 && type !== 'refund' ? amount : 0;
-  const tokensOut = amount < 0 ? -amount : type === 'refund' ? -amount : 0;
-
-  await conn.query(
-    `UPDATE users
-        SET token_balance = ?,
-            total_tokens_in  = total_tokens_in  + ?,
-            total_tokens_out = GREATEST(total_tokens_out + ?, 0)
-      WHERE id = ?`,
-    [balanceAfter, tokensIn, tokensOut, userId],
-  );
-
-  const [inserted] = await conn.query<ResultSetHeader>(
-    `INSERT INTO token_transactions
-       (user_id, type, amount, balance_after, ref_type, ref_id, description, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [userId, type, amount, balanceAfter, refType, refId, description, createdBy],
-  );
-
-  return { balanceAfter, ledgerId: inserted.insertId };
-}
-
-/** Tiện ích khi chỉ cần một thao tác token đơn lẻ, tự mở transaction. */
-export const applyLedgerStandalone = (input: LedgerInput): Promise<LedgerResult> =>
-  withTransaction((conn) => applyLedger(conn, input));
+export type LedgerType = 'topup' | 'spend' | 'refund' | 'adjust' | 'grant' | 'expire';
+export type Bucket = 'monthly' | 'purchased';
 
 export interface LedgerRow extends RowDataPacket {
   id: number;
   type: LedgerType;
+  bucket: Bucket;
   amount: number;
   balance_after: number;
   ref_type: string | null;
@@ -90,3 +17,229 @@ export interface LedgerRow extends RowDataPacket {
   description: string | null;
   created_at: Date;
 }
+
+interface LedgerEntry {
+  userId: number;
+  type: LedgerType;
+  bucket: Bucket;
+  amount: number;
+  balanceAfter: number;
+  refType?: 'order' | 'generation' | null;
+  refId?: number | null;
+  description?: string | null;
+  createdBy?: number | null;
+}
+
+async function writeLedger(conn: PoolConnection, entry: LedgerEntry): Promise<number> {
+  const [result] = await conn.query<ResultSetHeader>(
+    `INSERT INTO token_transactions
+       (user_id, type, bucket, amount, balance_after, ref_type, ref_id, description, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      entry.userId,
+      entry.type,
+      entry.bucket,
+      entry.amount,
+      entry.balanceAfter,
+      entry.refType ?? null,
+      entry.refId ?? null,
+      entry.description ?? null,
+      entry.createdBy ?? null,
+    ],
+  );
+  return result.insertId;
+}
+
+/** Số token đã lấy từ mỗi nguồn cho một lần chi. */
+export interface TokenSplit {
+  monthly: number;
+  purchased: number;
+}
+
+export interface SpendResult {
+  split: TokenSplit;
+  state: AccountState;
+}
+
+/**
+ * Trừ token cho một lần tạo ảnh.
+ *
+ * Thứ tự: **tiêu hạn mức tháng trước, token mua thêm sau**. Hạn mức tháng bị xoá
+ * khi sang chu kỳ mới nên tiêu trước là có lợi cho khách; token mua thêm không hết
+ * hạn nên để dành.
+ *
+ * Bắt buộc gọi trong transaction. `lockAccountState` đã khoá dòng users và cấp lại
+ * hạn mức nếu vừa sang tháng mới.
+ */
+export async function spendTokens(
+  conn: PoolConnection,
+  userId: number,
+  amount: number,
+  description: string,
+  refId: number | null = null,
+): Promise<SpendResult> {
+  if (!Number.isInteger(amount) || amount <= 0) throw badRequest('Số token không hợp lệ.');
+
+  const state = await lockAccountState(conn, userId);
+  requireSubscription(state);
+
+  if (state.availableTokens < amount) {
+    throw new AppError(
+      402,
+      `Không đủ token. Cần ${amount.toLocaleString('vi-VN')}, hiện có ${state.availableTokens.toLocaleString('vi-VN')} ` +
+        `(hạn mức tháng ${state.monthlyTokens.toLocaleString('vi-VN')} + đã mua thêm ${state.purchasedTokens.toLocaleString('vi-VN')}).`,
+      'insufficient_tokens',
+      {
+        required: amount,
+        available: state.availableTokens,
+        monthlyTokens: state.monthlyTokens,
+        purchasedTokens: state.purchasedTokens,
+      },
+    );
+  }
+
+  const fromMonthly = Math.min(state.monthlyTokens, amount);
+  const fromPurchased = amount - fromMonthly;
+
+  if (fromMonthly > 0) {
+    const balanceAfter = state.monthlyTokens - fromMonthly;
+    await conn.query('UPDATE users SET monthly_tokens = ? WHERE id = ?', [balanceAfter, userId]);
+    await writeLedger(conn, {
+      userId,
+      type: 'spend',
+      bucket: 'monthly',
+      amount: -fromMonthly,
+      balanceAfter,
+      refType: refId ? 'generation' : null,
+      refId,
+      description,
+    });
+    state.monthlyTokens = balanceAfter;
+  }
+
+  if (fromPurchased > 0) {
+    const balanceAfter = state.purchasedTokens - fromPurchased;
+    await conn.query('UPDATE users SET token_balance = ? WHERE id = ?', [balanceAfter, userId]);
+    await writeLedger(conn, {
+      userId,
+      type: 'spend',
+      bucket: 'purchased',
+      amount: -fromPurchased,
+      balanceAfter,
+      refType: refId ? 'generation' : null,
+      refId,
+      description,
+    });
+    state.purchasedTokens = balanceAfter;
+  }
+
+  await conn.query('UPDATE users SET total_tokens_out = total_tokens_out + ? WHERE id = ?', [amount, userId]);
+
+  state.availableTokens = state.monthlyTokens + state.purchasedTokens;
+  return { split: { monthly: fromMonthly, purchased: fromPurchased }, state };
+}
+
+/**
+ * Hoàn token khi tạo ảnh thất bại, trả về đúng nguồn đã lấy.
+ *
+ * Phần hạn mức tháng bị chặn không cho vượt quá hạn mức của gói: nếu ảnh lỗi sau
+ * khi đã sang chu kỳ mới thì khách đã được cấp lại hạn mức đầy, hoàn thêm nữa là
+ * cấp khống. Phần token mua thêm luôn được hoàn đủ vì đó là tiền thật khách bỏ ra.
+ */
+export async function refundTokens(
+  conn: PoolConnection,
+  userId: number,
+  split: TokenSplit,
+  refId: number,
+  description: string,
+): Promise<void> {
+  const state = await lockAccountState(conn, userId);
+
+  if (split.monthly > 0) {
+    const balanceAfter = Math.min(state.monthlyTokens + split.monthly, state.monthlyAllowance);
+    const restored = balanceAfter - state.monthlyTokens;
+    if (restored > 0) {
+      await conn.query('UPDATE users SET monthly_tokens = ? WHERE id = ?', [balanceAfter, userId]);
+      await writeLedger(conn, {
+        userId,
+        type: 'refund',
+        bucket: 'monthly',
+        amount: restored,
+        balanceAfter,
+        refType: 'generation',
+        refId,
+        description,
+      });
+    }
+  }
+
+  if (split.purchased > 0) {
+    const balanceAfter = state.purchasedTokens + split.purchased;
+    await conn.query('UPDATE users SET token_balance = ? WHERE id = ?', [balanceAfter, userId]);
+    await writeLedger(conn, {
+      userId,
+      type: 'refund',
+      bucket: 'purchased',
+      amount: split.purchased,
+      balanceAfter,
+      refType: 'generation',
+      refId,
+      description,
+    });
+  }
+
+  const total = split.monthly + split.purchased;
+  await conn.query('UPDATE users SET total_tokens_out = GREATEST(total_tokens_out - ?, 0) WHERE id = ?', [
+    total,
+    userId,
+  ]);
+}
+
+/**
+ * Cộng token vào nguồn "mua thêm" — dùng cho đơn mua gói token lẻ và cho thao tác
+ * admin điều chỉnh tay. Nguồn này không hết hạn theo chu kỳ tháng.
+ */
+export async function creditPurchasedTokens(
+  conn: PoolConnection,
+  input: {
+    userId: number;
+    amount: number;
+    type: Extract<LedgerType, 'topup' | 'adjust'>;
+    refType?: 'order' | 'generation' | null;
+    refId?: number | null;
+    description?: string | null;
+    createdBy?: number | null;
+  },
+): Promise<{ balanceAfter: number; ledgerId: number }> {
+  const { userId, amount } = input;
+  if (!Number.isInteger(amount) || amount === 0) throw badRequest('Số token không hợp lệ.');
+
+  const [rows] = await conn.query<(RowDataPacket & { token_balance: number })[]>(
+    'SELECT token_balance FROM users WHERE id = ? FOR UPDATE',
+    [userId],
+  );
+  if (!rows[0]) throw badRequest('Không tìm thấy tài khoản.');
+
+  const balanceAfter = rows[0].token_balance + amount;
+  if (balanceAfter < 0) {
+    throw new AppError(
+      402,
+      `Không đủ token đã mua để trừ. Hiện có ${rows[0].token_balance.toLocaleString('vi-VN')}, cần ${Math.abs(amount).toLocaleString('vi-VN')}.`,
+      'insufficient_tokens',
+    );
+  }
+
+  await conn.query(
+    `UPDATE users
+        SET token_balance = ?,
+            total_tokens_in = total_tokens_in + ?
+      WHERE id = ?`,
+    [balanceAfter, amount > 0 ? amount : 0, userId],
+  );
+
+  const ledgerId = await writeLedger(conn, { ...input, bucket: 'purchased', balanceAfter });
+  return { balanceAfter, ledgerId };
+}
+
+export const creditPurchasedStandalone = (input: Parameters<typeof creditPurchasedTokens>[1]) =>
+  withTransaction((conn) => creditPurchasedTokens(conn, input));

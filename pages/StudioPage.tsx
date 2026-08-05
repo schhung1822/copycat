@@ -136,6 +136,7 @@ export const StudioPage: React.FC = () => {
   const jobCount = Math.max(refImages.length, 1) * quantity;
   const totalCost = (selectedModel?.tokenCost ?? 0) * jobCount;
   const balance = user?.tokenBalance ?? 0;
+  const isSubscribed = user?.isSubscribed ?? false;
   const notEnoughTokens = totalCost > balance;
 
   // --- Hỏi trạng thái các ảnh đang xử lý ------------------------------------
@@ -237,7 +238,7 @@ export const StudioPage: React.FC = () => {
   }
   if (!catalog) return <PageLoader label="Đang tải bảng giá..." />;
 
-  const canSubmit = Boolean(selectedModel) && prodImages.length > 0 && !notEnoughTokens && !isSubmitting;
+  const canSubmit = Boolean(selectedModel) && prodImages.length > 0 && !notEnoughTokens && !isSubmitting && isSubscribed;
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] w-full overflow-hidden">
@@ -395,10 +396,14 @@ export const StudioPage: React.FC = () => {
             </span>
           </div>
 
-          {notEnoughTokens ? (
+          {!isSubscribed ? (
+            <Link to="/nap-tien" className="block">
+              <Button className="w-full !rounded-xl">Đăng ký gói dịch vụ để bắt đầu</Button>
+            </Link>
+          ) : notEnoughTokens ? (
             <Link to="/nap-tien" className="block">
               <Button className="w-full !rounded-xl" variant="secondary">
-                Không đủ token · Nạp thêm
+                Không đủ token · Mua thêm
               </Button>
             </Link>
           ) : (
@@ -407,9 +412,18 @@ export const StudioPage: React.FC = () => {
             </Button>
           )}
 
-          <p className="text-[11px] text-gray-600 text-center">
-            Số dư: {formatNumber(balance)} token · Ảnh lỗi sẽ được hoàn token tự động.
-          </p>
+          {isSubscribed ? (
+            <p className="text-[11px] text-gray-600 text-center leading-relaxed">
+              Hạn mức tháng {formatNumber(user?.monthlyTokens ?? 0)}
+              {(user?.purchasedTokens ?? 0) > 0 && <> · mua thêm {formatNumber(user!.purchasedTokens)}</>}
+              <br />
+              Trừ hạn mức tháng trước · ảnh lỗi được hoàn token tự động.
+            </p>
+          ) : (
+            <p className="text-[11px] text-gray-600 text-center">
+              Cần có gói dịch vụ theo tháng mới tạo được ảnh.
+            </p>
+          )}
         </div>
       </aside>
 
