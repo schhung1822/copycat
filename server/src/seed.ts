@@ -219,48 +219,57 @@ const SUBSCRIPTION_PLANS = [
 /**
  * GÓI TOKEN LẺ — mua thêm khi đã dùng hết hạn mức tháng.
  *
- * Quy ước: 1 token = 1đ giá vốn nhà cung cấp. Gói lẻ bán đúng **gấp đôi giá vốn**,
- * nên số token nhận được luôn bằng nửa số tiền nạp. Token mua thêm KHÔNG hết hạn
- * theo chu kỳ tháng.
+ * Quy tắc: khách chỉ nhận được **một nửa** lượng token so với số tiền bỏ ra tính
+ * theo giá vốn (tức bán gấp đôi giá vốn). Vì 1 token = 1đ giá vốn, gói X đồng cho
+ * khoảng X/2 token.
+ *
+ * Số token của mỗi gói được neo theo hạn mức tháng cho dễ hình dung, còn giá bán
+ * làm tròn xuống mốc x99.000đ:
+ *
+ *   Gói          Token nhận              So với hạn mức tháng   Đơn giá
+ *   199.000đ     100.000                 1/5                    1,99đ/token
+ *   499.000đ     250.000                 1/2                    2,00đ/token
+ *   999.000đ     500.000                 bằng đúng              2,00đ/token
+ *   1.999.000đ   1.000.000               gấp đôi                2,00đ/token
+ *
+ * Token mua thêm KHÔNG hết hạn theo chu kỳ tháng.
  */
-const TOKEN_SELL_MULTIPLIER = 2;
-
 const TOKEN_PACKAGES = [
   {
-    code: 'EXTRA_200K',
-    name: 'Gói 200.000đ',
-    price_vnd: 200_000,
-    base_tokens: 200_000 / TOKEN_SELL_MULTIPLIER,
+    code: 'EXTRA_199',
+    name: 'Gói 199.000đ',
+    price_vnd: 199_000,
+    base_tokens: MONTHLY_TOKEN_ALLOWANCE / 5,
     bonus_tokens: 0,
-    description: 'Tương đương 40% hạn mức của một tháng.',
+    description: 'Bằng 1/5 hạn mức một tháng.',
     is_popular: 0,
     sort_order: 10,
   },
   {
-    code: 'EXTRA_500K',
-    name: 'Gói 500.000đ',
-    price_vnd: 500_000,
-    base_tokens: 500_000 / TOKEN_SELL_MULTIPLIER,
+    code: 'EXTRA_499',
+    name: 'Gói 499.000đ',
+    price_vnd: 499_000,
+    base_tokens: MONTHLY_TOKEN_ALLOWANCE / 2,
     bonus_tokens: 0,
-    description: 'Tương đương 50% hạn mức của một tháng.',
+    description: 'Bằng một nửa hạn mức một tháng.',
     is_popular: 1,
     sort_order: 20,
   },
   {
-    code: 'EXTRA_1M',
-    name: 'Gói 1.000.000đ',
-    price_vnd: 1_000_000,
-    base_tokens: 1_000_000 / TOKEN_SELL_MULTIPLIER,
+    code: 'EXTRA_999',
+    name: 'Gói 999.000đ',
+    price_vnd: 999_000,
+    base_tokens: MONTHLY_TOKEN_ALLOWANCE,
     bonus_tokens: 0,
     description: 'Bằng đúng hạn mức của một tháng.',
     is_popular: 0,
     sort_order: 30,
   },
   {
-    code: 'EXTRA_2M',
-    name: 'Gói 2.000.000đ',
-    price_vnd: 2_000_000,
-    base_tokens: 2_000_000 / TOKEN_SELL_MULTIPLIER,
+    code: 'EXTRA_1999',
+    name: 'Gói 1.999.000đ',
+    price_vnd: 1_999_000,
+    base_tokens: MONTHLY_TOKEN_ALLOWANCE * 2,
     bonus_tokens: 0,
     description: 'Gấp đôi hạn mức tháng, hợp cho đợt chạy chiến dịch lớn.',
     is_popular: 0,
@@ -382,12 +391,16 @@ async function migratePricingToCostUnits(): Promise<void> {
   }
 
   // Gói token lẻ đời cũ tính theo 100đ/token — sai đơn vị hoàn toàn, ngừng bán.
+  // EXTRA_200K/500K/1M/2M là bộ giá tạm ở bản trước, nay thay bằng bộ neo theo
+  // hạn mức tháng (EXTRA_199/499/999/1999).
   const retired = await execute(
     `UPDATE token_packages SET is_active = 0
-      WHERE code IN ('STARTER','CREATOR','CREATOR_PLUS','STUDIO','AGENCY') AND is_active = 1`,
+      WHERE code IN ('STARTER','CREATOR','CREATOR_PLUS','STUDIO','AGENCY',
+                     'EXTRA_200K','EXTRA_500K','EXTRA_1M','EXTRA_2M')
+        AND is_active = 1`,
   );
   if (retired.affectedRows > 0) {
-    console.log(`[seed] Đã ngừng bán ${retired.affectedRows} gói token đời cũ (sai đơn vị token).`);
+    console.log(`[seed] Đã ngừng bán ${retired.affectedRows} gói token đời cũ.`);
   }
 }
 

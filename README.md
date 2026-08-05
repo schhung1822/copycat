@@ -237,7 +237,10 @@ gói token lẻ.
 |---|---|---|
 | Hạn mức tháng | 500.000đ tiền token theo giá gốc | **500.000 token** |
 | Token tiêu hao mỗi ảnh | `api_cost_usd × USD_TO_VND` | GPT 1K = 840 · Pro 4K = 3.360 |
-| Gói token lẻ | bán gấp đôi giá vốn | 200.000đ → **100.000 token** |
+| Gói token lẻ | khách chỉ nhận **một nửa** lượng token so với số tiền bỏ ra tính theo giá vốn | 499.000đ → **250.000 token** |
+
+Khách trả 1.500.000đ/tháng nhưng chỉ được cấp 500.000đ tiền token theo giá vốn — phần chênh
+lệch là chi phí duy trì, nhân sự và lợi nhuận.
 
 ### Hai nguồn token, tiêu theo thứ tự
 
@@ -293,12 +296,15 @@ Mua chu kỳ dài **không** cấp nhiều hạn mức hơn một lần: hạn m
 
 ### Bảng giá gói token lẻ
 
-| Gói | Giá | Token nhận | Đơn giá |
+Số token của mỗi gói neo theo hạn mức tháng cho khách dễ hình dung, giá bán làm tròn xuống
+mốc x99.000đ nên đơn giá luôn xấp xỉ 2đ/token (đúng quy tắc bán gấp đôi giá vốn).
+
+| Gói | Token nhận | So với hạn mức tháng | Đơn giá |
 |---|---|---|---|
-| 200.000đ | 200.000đ | 100.000 | 2đ/token |
-| 500.000đ | 500.000đ | 250.000 | 2đ/token |
-| 1.000.000đ | 1.000.000đ | 500.000 | 2đ/token |
-| 2.000.000đ | 2.000.000đ | 1.000.000 | 2đ/token |
+| 199.000đ | 100.000 | 1/5 | 1,99đ/token |
+| **499.000đ** | **250.000** | **1/2** | 2,00đ/token |
+| 999.000đ | 500.000 | bằng đúng | 2,00đ/token |
+| 1.999.000đ | 1.000.000 | gấp đôi | 2,00đ/token |
 
 ### Điểm quan trọng về tiền và token
 

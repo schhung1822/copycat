@@ -91,9 +91,6 @@ export const TopUpPage: React.FC = () => {
     <div className="max-w-6xl mx-auto p-6 space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-white">Gói dịch vụ</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Đăng ký gói theo tháng để sử dụng dịch vụ. Hết hạn mức token trong tháng có thể mua thêm gói lẻ.
-        </p>
       </div>
 
       {error && <Alert tone="error">{error}</Alert>}
@@ -116,7 +113,7 @@ export const TopUpPage: React.FC = () => {
               <h2 className="text-lg font-bold text-white">
                 {isSubscribed ? 'Gia hạn gói dịch vụ' : '1. Chọn gói dịch vụ'}
               </h2>
-              <span className="text-xs text-gray-500">Chu kỳ dài hơn có giá tốt hơn</span>
+              <span className="text-xs text-gray-500">Tiết kiệm hơn với gói chu kỳ dài</span>
             </div>
             <PlanGrid
               plans={catalog.plans}
@@ -135,6 +132,7 @@ export const TopUpPage: React.FC = () => {
               <PackageGrid
                 packages={catalog.packages}
                 creatingId={creatingId}
+                allowance={catalog.plans[0]?.monthlyTokenAllowance ?? 0}
                 onSelect={(pkg) => createOrder('/orders', { packageId: pkg.id }, `pkg-${pkg.id}`)}
               />
             ) : (
@@ -244,8 +242,6 @@ const PlanGrid: React.FC<{
 
             <div className="mt-3 pt-3 border-t border-dark-800 flex-1">
               <p className="text-brand-500 font-bold">{formatNumber(plan.monthlyTokenAllowance)} token/tháng</p>
-              <p className="text-[11px] text-gray-500 mt-0.5">cấp lại mỗi tháng, không cộng dồn</p>
-              {plan.description && <p className="text-[11px] text-gray-500 mt-2">{plan.description}</p>}
             </div>
 
             <Button
@@ -267,24 +263,38 @@ const PackageGrid: React.FC<{
   packages: TokenPackage[];
   creatingId: string | null;
   onSelect: (pkg: TokenPackage) => void;
-}> = ({ packages, creatingId, onSelect }) => (
+  /** Hạn mức tháng, dùng làm mốc so sánh cho khách dễ hình dung */
+  allowance: number;
+}> = ({ packages, creatingId, onSelect, allowance }) => (
   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-    {packages.map((pkg) => (
-      <Card key={pkg.id} className={`p-5 flex flex-col ${pkg.isPopular ? 'border-brand-500/60' : ''}`}>
-        <h3 className="font-bold text-white">{pkg.name}</h3>
-        <p className="text-brand-500 font-bold text-lg mt-2">{formatNumber(pkg.totalTokens)} token</p>
-        <p className="text-[11px] text-gray-500 mt-1 flex-1">{pkg.description}</p>
+    {packages.map((pkg) => {
+      const ratio = allowance > 0 ? pkg.totalTokens / allowance : 0;
 
-        <Button
-          onClick={() => onSelect(pkg)}
-          isLoading={creatingId === `pkg-${pkg.id}`}
-          variant="secondary"
-          className="w-full mt-4 !rounded-xl !py-2.5 !text-sm"
-        >
-          Mua {formatVnd(pkg.priceVnd)}
-        </Button>
-      </Card>
-    ))}
+      return (
+        <Card key={pkg.id} className={`p-5 flex flex-col ${pkg.isPopular ? 'border-brand-500/60' : ''}`}>
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="font-bold text-white">{pkg.name}</h3>
+            {ratio > 0 && (
+              <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                {ratio >= 1 ? `${ratio}×` : `${Math.round(ratio * 100)}%`} hạn mức
+              </span>
+            )}
+          </div>
+
+          <p className="text-brand-500 font-bold text-lg mt-2">{formatNumber(pkg.totalTokens)} token</p>
+          <p className="text-[11px] text-gray-500 mt-1 flex-1">{pkg.description}</p>
+
+          <Button
+            onClick={() => onSelect(pkg)}
+            isLoading={creatingId === `pkg-${pkg.id}`}
+            variant="secondary"
+            className="w-full mt-4 !rounded-xl !py-2.5 !text-sm"
+          >
+            Mua {formatVnd(pkg.priceVnd)}
+          </Button>
+        </Card>
+      );
+    })}
   </div>
 );
 
