@@ -301,6 +301,7 @@ mốc x99.000đ nên đơn giá luôn xấp xỉ 2đ/token (đúng quy tắc bá
 
 | Gói | Token nhận | So với hạn mức tháng | Đơn giá |
 |---|---|---|---|
+| 99.000đ | 50.000 | 1/10 | 1,98đ/token |
 | 199.000đ | 100.000 | 1/5 | 1,99đ/token |
 | **499.000đ** | **250.000** | **1/2** | 2,00đ/token |
 | 999.000đ | 500.000 | bằng đúng | 2,00đ/token |
@@ -442,6 +443,31 @@ Tunnel để lấy một URL public.
 dạng `NAP` + 6 ký tự. Mọi ứng viên tìm được đều phải tồn tại thật trong bảng `orders` mới được
 dùng — chữ dính liền mã không thể làm cộng nhầm cho đơn khác. Giao dịch không khớp được vẫn
 lưu vào tab **Webhook ngân hàng** để admin duyệt tay.
+
+### Dùng workflow riêng thay cho webhook có sẵn
+
+Nếu bạn đã có hệ thống xử lý thanh toán riêng (n8n, Make, script...), **không cần** gọi API
+nào cả. Chỉ cần đổi trạng thái đơn trong database:
+
+```sql
+UPDATE orders SET status = 'paid' WHERE code = 'NAPXXXXXX';
+```
+
+Server tự phát hiện trong vòng `ORDER_SYNC_INTERVAL_SECONDS` (mặc định 20 giây) rồi làm nốt
+phần còn lại: kích hoạt gói thuê bao hoặc cộng token, ghi sổ cái, bù `paid_at`/`paid_source`
+cho báo cáo doanh thu. Workflow của bạn **không cần biết gì** về nghiệp vụ token.
+
+Cách này an toàn:
+
+- Cột `fulfilled_at` đánh dấu đơn đã giao hàng. Đơn chỉ được xử lý khi `status='paid'` **và**
+  `fulfilled_at IS NULL`, kiểm tra lại bên trong `SELECT ... FOR UPDATE`, nên chạy trùng hay
+  chạy song song đều không cộng token hai lần.
+- Đơn `cancelled` không bao giờ được giao hàng, dù có ai đó đổi nhầm.
+- Đơn được đánh dấu lúc server đang tắt sẽ được xử lý ngay khi server khởi động lại.
+
+> Đừng tự viết logic cộng token trong workflow. Toàn bộ nghiệp vụ (chu kỳ hạn mức tháng, sổ
+> cái, gia hạn nối tiếp) chỉ tồn tại một bản duy nhất trong server; viết thêm bản thứ hai là
+> nguồn gốc của sai lệch số liệu.
 
 ---
 

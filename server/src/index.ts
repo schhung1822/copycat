@@ -15,7 +15,7 @@ import { walletRouter } from './routes/wallet.routes.js';
 import { webhookRouter } from './routes/webhook.routes.js';
 import { seed } from './seed.js';
 import { recoverStaleGenerations } from './services/generationService.js';
-import { expireStaleOrders } from './services/orderService.js';
+import { expireStaleOrders, fulfillPaidOrders } from './services/orderService.js';
 import { expireStaleSubscriptions } from './services/subscriptionService.js';
 import { ensureStorage } from './services/storageService.js';
 
@@ -77,6 +77,18 @@ async function start(): Promise<void> {
   await seed();
   await ensureStorage();
   await recoverStaleGenerations();
+
+  // Xử lý ngay các đơn đã được đánh dấu 'paid' trong lúc server không chạy.
+  const recovered = await fulfillPaidOrders();
+  if (recovered > 0) console.log(`[khởi động] Đã xử lý ${recovered} đơn thanh toán còn tồn.`);
+
+  // Đối soát đơn do hệ thống ngoài đánh dấu đã thanh toán.
+  // Đây là đường để workflow bên ngoài chỉ cần UPDATE orders SET status='paid',
+  // server tự kích hoạt gói / cộng token.
+  const syncTimer = setInterval(() => {
+    void fulfillPaidOrders().catch((error) => console.error('[đối soát đơn]', error));
+  }, env.orderSyncIntervalSeconds * 1000);
+  syncTimer.unref();
 
   // Dọn đơn quá hạn và đánh dấu thuê bao hết hạn, mỗi 5 phút.
   // Hạn mức tháng KHÔNG reset ở đây — nó được cấp lại ngay lúc khách dùng tới,

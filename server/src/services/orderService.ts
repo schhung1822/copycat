@@ -38,6 +38,7 @@ export interface OrderRow extends RowDataPacket {
   payment_ref: string | null;
   paid_amount_vnd: number | null;
   paid_at: Date | null;
+  fulfilled_at: Date | null;
   approved_by: number | null;
   note: string | null;
   expires_at: Date | null;
@@ -264,46 +265,133 @@ export async function markOrderPaid(orderCode: string, input: MarkPaidInput): Pr
       [input.source, input.paymentRef ?? null, paidAmount, input.approvedBy ?? null, input.note ?? null, order.id],
     );
 
-    let subscriptionExpiresAt: Date | null = null;
-
-    if (order.order_type === 'subscription') {
-      // Gói tháng không cộng token vào ví; hạn mức được cấp theo chu kỳ tháng.
-      const plan = await queryOne<PlanRow>('SELECT * FROM subscription_plans WHERE id = ?', [order.plan_id]);
-      const activated = await activateSubscription(
-        conn,
-        order.user_id,
-        {
-          id: order.plan_id,
-          code: order.package_code,
-          name: order.package_name,
-          months: order.subscription_months ?? plan?.months ?? 1,
-          priceVnd: order.amount_vnd,
-          // Gói bị xoá khỏi bảng giá thì vẫn dùng được hạn mức mặc định 500.000.
-          allowance: plan?.monthly_token_allowance ?? 500_000,
-        },
-        order.id,
-      );
-      subscriptionExpiresAt = activated.expiresAt;
-    } else {
-      await creditPurchasedTokens(conn, {
-        userId: order.user_id,
-        amount: order.total_tokens,
-        type: 'topup',
-        refType: 'order',
-        refId: order.id,
-        description: `Mua thêm token · gói ${order.package_name} · đơn ${order.code}`,
-        createdBy: input.approvedBy ?? null,
-      });
-    }
-
-    await conn.query('UPDATE users SET total_topup_vnd = total_topup_vnd + ? WHERE id = ?', [
-      order.amount_vnd,
-      order.user_id,
-    ]);
+    const { subscriptionExpiresAt } = await fulfillOrder(conn, order, input.approvedBy ?? null);
 
     const [updated] = await conn.query<OrderRow[]>('SELECT * FROM orders WHERE id = ?', [order.id]);
     return { ok: true, order: updated[0], tokensCredited: order.total_tokens, subscriptionExpiresAt };
   });
+}
+
+/**
+ * "Giao hàng" cho một đơn đã thanh toán: kích hoạt gói tháng hoặc cộng token lẻ.
+ *
+ * Tách riêng khỏi `markOrderPaid` để cả hai đường vào đều dùng chung một bản
+ * nghiệp vụ: đường trong ứng dụng (webhook, admin duyệt) và đường đối soát cho
+ * các đơn bị hệ thống ngoài đổi `status` thẳng trong database.
+ *
+ * Bắt buộc gọi trong transaction đã khoá dòng đơn bằng FOR UPDATE.
+ */
+async function fulfillOrder(
+  conn: PoolConnection,
+  order: OrderRow,
+  approvedBy: number | null,
+): Promise<{ subscriptionExpiresAt: Date | null }> {
+  let subscriptionExpiresAt: Date | null = null;
+
+  if (order.order_type === 'subscription') {
+    // Gói tháng không cộng token vào ví; hạn mức được cấp theo chu kỳ tháng.
+    const [planRows] = await conn.query<PlanRow[]>('SELECT * FROM subscription_plans WHERE id = ?', [order.plan_id]);
+    const plan = planRows[0];
+    const activated = await activateSubscription(
+      conn,
+      order.user_id,
+      {
+        id: order.plan_id,
+        code: order.package_code,
+        name: order.package_name,
+        months: order.subscription_months ?? plan?.months ?? 1,
+        // Gói bị xoá khỏi bảng giá thì vẫn dùng được hạn mức mặc định 500.000.
+        priceVnd: order.amount_vnd,
+        allowance: plan?.monthly_token_allowance ?? 500_000,
+      },
+      order.id,
+    );
+    subscriptionExpiresAt = activated.expiresAt;
+  } else {
+    await creditPurchasedTokens(conn, {
+      userId: order.user_id,
+      amount: order.total_tokens,
+      type: 'topup',
+      refType: 'order',
+      refId: order.id,
+      description: `Mua thêm token · gói ${order.package_name} · đơn ${order.code}`,
+      createdBy: approvedBy,
+    });
+  }
+
+  await conn.query('UPDATE users SET total_topup_vnd = total_topup_vnd + ? WHERE id = ?', [
+    order.amount_vnd,
+    order.user_id,
+  ]);
+  await conn.query('UPDATE orders SET fulfilled_at = NOW() WHERE id = ?', [order.id]);
+
+  return { subscriptionExpiresAt };
+}
+
+/** Đảm bảo chỉ một lượt đối soát chạy tại một thời điểm. */
+let reconciling = false;
+
+/**
+ * Quét các đơn đã `paid` nhưng chưa được giao hàng rồi xử lý chúng.
+ *
+ * Đây là đường vào cho hệ thống ngoài: workflow của bạn chỉ cần
+ *
+ *     UPDATE orders SET status = 'paid' WHERE code = 'NAPXXXXXX';
+ *
+ * là xong. Server sẽ tự phát hiện, kích hoạt gói hoặc cộng token, ghi sổ cái và
+ * đánh dấu `fulfilled_at`. Không cần workflow biết gì về nghiệp vụ token.
+ *
+ * An toàn tuyệt đối với việc gọi trùng: mỗi đơn được khoá FOR UPDATE và chỉ xử lý
+ * khi `fulfilled_at` vẫn còn NULL, nên chạy song song hay chạy lại đều không cộng
+ * token hai lần.
+ */
+export async function fulfillPaidOrders(): Promise<number> {
+  if (reconciling) return 0;
+  reconciling = true;
+
+  try {
+    const pending = await query<OrderRow>(
+      `SELECT id FROM orders WHERE status = 'paid' AND fulfilled_at IS NULL ORDER BY id LIMIT 200`,
+    );
+
+    let done = 0;
+    for (const row of pending) {
+      try {
+        const processed = await withTransaction(async (conn) => {
+          const [locked] = await conn.query<OrderRow[]>('SELECT * FROM orders WHERE id = ? FOR UPDATE', [row.id]);
+          const order = locked[0];
+          // Kiểm tra lại bên trong khoá: một tiến trình khác có thể vừa xử lý xong.
+          if (!order || order.status !== 'paid' || order.fulfilled_at) return false;
+
+          // Hệ thống ngoài thường chỉ đổi mỗi `status`, bù các trường còn thiếu để
+          // báo cáo doanh thu theo ngày không bị sót đơn.
+          await conn.query(
+            `UPDATE orders
+                SET paid_at = COALESCE(paid_at, NOW()),
+                    paid_source = COALESCE(paid_source, 'external'),
+                    paid_amount_vnd = COALESCE(paid_amount_vnd, amount_vnd)
+              WHERE id = ?`,
+            [order.id],
+          );
+
+          await fulfillOrder(conn, order, null);
+          return true;
+        });
+
+        if (processed) {
+          done += 1;
+          console.log(`[đối soát] Đã xử lý đơn #${row.id} do hệ thống ngoài đánh dấu đã thanh toán.`);
+        }
+      } catch (error) {
+        // Một đơn lỗi không được làm chết cả lượt quét.
+        console.error(`[đối soát] Không xử lý được đơn #${row.id}:`, error);
+      }
+    }
+
+    return done;
+  } finally {
+    reconciling = false;
+  }
 }
 
 export async function cancelOrder(userId: number, orderId: number): Promise<void> {

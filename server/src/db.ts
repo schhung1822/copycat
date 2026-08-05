@@ -84,16 +84,17 @@ async function ensureColumn(
   table: string,
   column: string,
   definition: string,
-): Promise<void> {
+): Promise<boolean> {
   const [rows] = await conn.query<RowDataPacket[]>(
     `SELECT 1 FROM information_schema.columns
       WHERE table_schema = ? AND table_name = ? AND column_name = ? LIMIT 1`,
     [env.db.name, table, column],
   );
-  if (rows.length > 0) return;
+  if (rows.length > 0) return false;
 
   await conn.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
   console.log(`[migrate] Đã thêm cột ${table}.${column}`);
+  return true;
 }
 
 /** Nâng cấp cấu trúc cho những cài đặt đã chạy từ phiên bản trước. */
@@ -113,6 +114,19 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   );
   await ensureColumn(conn, 'orders', 'plan_id', 'INT UNSIGNED NULL');
   await ensureColumn(conn, 'orders', 'subscription_months', 'INT NULL');
+
+  // Đánh dấu đơn đã được giao hàng (cộng token / kích hoạt gói).
+  // Tách khỏi `status` để hệ thống ngoài chỉ cần đổi status = 'paid', phần giao
+  // hàng do server tự làm — xem `fulfillPaidOrders`.
+  const addedFulfilled = await ensureColumn(conn, 'orders', 'fulfilled_at', 'DATETIME NULL');
+  if (addedFulfilled) {
+    // Đơn đã thanh toán từ trước đều đã được xử lý bởi phiên bản cũ. Phải đánh
+    // dấu ngay, nếu không bộ đối soát sẽ cộng token cho chúng lần thứ hai.
+    const backfilled = await conn.query<ResultSetHeader>(
+      `UPDATE orders SET fulfilled_at = COALESCE(paid_at, updated_at, created_at) WHERE status = 'paid'`,
+    );
+    console.log(`[migrate] Đã đánh dấu ${backfilled[0].affectedRows} đơn cũ là đã xử lý.`);
+  }
 
   // Ảnh ghi rõ token lấy từ nguồn nào, để hoàn đúng nguồn khi lỗi
   await ensureColumn(conn, 'generations', 'monthly_cost', 'INT NOT NULL DEFAULT 0');

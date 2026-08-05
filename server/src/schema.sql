@@ -158,6 +158,10 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_ref     VARCHAR(190)    NULL,       -- mã giao dịch ngân hàng
   paid_amount_vnd BIGINT          NULL,       -- số tiền thực nhận
   paid_at         DATETIME        NULL,
+  -- Thời điểm đã GIAO HÀNG (cộng token / kích hoạt gói). Tách khỏi `status` để hệ
+  -- thống ngoài chỉ cần đổi status = 'paid', server tự phát hiện và xử lý phần còn
+  -- lại. NULL + status='paid' = đơn đang chờ giao hàng.
+  fulfilled_at    DATETIME        NULL,
   approved_by     BIGINT UNSIGNED NULL,       -- admin duyệt tay
   note            VARCHAR(500)    NULL,
   expires_at      DATETIME        NULL,

@@ -227,6 +227,7 @@ const SUBSCRIPTION_PLANS = [
  * làm tròn xuống mốc x99.000đ:
  *
  *   Gói          Token nhận              So với hạn mức tháng   Đơn giá
+ *   99.000đ      50.000                  1/10                   1,98đ/token
  *   199.000đ     100.000                 1/5                    1,99đ/token
  *   499.000đ     250.000                 1/2                    2,00đ/token
  *   999.000đ     500.000                 bằng đúng              2,00đ/token
@@ -235,6 +236,16 @@ const SUBSCRIPTION_PLANS = [
  * Token mua thêm KHÔNG hết hạn theo chu kỳ tháng.
  */
 const TOKEN_PACKAGES = [
+  {
+    code: 'EXTRA_99',
+    name: 'Gói 99.000đ',
+    price_vnd: 99_000,
+    base_tokens: MONTHLY_TOKEN_ALLOWANCE / 10,
+    bonus_tokens: 0,
+    description: 'Bằng 1/10 hạn mức một tháng — mua nhanh khi sắp cạn.',
+    is_popular: 0,
+    sort_order: 5,
+  },
   {
     code: 'EXTRA_199',
     name: 'Gói 199.000đ',

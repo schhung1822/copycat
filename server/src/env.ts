@@ -76,6 +76,11 @@ export const env = {
   },
   orderPrefix: str('ORDER_PREFIX', 'NAP').toUpperCase().replace(/[^A-Z]/g, '') || 'NAP',
   orderExpireMinutes: num('ORDER_EXPIRE_MINUTES', 60),
+  /**
+   * Chu kỳ quét các đơn được hệ thống ngoài đánh dấu đã thanh toán (giây).
+   * Càng nhỏ thì gói được kích hoạt càng nhanh sau khi workflow ghi vào DB.
+   */
+  orderSyncIntervalSeconds: Math.max(num('ORDER_SYNC_INTERVAL_SECONDS', 20), 5),
 
   sepayApiKey: str('SEPAY_WEBHOOK_API_KEY'),
   cassoSecureToken: str('CASSO_WEBHOOK_SECURE_TOKEN'),
