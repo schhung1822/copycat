@@ -116,6 +116,43 @@ HOST=127.0.0.1
 > SSL. (Ứng dụng có sẵn cơ chế dự phòng bằng header `Authorization` nên vẫn đăng nhập được,
 > nhưng cứ cấu hình đúng thì hơn.)
 
+### ⚠️ Trên VPS đừng chạy `npm run dev`
+
+`npm run dev` là chế độ phát triển: nó bật **hai** tiến trình (Vite ở cổng 3000 + API ở cổng
+4000), tự nạp lại khi sửa mã, và chậm hơn nhiều. Trên máy chủ thật chỉ chạy `npm start` —
+một tiến trình duy nhất ở cổng `PORT`, phục vụ cả API lẫn giao diện đã build.
+
+Chạy `npm run dev` nhiều lần rồi đóng terminal sẽ để lại một đống tiến trình mồ côi giữ cổng.
+Khi đó Vite tự nhảy sang 3001, 3002... còn API thì báo "Cổng 4000 đang bị chiếm", và nginx
+vẫn trỏ vào cổng cũ đang bị một tiến trình treo giữ → **502**.
+
+### Dọn sạch tiến trình cũ rồi chạy lại
+
+```bash
+# 1. Xem đang có gì chiếm cổng
+pm2 list
+ss -tlnp | grep -E ':(3000|3001|3002|4000)'
+
+# 2. Dọn hết
+pm2 delete all
+pkill -f "server/src/index.ts"
+pkill -f "tsx watch"
+pkill -f vite
+
+# 3. Xác nhận đã sạch — lệnh này không in ra gì là đúng
+ss -tlnp | grep -E ':(3000|4000)'
+
+# 4. Chạy đúng chế độ production
+npm install
+npm run build
+pm2 start npm --name copycat -- start
+pm2 save
+
+# 5. Kiểm tra
+pm2 logs copycat --lines 30
+curl -i http://127.0.0.1:4000/api/health
+```
+
 ### Gặp lỗi 502 Bad Gateway — kiểm tra theo thứ tự
 
 502 luôn có nghĩa là **nginx chạy bình thường nhưng không gọi được vào tiến trình Node**.

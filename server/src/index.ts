@@ -83,16 +83,18 @@ async function start(): Promise<void> {
   }, 5 * 60 * 1000);
   cleanupTimer.unref();
 
+  // In trước khi mở cổng, để thông tin này vẫn hiện ra kể cả khi bind thất bại.
+  if (fs.existsSync(distDir)) {
+    console.log('[khởi động] Đã tìm thấy thư mục dist/, server phục vụ luôn giao diện web.');
+  } else {
+    console.warn(
+      '[khởi động] KHÔNG thấy thư mục dist/. Truy cập thẳng vào cổng này sẽ chỉ nhận JSON 404.\n' +
+        '            Chạy `npm run build` nếu đây là môi trường chạy thật, hoặc `npm run dev` nếu đang phát triển.',
+    );
+  }
+
   const server = app.listen(env.port, env.host, () => {
     console.log(`[khởi động] API đang lắng nghe tại ${env.host}:${env.port}`);
-    if (fs.existsSync(distDir)) {
-      console.log('[khởi động] Đã tìm thấy thư mục dist/, server phục vụ luôn giao diện web.');
-    } else {
-      console.warn(
-        '[khởi động] KHÔNG thấy thư mục dist/. Truy cập thẳng vào cổng này sẽ chỉ nhận JSON 404.\n' +
-          '            Chạy `npm run build` nếu đây là môi trường chạy thật, hoặc `npm run dev` nếu đang phát triển.',
-      );
-    }
   });
 
   // Không có handler thì lỗi bind cổng sẽ ném ra dạng stack trace khó đọc.
@@ -100,8 +102,13 @@ async function start(): Promise<void> {
     if (error.code === 'EADDRINUSE') {
       console.error(
         `\n[khởi động thất bại] Cổng ${env.port} đang bị tiến trình khác chiếm.\n` +
-          `  • Có thể server đã chạy sẵn rồi (kiểm tra: pm2 list  hoặc  lsof -i :${env.port}).\n` +
-          `  • Hoặc đổi sang cổng khác bằng biến PORT trong file .env.`,
+          '  Gần như luôn là do một bản server cũ vẫn còn chạy. Xem nó là ai:\n' +
+          `      ss -tlnp | grep :${env.port}\n` +
+          '      pm2 list\n' +
+          '  Dọn sạch rồi chạy lại:\n' +
+          '      pm2 delete all\n' +
+          '      pkill -f "server/src/index.ts"\n' +
+          '  Nếu muốn chạy song song nhiều bản, đổi PORT trong file .env.',
       );
     } else if (error.code === 'EACCES') {
       console.error(
