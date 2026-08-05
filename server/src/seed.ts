@@ -365,6 +365,7 @@ export async function seed(): Promise<void> {
 
   await syncAdminRoles();
   await bootstrapAdminAccount();
+  await warnUnpricedModels();
 }
 
 /**
@@ -412,6 +413,36 @@ async function migratePricingToCostUnits(): Promise<void> {
   );
   if (retired.affectedRows > 0) {
     console.log(`[seed] Đã ngừng bán ${retired.affectedRows} gói token đời cũ.`);
+  }
+
+  // Nano Banana 2 Lite từng bị chèn vào DB khi câu INSERT chưa có cột is_active,
+  // nên nó mặc định bật bán với giá vốn 0 và số token đặt tạm — bán như vậy là
+  // bán mù, không biết lãi lỗ. Chỉ tắt khi dòng vẫn giữ nguyên giá trị đặt tạm;
+  // nếu admin đã điền giá thật thì tôn trọng quyết định đó.
+  const liteOff = await execute(
+    `UPDATE model_pricing SET is_active = 0
+      WHERE code = 'nano-banana-2-lite' AND api_cost_usd = 0 AND token_cost = 700 AND is_active = 1`,
+  );
+  if (liteOff.affectedRows > 0) {
+    console.log('[seed] Đã tắt bán Nano Banana 2 Lite (chưa có giá vốn thật).');
+  }
+}
+
+/**
+ * Cảnh báo model đang bán mà chưa khai giá vốn.
+ *
+ * Không có giá vốn thì không tính được lãi lỗ và báo cáo biên lợi nhuận sẽ sai,
+ * nên đây luôn là dấu hiệu cấu hình thiếu chứ không phải chủ ý.
+ */
+async function warnUnpricedModels(): Promise<void> {
+  const rows = await query<RowDataPacket & { code: string; label: string }>(
+    'SELECT code, label FROM model_pricing WHERE is_active = 1 AND api_cost_usd <= 0',
+  );
+  for (const row of rows) {
+    console.warn(
+      `[cấu hình] Model "${row.label}" (${row.code}) đang BÁN nhưng giá vốn = 0. ` +
+        'Vào Quản trị → Bảng giá điền giá vốn thật, nếu không báo cáo lợi nhuận sẽ sai.',
+    );
   }
 }
 
