@@ -35,6 +35,11 @@ export const env = {
   nodeEnv: str('NODE_ENV', 'development'),
   isProd: str('NODE_ENV', 'development') === 'production',
   port: num('PORT', 4000),
+  /**
+   * Địa chỉ lắng nghe. Khi chạy sau nginx trên VPS nên đặt HOST=127.0.0.1 để cổng
+   * Node không lộ ra Internet. Mặc định 0.0.0.0 cho tiện lúc chạy thử.
+   */
+  host: str('HOST', '0.0.0.0'),
   appUrl: str('APP_URL', 'http://localhost:3000'),
 
   db: {

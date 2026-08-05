@@ -56,6 +56,103 @@ npm start       # Express phục vụ cả API lẫn web tĩnh tại cổng PORT
 
 ---
 
+## 1b. Deploy lên VPS
+
+### Thứ tự bắt buộc
+
+```bash
+git clone https://github.com/schhung1822/copycat.git
+cd copycat
+
+cp .env.example .env && nano .env      # điền DB, JWT_SECRET, ADMIN_EMAILS, KIE_API_KEY...
+
+npm install                            # KHÔNG dùng --omit=dev ở bước này (cần vite để build)
+npm run build                          # BẮT BUỘC — thiếu bước này web sẽ không hiện
+
+npm i -g pm2
+pm2 start npm --name copycat -- start
+pm2 save && pm2 startup                # để tự chạy lại sau khi VPS khởi động lại
+```
+
+Chạy `npm start` trực tiếp trong SSH thì tiến trình sẽ **chết ngay khi bạn đóng terminal** —
+đây là nguyên nhân 502 phổ biến nhất. Luôn dùng pm2 (hoặc systemd).
+
+### Cấu hình nginx
+
+Cổng trong `proxy_pass` phải **trùng với `PORT` trong `.env`** (mặc định 4000):
+
+```nginx
+server {
+    listen 80;
+    server_name tenmien-cua-ban.com;
+
+    client_max_body_size 50M;          # ảnh gửi lên dạng base64, mặc định 1M của nginx là không đủ
+
+    location / {
+        proxy_pass http://127.0.0.1:4000;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout 300s;       # tạo ảnh 4K có thể mất vài phút
+    }
+}
+```
+
+Sau đó bật HTTPS: `sudo certbot --nginx -d tenmien-cua-ban.com`.
+
+Khi đã có HTTPS thì đặt trong `.env`:
+
+```env
+NODE_ENV=production
+APP_URL=https://tenmien-cua-ban.com
+HOST=127.0.0.1
+```
+
+> `NODE_ENV=production` bật cờ `secure` cho cookie đăng nhập, nghĩa là cookie **chỉ hoạt động
+> qua HTTPS**. Nếu site còn chạy HTTP thuần, cứ để `NODE_ENV=development` cho tới khi cài xong
+> SSL. (Ứng dụng có sẵn cơ chế dự phòng bằng header `Authorization` nên vẫn đăng nhập được,
+> nhưng cứ cấu hình đúng thì hơn.)
+
+### Gặp lỗi 502 Bad Gateway — kiểm tra theo thứ tự
+
+502 luôn có nghĩa là **nginx chạy bình thường nhưng không gọi được vào tiến trình Node**.
+Nginx không phải thủ phạm, hãy soi tiến trình Node trước:
+
+```bash
+# 1. Node còn sống không?
+pm2 list
+pm2 logs copycat --lines 50        # ĐÂY LÀ CHỖ QUAN TRỌNG NHẤT — lỗi thật nằm ở đây
+
+# 2. Có thật sự đang nghe ở cổng đó không?
+ss -tlnp | grep node
+
+# 3. Gọi thẳng vào Node, bỏ qua nginx
+curl -i http://127.0.0.1:4000/api/health
+```
+
+| Kết quả bước 3 | Nghĩa là | Cách xử lý |
+|---|---|---|
+| `{"ok":true,...}` | Node ổn, lỗi nằm ở nginx | Sửa cổng trong `proxy_pass` cho khớp `PORT`; `nginx -t && systemctl reload nginx` |
+| `Connection refused` | Node không chạy hoặc sai cổng | Xem `pm2 logs`, đối chiếu `PORT` trong `.env` |
+| Treo, không trả lời | Node bị chặn bởi tường lửa nội bộ | Trên CentOS/RHEL: `setsebool -P httpd_can_network_connect 1` |
+
+Các nguyên nhân hay gặp nhất, theo thứ tự:
+
+1. **Tiến trình đã chết** — chạy `npm start` trong SSH rồi đóng terminal. Dùng pm2.
+2. **Không kết nối được MySQL** — sai `DB_PASSWORD`, hoặc MySQL chưa chạy. Server sẽ thoát ngay
+   khi khởi động và in rõ lý do trong `pm2 logs`.
+3. **Cổng lệch nhau** — nginx trỏ vào 3000 nhưng `PORT=4000` (hoặc ngược lại).
+4. **Thiếu `.env`** — server dùng giá trị mặc định, không nối được DB rồi thoát.
+5. **Cài thiếu package** — nếu đã lỡ chạy `npm install --omit=dev`, chạy lại `npm install`.
+
+Toàn bộ lỗi khởi động đều được in bằng tiếng Việt kèm hướng khắc phục, nên `pm2 logs copycat`
+gần như luôn chỉ thẳng ra vấn đề.
+
+---
+
 ## 2. Tài khoản admin
 
 Quyền admin **chỉ điều khiển bằng `.env`**, không sửa được từ giao diện:

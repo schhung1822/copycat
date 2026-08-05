@@ -83,11 +83,35 @@ async function start(): Promise<void> {
   }, 5 * 60 * 1000);
   cleanupTimer.unref();
 
-  const server = app.listen(env.port, () => {
-    console.log(`[khởi động] API đang chạy tại http://localhost:${env.port}`);
-    if (!fs.existsSync(distDir)) {
-      console.log('[khởi động] Chạy `npm run dev` ở terminal khác để mở giao diện tại http://localhost:3000');
+  const server = app.listen(env.port, env.host, () => {
+    console.log(`[khởi động] API đang lắng nghe tại ${env.host}:${env.port}`);
+    if (fs.existsSync(distDir)) {
+      console.log('[khởi động] Đã tìm thấy thư mục dist/, server phục vụ luôn giao diện web.');
+    } else {
+      console.warn(
+        '[khởi động] KHÔNG thấy thư mục dist/. Truy cập thẳng vào cổng này sẽ chỉ nhận JSON 404.\n' +
+          '            Chạy `npm run build` nếu đây là môi trường chạy thật, hoặc `npm run dev` nếu đang phát triển.',
+      );
     }
+  });
+
+  // Không có handler thì lỗi bind cổng sẽ ném ra dạng stack trace khó đọc.
+  server.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(
+        `\n[khởi động thất bại] Cổng ${env.port} đang bị tiến trình khác chiếm.\n` +
+          `  • Có thể server đã chạy sẵn rồi (kiểm tra: pm2 list  hoặc  lsof -i :${env.port}).\n` +
+          `  • Hoặc đổi sang cổng khác bằng biến PORT trong file .env.`,
+      );
+    } else if (error.code === 'EACCES') {
+      console.error(
+        `\n[khởi động thất bại] Không có quyền mở cổng ${env.port}.\n` +
+          '  Cổng dưới 1024 cần quyền root. Hãy dùng cổng lớn hơn (vd 4000) rồi cho nginx trỏ vào.',
+      );
+    } else {
+      console.error('\n[khởi động thất bại]', error.message);
+    }
+    process.exit(1);
   });
 
   const shutdown = async (signal: string) => {
