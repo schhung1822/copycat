@@ -295,10 +295,10 @@ const PlanGrid: React.FC<{
                   return (
                     <>
                       <p className="text-brand-500 font-bold text-xl leading-tight">
-                        Tặng {formatNumber(perMonth)} ảnh/tháng
+                        Miễn phí {formatNumber(perMonth)} ảnh
                       </p>
                       <p className="text-[11px] text-gray-500 mt-1">
-                        Tối đa có thể tạo {formatNumber(perMonth * plan.months)} ảnh
+                        Thống kê ảnh có độ phân giải 2K
                       </p>
                     </>
                   );
@@ -323,8 +323,8 @@ const PlanGrid: React.FC<{
 
       {referenceModel && (
         <p className="text-[11px] text-gray-600 mt-3">
-          Số ảnh tính theo <strong className="text-gray-500">{referenceModel.label}</strong> (
-          {formatNumber(referenceModel.tokenCost)} token/ảnh) và đã làm tròn xuống cho gọn — hạn mức thực tế còn dư ra
+          Số ảnh tính theo <strong className="text-gray-500">Nano Banana 2</strong> (
+          {formatNumber(referenceModel.tokenCost)} token/ảnh) — hạn mức thực tế còn dư ra
           một chút. Chọn ảnh 1K sẽ được nhiều ảnh hơn, chọn 4K thì ít hơn; xem bảng token tiêu hao bên dưới. Hạn mức
           tính theo từng tháng và không cộng dồn.
         </p>
@@ -530,7 +530,9 @@ const PaymentPanel: React.FC<{
 
 /** Bảng token tiêu hao mỗi ảnh, để khách ước lượng hạn mức dùng được bao nhiêu ảnh. */
 const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
-  const allowance = catalog.plans[0]?.monthlyTokenAllowance ?? 0;
+  // Các gói có thể có hạn mức khác nhau, nên phải nói rõ bảng đang tính theo gói nào.
+  const basePlan = catalog.plans[0] ?? null;
+  const allowance = basePlan?.monthlyTokenAllowance ?? 0;
 
   return (
     <div>
@@ -541,6 +543,7 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
             <tr className="text-[11px] uppercase tracking-wider text-gray-500 border-b border-dark-800">
               <th className="text-left font-bold py-2">Model</th>
               <th className="text-left font-bold py-2">Chất lượng</th>
+              <th className="text-right font-bold py-2">Token / ảnh</th>
               <th className="text-right font-bold py-2">Số ảnh trong hạn mức tháng</th>
             </tr>
           </thead>
@@ -549,6 +552,7 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
               <tr key={model.code} className="border-b border-dark-850 last:border-0">
                 <td className="py-2.5 text-gray-300">{model.label.split('—')[0].trim()}</td>
                 <td className="py-2.5 text-gray-400">{model.resolution}</td>
+                <td className="py-2.5 text-right text-brand-500 font-semibold">{formatNumber(model.tokenCost)}</td>
                 <td className="py-2.5 text-right text-gray-500 text-xs">
                   {model.tokenCost > 0 ? `~${formatNumber(Math.floor(allowance / model.tokenCost))} ảnh` : '—'}
                 </td>
@@ -557,7 +561,9 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
           </tbody>
         </TableWrap>
         <p className="text-[11px] text-gray-600 mt-3">
-          Cột cuối tính trên hạn mức {formatNumber(allowance)} token/tháng nếu chỉ dùng một loại ảnh duy nhất.
+          Cột cuối tính trên hạn mức {formatNumber(allowance)} token/tháng
+          {basePlan && ` của ${basePlan.name}`}, nếu chỉ dùng một loại ảnh duy nhất. Gói có hạn mức cao hơn thì số ảnh
+          tăng tương ứng.
         </p>
       </Card>
     </div>
