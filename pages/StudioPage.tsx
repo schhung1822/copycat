@@ -285,6 +285,7 @@ export const StudioPage: React.FC = () => {
             images={refImages}
             onImagesChange={setRefImages}
             allowMultiple
+            max={8}
           />
 
           <div className="flex justify-center text-dark-700">
@@ -295,10 +296,11 @@ export const StudioPage: React.FC = () => {
 
           <ImageUploadBox
             label="2. Ảnh sản phẩm"
-            subText="Tối đa 3 ảnh. AI sẽ đưa sản phẩm vào thiết kế."
+            subText="AI sẽ đưa sản phẩm của bạn vào thiết kế."
             images={prodImages}
             onImagesChange={setProdImages}
             allowMultiple
+            max={3}
           />
           {prodImages.length > 3 && (
             <p className="text-[11px] text-amber-400 -mt-3">Chỉ 3 ảnh sản phẩm đầu tiên được sử dụng.</p>

@@ -8,14 +8,17 @@ interface ImageUploadBoxProps {
   onImagesChange: (images: ImageState[]) => void;
   subText?: string;
   allowMultiple?: boolean;
+  /** Số ảnh tối đa được dùng — chỉ để hiển thị "n/max", không chặn người dùng chọn thêm */
+  max?: number;
 }
 
-export const ImageUploadBox: React.FC<ImageUploadBoxProps> = ({ 
-  label, 
-  images, 
-  onImagesChange, 
+export const ImageUploadBox: React.FC<ImageUploadBoxProps> = ({
+  label,
+  images,
+  onImagesChange,
   subText,
-  allowMultiple = true
+  allowMultiple = true,
+  max,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -96,6 +99,10 @@ export const ImageUploadBox: React.FC<ImageUploadBoxProps> = ({
     inputRef.current?.click();
   };
 
+  // Kéo thả và focus bàn phím dùng chung một kiểu nổi bật, cho trạng thái nhất quán.
+  const isHighlighted = isDragging || isFocused;
+  const overLimit = max !== undefined && images.length > max;
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -123,16 +130,28 @@ export const ImageUploadBox: React.FC<ImageUploadBoxProps> = ({
       onBlur={() => setIsFocused(false)}
       onPaste={handlePasteEvent}
     >
-      <div className="flex justify-between items-center">
-        <label 
-          className="text-sm font-bold text-gray-300 uppercase tracking-wider cursor-pointer select-none"
+      <div className="flex justify-between items-center gap-2">
+        <label
+          className="flex items-center gap-2 text-sm font-semibold text-gray-200 cursor-pointer select-none min-w-0"
           onClick={() => containerRef.current?.focus()}
         >
-          {label} <span className="text-brand-500">({images.length})</span>
+          <span className="truncate">{label}</span>
+          {/* Chỉ hiện số khi đã có ảnh — "(0)" đỏ chót lúc trống vừa thừa vừa chói */}
+          {images.length > 0 && (
+            <span
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                overLimit ? 'bg-amber-500/15 text-amber-400' : 'bg-brand-500/10 text-brand-500'
+              }`}
+            >
+              {images.length}
+              {max ? `/${max}` : ''}
+            </span>
+          )}
         </label>
-        <button 
+
+        <button
           onClick={handlePasteButtonClick}
-          className="text-xs bg-dark-700 hover:bg-dark-600 text-gray-100 px-2 py-1 rounded flex items-center gap-1 transition-colors"
+          className="text-[11px] text-gray-500 hover:text-brand-500 px-2 py-1 rounded-lg hover:bg-dark-850 flex items-center gap-1 transition-colors shrink-0"
           title="Dán từ Clipboard (hoặc nhấn Ctrl+V)"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -141,43 +160,75 @@ export const ImageUploadBox: React.FC<ImageUploadBoxProps> = ({
           Dán ảnh
         </button>
       </div>
-      
-      {/* Upload Area */}
+
+      {/* Vùng tải ảnh */}
       {images.length === 0 ? (
-        <div 
-          className={`
-            relative border-2 border-dashed rounded-xl h-48 flex flex-col items-center justify-center
-            transition-all duration-300 cursor-pointer overflow-hidden group
-            ${isDragging ? 'border-brand-500 bg-brand-500/10' : 'border-gray-700 hover:border-gray-500 hover:bg-dark-800'}
-            ${isFocused ? 'bg-dark-800/50 border-gray-600' : ''}
-          `}
+        <div
+          className={`relative border-2 border-dashed rounded-2xl h-36 flex flex-col items-center justify-center
+            transition-colors cursor-pointer overflow-hidden group
+            ${
+              isHighlighted
+                ? 'border-brand-500 bg-brand-500/5'
+                : 'border-dark-700 hover:border-dark-600 hover:bg-dark-850'
+            }`}
           onClick={triggerUpload}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-           <div className="text-center p-6 pointer-events-none">
-            <svg xmlns="http://www.w3.org/2000/svg" className={`h-10 w-10 mx-auto mb-2 transition-colors ${isFocused ? 'text-brand-500' : 'text-gray-500 group-hover:text-brand-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <p className="text-gray-300 font-medium text-sm">Nhấn, kéo thả hoặc <span className="text-brand-500 font-bold">Ctrl+V</span></p>
-            {subText && <p className="text-xs text-gray-500 mt-1">{subText}</p>}
+          <div className="text-center px-5 pointer-events-none">
+            <div
+              className={`w-11 h-11 rounded-xl mx-auto mb-2.5 flex items-center justify-center transition-colors ${
+                isHighlighted ? 'bg-brand-500/15 text-brand-500' : 'bg-dark-850 text-gray-500 group-hover:text-brand-500'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+
+            {isDragging ? (
+              <p className="text-brand-500 font-semibold text-sm">Thả ảnh vào đây</p>
+            ) : (
+              <p className="text-gray-300 text-sm">
+                Nhấn, kéo thả hoặc{' '}
+                <kbd className="px-1.5 py-0.5 rounded bg-dark-800 border border-dark-700 text-[10px] font-bold text-gray-300 align-middle">
+                  Ctrl+V
+                </kbd>
+              </p>
+            )}
+            {subText && !isDragging && <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed">{subText}</p>}
           </div>
         </div>
       ) : (
-        <div className={`bg-dark-800 p-3 rounded-xl border ${isFocused ? 'border-brand-500' : 'border-dark-700'} transition-colors`}>
-           {/* Grid for multiple images */}
-          <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+        <div
+          className={`rounded-2xl border p-2.5 transition-colors ${
+            isHighlighted ? 'border-brand-500 bg-brand-500/5' : 'border-dark-800 bg-dark-850'
+          }`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-0.5 custom-scrollbar">
             {images.map((img, idx) => (
-              <div key={idx} className="relative aspect-[3/4] group rounded-lg overflow-hidden border border-gray-700">
-                <img 
-                  src={img.previewUrl || ''} 
-                  alt={`Upload ${idx}`} 
-                  className="w-full h-full object-cover"
-                />
-                <button 
-                  onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
-                  className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+              <div
+                key={idx}
+                className="relative aspect-square group rounded-xl overflow-hidden border border-dark-700 bg-dark-800"
+              >
+                <img src={img.previewUrl || ''} alt={`Ảnh ${idx + 1}`} className="w-full h-full object-cover" />
+
+                {/* Số thứ tự: ảnh mẫu đầu tiên là ảnh AI học bố cục, biết thứ tự là có ích */}
+                <span className="absolute bottom-1 left-1 text-[9px] font-bold text-white bg-black/60 rounded px-1.5 py-0.5">
+                  {idx + 1}
+                </span>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeImage(idx);
+                  }}
+                  className="absolute top-1 right-1 bg-black/60 hover:bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all"
+                  title="Xoá ảnh này"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -185,16 +236,16 @@ export const ImageUploadBox: React.FC<ImageUploadBoxProps> = ({
                 </button>
               </div>
             ))}
-            {/* Add More Button */}
-            <div 
+
+            <button
               onClick={triggerUpload}
-              className="aspect-[3/4] border border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-dark-700 hover:border-brand-500 transition-colors"
+              className="aspect-square border border-dashed border-dark-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-dark-800 hover:border-brand-500 hover:text-brand-500 text-gray-500 transition-colors"
             >
-               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              <span className="text-[10px] text-gray-400 mt-1">Thêm</span>
-            </div>
+              <span className="text-[10px] mt-1">Thêm</span>
+            </button>
           </div>
         </div>
       )}
