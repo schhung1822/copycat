@@ -243,3 +243,60 @@ export async function creditPurchasedTokens(
 
 export const creditPurchasedStandalone = (input: Parameters<typeof creditPurchasedTokens>[1]) =>
   withTransaction((conn) => creditPurchasedTokens(conn, input));
+
+/**
+ * Cộng / trừ **hạn mức tháng** thủ công (thao tác admin).
+ *
+ * Tách riêng khỏi `creditPurchasedTokens` vì hai nguồn có ý nghĩa khác hẳn nhau:
+ * hạn mức tháng bị xoá khi sang chu kỳ mới, còn token mua thêm là tiền thật khách
+ * đã trả. Cộng nhầm nguồn là hoặc cho không khách một khoản không bao giờ mất hạn,
+ * hoặc thu hồi mất tiền khách đã mua.
+ *
+ * Chặn vượt trần `monthly_allowance`: cấp quá hạn mức của gói thì con số trên giao
+ * diện khách ("còn 700.000 / 500.000") vô nghĩa, và sang chu kỳ sau phần dư biến mất
+ * không dấu vết. Muốn cho khách nhiều hơn thì nâng hạn mức của gói, hoặc cộng vào
+ * nguồn token mua thêm.
+ */
+export async function adjustMonthlyTokens(
+  conn: PoolConnection,
+  input: {
+    userId: number;
+    amount: number;
+    description?: string | null;
+    createdBy?: number | null;
+  },
+): Promise<{ balanceAfter: number; ledgerId: number }> {
+  const { userId, amount } = input;
+  if (!Number.isInteger(amount) || amount === 0) throw badRequest('Số token không hợp lệ.');
+
+  const state = await lockAccountState(conn, userId);
+  const balanceAfter = state.monthlyTokens + amount;
+
+  if (balanceAfter < 0) {
+    throw new AppError(
+      402,
+      `Không đủ hạn mức tháng để trừ. Hiện còn ${state.monthlyTokens.toLocaleString('vi-VN')}, ` +
+        `cần trừ ${Math.abs(amount).toLocaleString('vi-VN')}.`,
+      'insufficient_tokens',
+    );
+  }
+  if (balanceAfter > state.monthlyAllowance) {
+    throw badRequest(
+      `Hạn mức tháng không được vượt quá ${state.monthlyAllowance.toLocaleString('vi-VN')} token của gói. ` +
+        'Hãy nâng hạn mức của gói, hoặc cộng vào nguồn token mua thêm.',
+    );
+  }
+
+  await conn.query('UPDATE users SET monthly_tokens = ? WHERE id = ?', [balanceAfter, userId]);
+  const ledgerId = await writeLedger(conn, {
+    userId,
+    type: 'adjust',
+    bucket: 'monthly',
+    amount,
+    balanceAfter,
+    description: input.description ?? null,
+    createdBy: input.createdBy ?? null,
+  });
+
+  return { balanceAfter, ledgerId };
+}

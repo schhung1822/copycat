@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import { execute, query, queryOne, withTransaction, type RowDataPacket } from '../db.js';
 import { env } from '../env.js';
-import { requireAdmin } from '../lib/auth.js';
+import { hashPassword, isAdminEmail, requireAdmin } from '../lib/auth.js';
 import { asyncHandler, badRequest, notFound } from '../lib/errors.js';
-import { optionalString, parsePaging, requireInt, requireString } from '../lib/validate.js';
+import { optionalString, parsePaging, requireEmail, requireInt, requireString } from '../lib/validate.js';
 import { providerStatus } from '../providers/index.js';
 import { queueStatus, serializeGeneration, type GenerationRow, type ModelPricingRow } from '../services/generationService.js';
 import { markOrderPaid, serializeOrder, type OrderRow, type PackageRow } from '../services/orderService.js';
-import { expireStaleSubscriptions, type PlanRow } from '../services/subscriptionService.js';
-import { creditPurchasedTokens } from '../services/tokenService.js';
+import { expireStaleSubscriptions, lockAccountState, type PlanRow } from '../services/subscriptionService.js';
+import { adjustMonthlyTokens, creditPurchasedTokens } from '../services/tokenService.js';
 
 export const adminRouter = Router();
 
@@ -281,13 +281,17 @@ adminRouter.get(
     const params = search ? [`%${search}%`, `%${search}%`, `%${search}%`] : [];
 
     const rows = await query<RowDataPacket & Record<string, any>>(
-      `SELECT id, email, full_name, phone, role, status, token_balance, total_topup_vnd,
-              total_tokens_in, total_tokens_out, last_login_at, created_at
-         FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
+      `SELECT u.id, u.email, u.full_name, u.phone, u.role, u.status, u.token_balance,
+              u.subscription_expires_at, u.monthly_allowance, u.monthly_tokens, u.monthly_period_end,
+              u.total_topup_vnd, u.total_tokens_in, u.total_tokens_out, u.last_login_at, u.created_at,
+              (SELECT s.plan_name FROM subscriptions s
+                 WHERE s.user_id = u.id AND s.status <> 'cancelled'
+                 ORDER BY s.id DESC LIMIT 1) AS plan_name
+         FROM users u ${where} ORDER BY u.id DESC LIMIT ? OFFSET ?`,
       [...params, limit, offset],
     );
     const total = await queryOne<RowDataPacket & { total: number }>(
-      `SELECT COUNT(*) AS total FROM users ${where}`,
+      `SELECT COUNT(*) AS total FROM users u ${where}`,
       params,
     );
 
@@ -299,7 +303,15 @@ adminRouter.get(
         phone: row.phone,
         role: row.role,
         status: row.status,
-        tokenBalance: num(row.token_balance),
+        // Số dư hiển thị gộp cả hai nguồn, nhưng vẫn trả riêng từng nguồn vì thao
+        // tác cộng/trừ của admin phải chọn đúng nguồn.
+        tokenBalance: num(row.token_balance) + num(row.monthly_tokens),
+        purchasedTokens: num(row.token_balance),
+        monthlyTokens: num(row.monthly_tokens),
+        monthlyAllowance: num(row.monthly_allowance),
+        monthlyPeriodEnd: row.monthly_period_end,
+        subscriptionExpiresAt: row.subscription_expires_at,
+        planName: row.plan_name ?? null,
         totalTopupVnd: num(row.total_topup_vnd),
         tokensIn: num(row.total_tokens_in),
         tokensOut: num(row.total_tokens_out),
@@ -313,20 +325,146 @@ adminRouter.get(
   }),
 );
 
-/** Khoá / mở khoá tài khoản. Quyền admin điều khiển bằng .env nên không sửa ở đây. */
+/**
+ * Đọc một trường tuỳ chọn: bỏ qua nếu client không gửi, nhưng cho phép gửi `null`
+ * để xoá giá trị. Phân biệt "không đụng tới" và "xoá đi" là bắt buộc — nếu không,
+ * form chỉ sửa số điện thoại sẽ vô tình xoá luôn ngày hết hạn gói.
+ */
+const hasField = (body: Record<string, unknown>, field: string) => Object.hasOwn(body, field);
+
+/** Chuỗi ISO từ input datetime-local → Date, hoặc null để xoá. */
+function optionalDate(body: Record<string, unknown>, field: string, label: string): Date | null {
+  const value = body[field];
+  if (value === null || value === '') return null;
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) throw badRequest(`${label} không phải ngày giờ hợp lệ.`);
+  return parsed;
+}
+
+/**
+ * Sửa thông tin khách hàng.
+ *
+ * Chỉ những trường có mặt trong body mới bị đụng tới, nên gọi với đúng
+ * `{ status }` (như nút Khoá/Mở) vẫn chạy như cũ.
+ *
+ * KHÔNG sửa được `role`: quyền admin suy ra từ `ADMIN_EMAILS` trong .env ở mỗi lần
+ * đọc phiên đăng nhập, nên ghi vào cột `role` sẽ bị ghi đè ngay lần khởi động sau.
+ */
 adminRouter.patch(
   '/users/:id',
   asyncHandler(async (req, res) => {
-    const status = requireString(req.body, 'status', { label: 'Trạng thái' });
-    if (!['active', 'banned'].includes(status)) throw badRequest('Trạng thái chỉ nhận "active" hoặc "banned".');
+    const userId = Number(req.params.id);
+    const body = (req.body ?? {}) as Record<string, unknown>;
 
-    const result = await execute('UPDATE users SET status = ? WHERE id = ?', [status, Number(req.params.id)]);
+    const current = await queryOne<RowDataPacket & { email: string; status: string }>(
+      'SELECT email, status FROM users WHERE id = ?',
+      [userId],
+    );
+    if (!current) throw notFound('Không tìm thấy tài khoản.');
+
+    const fields: string[] = [];
+    const params: unknown[] = [];
+    const set = (column: string, value: unknown) => {
+      fields.push(`${column} = ?`);
+      params.push(value);
+    };
+
+    if (hasField(body, 'fullName')) set('full_name', optionalString(body, 'fullName', 190));
+    if (hasField(body, 'phone')) set('phone', optionalString(body, 'phone', 32));
+
+    if (hasField(body, 'email')) {
+      const email = requireEmail(body, 'email');
+      if (email !== current.email.toLowerCase()) {
+        // Quyền admin gắn với email trong .env. Đổi email của một admin qua giao diện
+        // là tự tước quyền chính mình mà .env vẫn ghi email cũ — sửa .env rồi restart.
+        if (isAdminEmail(current.email)) {
+          throw badRequest(
+            `${current.email} đang nằm trong ADMIN_EMAILS. Sửa email trong file .env rồi khởi động lại server, ` +
+              'đừng đổi ở đây kẻo mất quyền admin.',
+          );
+        }
+        const taken = await queryOne<RowDataPacket & { id: number }>('SELECT id FROM users WHERE email = ?', [email]);
+        if (taken) throw badRequest(`Email ${email} đã có tài khoản khác dùng.`);
+        set('email', email);
+      }
+    }
+
+    if (hasField(body, 'status')) {
+      const status = requireString(body, 'status', { label: 'Trạng thái' });
+      if (!['active', 'banned'].includes(status)) throw badRequest('Trạng thái chỉ nhận "active" hoặc "banned".');
+      // Tự khoá chính mình là mất quyền vào bảng điều khiển ngay lập tức, và chỉ mở
+      // lại được bằng cách sửa thẳng vào cơ sở dữ liệu.
+      if (status === 'banned' && userId === req.user!.id) throw badRequest('Không thể tự khoá tài khoản của chính bạn.');
+      set('status', status);
+    }
+
+    if (hasField(body, 'subscriptionExpiresAt')) {
+      set('subscription_expires_at', optionalDate(body, 'subscriptionExpiresAt', 'Ngày hết hạn gói'));
+    }
+
+    // Hạ trần hạn mức phải kéo cả số dư xuống theo, nếu không giao diện của khách
+    // hiện "120.000 / 50.000". Nhưng số dư chỉ được đổi kèm một dòng sổ cái, nên
+    // phần này làm riêng trong transaction ở dưới chứ không nhét vào câu UPDATE.
+    const allowance = hasField(body, 'monthlyAllowance')
+      ? requireInt(body, 'monthlyAllowance', { min: 0, max: 100_000_000, label: 'Hạn mức tháng' })
+      : null;
+    if (allowance !== null) set('monthly_allowance', allowance);
+
+    if (hasField(body, 'monthlyPeriodEnd')) {
+      set('monthly_period_end', optionalDate(body, 'monthlyPeriodEnd', 'Ngày cấp lại hạn mức'));
+    }
+
+    if (fields.length === 0) throw badRequest('Không có thông tin nào để cập nhật.');
+
+    await withTransaction(async (conn) => {
+      await conn.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, [...params, userId]);
+
+      if (allowance === null) return;
+
+      // Đọc qua lockAccountState chứ không SELECT thẳng: hàm này có thể vừa cấp lại
+      // hạn mức cho chu kỳ mới, và khi đó số dư đã bằng đúng trần mới rồi. SELECT
+      // thẳng sẽ lấy con số trước khi cấp lại và trừ thừa đúng bằng phần chênh.
+      const state = await lockAccountState(conn, userId);
+      const excess = state.monthlyTokens - allowance;
+      if (excess <= 0) return;
+
+      await adjustMonthlyTokens(conn, {
+        userId,
+        amount: -excess,
+        description: `[Admin] Hạ hạn mức tháng xuống ${allowance.toLocaleString('vi-VN')} token, thu hồi phần vượt trần`,
+        createdBy: req.user!.id,
+      });
+    });
+
+    res.json({ ok: true });
+  }),
+);
+
+/**
+ * Đặt lại mật khẩu cho khách (khách quên mật khẩu, hỗ trợ qua điện thoại).
+ *
+ * Admin đặt mật khẩu mới rồi báo lại cho khách — hệ thống chưa có luồng gửi email
+ * khôi phục nên đây là đường duy nhất.
+ */
+adminRouter.post(
+  '/users/:id/password',
+  asyncHandler(async (req, res) => {
+    const password = requireString(req.body, 'password', { min: 8, max: 72, label: 'Mật khẩu mới' });
+
+    const result = await execute('UPDATE users SET password_hash = ? WHERE id = ?', [
+      await hashPassword(password),
+      Number(req.params.id),
+    ]);
     if (result.affectedRows === 0) throw notFound('Không tìm thấy tài khoản.');
     res.json({ ok: true });
   }),
 );
 
-/** Cộng / trừ token thủ công (đền bù, khuyến mãi, thu hồi). */
+/**
+ * Cộng / trừ token thủ công (đền bù, khuyến mãi, thu hồi).
+ *
+ * `bucket` mặc định là `purchased` để các lần gọi cũ giữ nguyên hành vi.
+ */
 adminRouter.post(
   '/users/:id/tokens',
   asyncHandler(async (req, res) => {
@@ -334,17 +472,30 @@ adminRouter.post(
     if (amount === 0) throw badRequest('Số token phải khác 0.');
     const reason = requireString(req.body, 'reason', { label: 'Lý do', max: 200 });
 
+    const bucket = optionalString(req.body, 'bucket') ?? 'purchased';
+    if (!['monthly', 'purchased'].includes(bucket)) {
+      throw badRequest('Nguồn token chỉ nhận "monthly" (hạn mức tháng) hoặc "purchased" (token mua thêm).');
+    }
+
+    const userId = Number(req.params.id);
     const result = await withTransaction((conn) =>
-      creditPurchasedTokens(conn, {
-        userId: Number(req.params.id),
-        amount,
-        type: 'adjust',
-        description: `[Admin] ${reason}`,
-        createdBy: req.user!.id,
-      }),
+      bucket === 'monthly'
+        ? adjustMonthlyTokens(conn, {
+            userId,
+            amount,
+            description: `[Admin] ${reason}`,
+            createdBy: req.user!.id,
+          })
+        : creditPurchasedTokens(conn, {
+            userId,
+            amount,
+            type: 'adjust',
+            description: `[Admin] ${reason}`,
+            createdBy: req.user!.id,
+          }),
     );
 
-    res.json({ ok: true, tokenBalance: result.balanceAfter });
+    res.json({ ok: true, bucket, balanceAfter: result.balanceAfter, tokenBalance: result.balanceAfter });
   }),
 );
 

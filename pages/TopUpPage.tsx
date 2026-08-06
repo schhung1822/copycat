@@ -197,10 +197,10 @@ export const TopUpPage: React.FC = () => {
           <section>
             <div className="flex items-baseline justify-between gap-4 mb-3">
               <h2 className="text-lg font-bold text-gray-100">
-                {isSubscribed ? 'Gói dịch vụ' : '1. Chọn gói dịch vụ'}
+                {isSubscribed ? 'Gói dịch vụ' : 'Chọn gói dịch vụ'}
               </h2>
               <span className="text-xs text-gray-500">
-                {isSubscribed ? 'Gói cao hơn chỉ cần bù phần chênh lệch' : 'Tiết kiệm hơn với gói chu kỳ dài'}
+                {isSubscribed ? 'Nâng gói cao hơn chỉ cần bù phần chênh lệch' : 'Tiết kiệm hơn với gói chu kỳ dài'}
               </span>
             </div>
             <PlanGrid
@@ -233,7 +233,7 @@ export const TopUpPage: React.FC = () => {
             ) : (
               <Card className="p-6">
                 <p className="text-sm text-gray-400">
-                  Cần có gói dịch vụ đang hoạt động mới mua thêm token được. Hãy chọn một gói ở mục 1 phía trên.
+                  Cần có gói dịch vụ đang hoạt động mới mua thêm token được. Hãy chọn một gói ở phần trên.
                 </p>
               </Card>
             )}
@@ -397,7 +397,7 @@ const PlanGrid: React.FC<{
                 variant="primary"
                 className="w-full mt-4 !rounded-xl !py-2.5 !text-sm"
               >
-                Nâng gói · bù {formatVnd(upgradeOption.payableVnd)}
+                Nâng cấp gói
               </Button>
             ) : (
               <Button

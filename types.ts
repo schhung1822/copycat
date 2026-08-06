@@ -262,7 +262,18 @@ export interface AdminUser {
   phone: string | null;
   role: 'user' | 'admin';
   status: 'active' | 'banned';
+  /** Tổng dùng được ngay = monthlyTokens + purchasedTokens */
   tokenBalance: number;
+  /** Token mua thêm — không hết hạn */
+  purchasedTokens: number;
+  /** Hạn mức tháng còn lại */
+  monthlyTokens: number;
+  /** Hạn mức được cấp mỗi tháng theo gói */
+  monthlyAllowance: number;
+  monthlyPeriodEnd: string | null;
+  subscriptionExpiresAt: string | null;
+  /** Tên gói của thuê bao gần nhất, null nếu chưa mua gói nào */
+  planName: string | null;
   totalTopupVnd: number;
   tokensIn: number;
   tokensOut: number;
@@ -319,14 +330,6 @@ export interface ModelReport {
   marginPercent: number;
 }
 
-export interface PaymentEvent {
-  id: number;
-  provider: string;
-  externalId: string;
-  orderCode: string | null;
-  amountVnd: number;
-  content: string | null;
-  status: 'matched' | 'unmatched' | 'duplicate' | 'error';
-  message: string | null;
-  createdAt: string;
-}
+// Tab "Webhook ngân hàng" đã bỏ khỏi bảng điều khiển nên không còn kiểu PaymentEvent
+// ở frontend. Webhook vẫn chạy và vẫn ghi bảng `payment_events`; khi cần tra cứu một
+// giao dịch thất lạc thì gọi thẳng `GET /api/admin/payment-events` (xem README mục 6).

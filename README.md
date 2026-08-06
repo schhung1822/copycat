@@ -237,15 +237,49 @@ ADMIN_BOOTSTRAP_EMAIL=admin@nextgenholdings.nl
 ADMIN_BOOTSTRAP_PASSWORD=mat-khau-manh
 ```
 
-Admin vào mục **Quản trị** trên thanh điều hướng, gồm 5 tab:
+Admin vào mục **Quản trị** trên thanh điều hướng, gồm 4 tab:
 
 | Tab | Nội dung |
 |---|---|
 | Tổng quan | Doanh thu, chi phí vốn, lợi nhuận gộp, số khách, tỉ lệ ảnh thành công, biểu đồ theo ngày, hiệu quả từng model, top khách hàng |
 | Đơn nạp | Lọc theo trạng thái, tìm theo mã đơn/email, duyệt tay, huỷ đơn |
-| Khách hàng | Tìm kiếm, khoá/mở tài khoản, cộng–trừ token thủ công kèm lý do |
+| Khách hàng | Xem và sửa hồ sơ, thời hạn gói, hạn mức, mật khẩu; cộng–trừ token theo từng nguồn |
 | Bảng giá & gói nạp | Sửa trực tiếp giá vốn, số token thu, slug model, giá gói, token thưởng |
-| Webhook ngân hàng | Nhật ký mọi giao dịch cổng thanh toán gửi về, dùng để tra khi khách báo chưa nhận token |
+
+### Sửa thông tin khách hàng
+
+Nút **Sửa** ở tab Khách hàng mở form gồm:
+
+| Nhóm | Trường |
+|---|---|
+| Hồ sơ | Họ tên, số điện thoại, email (cũng là tên đăng nhập), trạng thái hoạt động / khoá |
+| Gói &amp; hạn mức | Ngày hết hạn gói, hạn mức mỗi tháng, thời điểm cấp lại hạn mức |
+| Bảo mật | Đặt lại mật khẩu (tối thiểu 8 ký tự) |
+
+Nút **Token** cộng/trừ token và **bắt buộc chọn nguồn**, vì hai nguồn không thay thế cho nhau
+được — hạn mức tháng bị xoá khi sang chu kỳ mới, còn token mua thêm là tiền thật khách đã trả:
+
+- **Token mua thêm** (mặc định) — không hết hạn. Dùng cho đền bù, khuyến mãi.
+- **Hạn mức tháng** — không cộng vượt quá hạn mức của gói, vì phần dư sẽ biến mất không dấu
+  vết ở chu kỳ sau và con số "600.000 / 500.000" trên màn hình khách là vô nghĩa.
+
+Mọi thay đổi số dư đều ghi một dòng vào sổ cái `token_transactions` kèm lý do, kể cả khi hạ
+hạn mức tháng làm số dư bị kéo xuống theo — nếu không, tổng sổ cái sẽ lệch với số dư thật.
+
+Ba thứ **không** sửa được từ giao diện, do thiết kế:
+
+| Không sửa được | Lý do |
+|---|---|
+| Quyền admin (`role`) | Suy ra từ `ADMIN_EMAILS` ở mỗi lần đọc phiên đăng nhập, ghi vào cột `role` sẽ bị ghi đè |
+| Email của tài khoản admin | Đổi ở đây là tự tước quyền mình mà `.env` vẫn ghi email cũ. Sửa `.env` rồi khởi động lại |
+| Tự khoá tài khoản đang đăng nhập | Khoá xong chỉ mở lại được bằng cách sửa thẳng cơ sở dữ liệu |
+
+> Tab **Webhook ngân hàng** đã bỏ. Webhook vẫn chạy và vẫn ghi đủ vào bảng `payment_events`;
+> khi cần tra một giao dịch thất lạc thì gọi thẳng endpoint (vẫn còn, chỉ không có giao diện):
+>
+> ```bash
+> curl -s -b cookie.txt 'http://localhost:4000/api/admin/payment-events?limit=20'
+> ```
 
 ---
 
@@ -355,7 +389,7 @@ Mỗi thẻ gói có một trong ba nút tuỳ trạng thái:
 | Thẻ | Nút |
 |---|---|
 | Gói đang dùng | `Gói đang dùng` (không bấm được) |
-| Gói đắt hơn gói đang dùng | `Nâng gói · bù <số tiền>` → mở hộp thoại chi tiết |
+| Gói đắt hơn gói đang dùng | `Nâng cấp gói` → mở hộp thoại chi tiết |
 | Gói còn lại (hoặc chưa có gói nào) | `Gia hạn thêm N tháng` / `Chọn gói` |
 
 Bấm "Nâng gói" chỉ mở hộp thoại xem trước (giá gói mới − phần chưa dùng = số phải bù), chưa
@@ -541,7 +575,8 @@ Tunnel để lấy một URL public.
 **Cách hệ thống khớp giao dịch:** nội dung chuyển khoản được bỏ hết ký tự đặc biệt rồi dò mã
 dạng `NAP` + 6 ký tự. Mọi ứng viên tìm được đều phải tồn tại thật trong bảng `orders` mới được
 dùng — chữ dính liền mã không thể làm cộng nhầm cho đơn khác. Giao dịch không khớp được vẫn
-lưu vào tab **Webhook ngân hàng** để admin duyệt tay.
+lưu vào bảng `payment_events` với trạng thái `unmatched`; admin xem qua endpoint
+`GET /api/admin/payment-events` rồi duyệt tay đơn tương ứng ở tab **Đơn nạp**.
 
 ### Dùng workflow riêng thay cho webhook có sẵn
 

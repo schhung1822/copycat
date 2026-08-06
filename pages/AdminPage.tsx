@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { EventsTab } from './admin/EventsTab';
 import { OrdersTab } from './admin/OrdersTab';
 import { OverviewTab } from './admin/OverviewTab';
 import { PricingTab } from './admin/PricingTab';
@@ -10,7 +9,6 @@ const TABS = [
   { key: 'orders', label: 'Đơn nạp', render: () => <OrdersTab /> },
   { key: 'users', label: 'Khách hàng', render: () => <UsersTab /> },
   { key: 'pricing', label: 'Bảng giá & gói nạp', render: () => <PricingTab /> },
-  { key: 'events', label: 'Webhook ngân hàng', render: () => <EventsTab /> },
 ] as const;
 
 export const AdminPage: React.FC = () => {
