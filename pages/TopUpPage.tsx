@@ -15,6 +15,28 @@ const ORDER_POLL_MS = 5000;
  */
 const isAwaitingPayment = (order: Order) => order.status === 'pending' || order.status === 'expired';
 
+/**
+ * Bội số làm tròn số ảnh hiển thị trên thẻ gói.
+ *
+ * Đang để 10. Đổi thành 100 nếu muốn số tròn trăm — nhưng lưu ý với hạn mức hiện
+ * tại thì gói 1 tháng và 3 tháng sẽ cùng ra "300 ảnh", hai thẻ nhìn y hệt nhau.
+ */
+const IMAGE_COUNT_STEP = 10;
+
+/**
+ * Quy hạn mức token ra số ảnh, làm tròn XUỐNG cho số gọn mắt.
+ *
+ * Luôn làm tròn xuống chứ không làm tròn gần nhất: làm tròn lên sẽ hứa nhiều ảnh
+ * hơn số hạn mức thật sự cho phép (vd 357 ảnh mà ghi 400), khách tạo tới ảnh thứ
+ * 358 là hết token và có cơ sở khiếu nại.
+ */
+function roundedImageCount(allowance: number, tokenCostPerImage: number): number {
+  const exact = Math.floor(allowance / tokenCostPerImage);
+  // Hạn mức quá nhỏ để làm tròn thì giữ nguyên con số thật, tránh hiển thị 0.
+  if (exact < IMAGE_COUNT_STEP) return exact;
+  return Math.floor(exact / IMAGE_COUNT_STEP) * IMAGE_COUNT_STEP;
+}
+
 export const TopUpPage: React.FC = () => {
   const { user, refreshUser } = useAuth();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -87,13 +109,18 @@ export const TopUpPage: React.FC = () => {
 
   const isSubscribed = user?.isSubscribed ?? false;
 
-  // Quy hạn mức ra số ảnh theo loại rẻ nhất — con số này dễ hình dung hơn nhiều
-  // so với "500.000 token". Lấy từ bảng giá nên đổi giá model là tự cập nhật.
-  const cheapestModel = catalog.models.reduce<ModelOption | null>(
-    (cheapest, model) =>
-      model.tokenCost > 0 && (!cheapest || model.tokenCost < cheapest.tokenCost) ? model : cheapest,
-    null,
-  );
+  // Quy hạn mức ra số ảnh — con số này dễ hình dung hơn nhiều so với "500.000
+  // token". Mốc quy đổi là model 2K rẻ nhất: đây là chất lượng khách dùng nhiều
+  // nhất, lấy mốc 1K sẽ ra con số to nhưng không sát thực tế sử dụng.
+  // Nếu bảng giá không còn model 2K nào thì lùi về model rẻ nhất bất kỳ.
+  const cheapestOf = (list: ModelOption[]) =>
+    list.reduce<ModelOption | null>(
+      (cheapest, model) =>
+        model.tokenCost > 0 && (!cheapest || model.tokenCost < cheapest.tokenCost) ? model : cheapest,
+      null,
+    );
+  const referenceModel =
+    cheapestOf(catalog.models.filter((model) => model.resolution === '2K')) ?? cheapestOf(catalog.models);
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
@@ -132,7 +159,7 @@ export const TopUpPage: React.FC = () => {
             <PlanGrid
               plans={catalog.plans}
               creatingId={creatingId}
-              cheapestModel={cheapestModel}
+              referenceModel={referenceModel}
               onSelect={(plan) => createOrder('/orders/subscription', { planId: plan.id }, `plan-${plan.id}`)}
             />
           </section>
@@ -225,8 +252,8 @@ const PlanGrid: React.FC<{
   creatingId: string | null;
   onSelect: (plan: SubscriptionPlan) => void;
   /** Model rẻ nhất đang bán — dùng làm mốc quy đổi hạn mức ra số ảnh */
-  cheapestModel: ModelOption | null;
-}> = ({ plans, creatingId, onSelect, cheapestModel }) => {
+  referenceModel: ModelOption | null;
+}> = ({ plans, creatingId, onSelect, referenceModel }) => {
   // Mốc so sánh để tính % tiết kiệm: giá mỗi tháng của gói ngắn nhất.
   const basePerMonth = Math.max(...plans.map((plan) => plan.pricePerMonthVnd), 0);
 
@@ -254,24 +281,24 @@ const PlanGrid: React.FC<{
 
             <h3 className="font-bold text-gray-100">{plan.name}</h3>
             <p className="text-2xl font-bold text-gray-100 mt-2">{formatVnd(plan.priceVnd)}</p>
-            <p className="text-[11px] text-gray-500 mt-1">
+            {/* <p className="text-[11px] text-gray-500 mt-1">
               {plan.months > 1 ? `${formatVnd(plan.pricePerMonthVnd)}/tháng` : 'thanh toán hàng tháng'}
+            </p> */}
+            <p className="text-[11px] text-gray-600 mt-1">
+              {formatNumber(plan.monthlyTokenAllowance)} token/tháng
             </p>
 
             <div className="mt-3 pt-3 border-t border-dark-800 flex-1">
-              {cheapestModel && cheapestModel.tokenCost > 0 ? (
+              {referenceModel && referenceModel.tokenCost > 0 ? (
                 (() => {
-                  const perMonth = Math.floor(plan.monthlyTokenAllowance / cheapestModel.tokenCost);
+                  const perMonth = roundedImageCount(plan.monthlyTokenAllowance, referenceModel.tokenCost);
                   return (
                     <>
                       <p className="text-brand-500 font-bold text-xl leading-tight">
-                        Tối đa {formatNumber(perMonth * plan.months)} ảnh
+                        Tặng {formatNumber(perMonth)} ảnh/tháng
                       </p>
                       <p className="text-[11px] text-gray-500 mt-1">
-                        Số lượng ảnh tối đa có thể tạo
-                      </p>
-                      <p className="text-[11px] text-gray-600 mt-2">
-                        {formatNumber(plan.monthlyTokenAllowance)} token/tháng
+                        Tối đa có thể tạo {formatNumber(perMonth * plan.months)} ảnh
                       </p>
                     </>
                   );
@@ -294,11 +321,12 @@ const PlanGrid: React.FC<{
       })}
       </div>
 
-      {cheapestModel && (
+      {referenceModel && (
         <p className="text-[11px] text-gray-600 mt-3">
-          Số ảnh tính theo loại rẻ nhất — <strong className="text-gray-500">{cheapestModel.label}</strong> (
-          {formatNumber(cheapestModel.tokenCost)} token/ảnh). Dùng model cao cấp hơn thì số ảnh giảm tương ứng, xem bảng
-          token tiêu hao bên dưới. Hạn mức tính theo từng tháng và không cộng dồn.
+          Số ảnh tính theo <strong className="text-gray-500">{referenceModel.label}</strong> (
+          {formatNumber(referenceModel.tokenCost)} token/ảnh) và đã làm tròn xuống cho gọn — hạn mức thực tế còn dư ra
+          một chút. Chọn ảnh 1K sẽ được nhiều ảnh hơn, chọn 4K thì ít hơn; xem bảng token tiêu hao bên dưới. Hạn mức
+          tính theo từng tháng và không cộng dồn.
         </p>
       )}
     </>

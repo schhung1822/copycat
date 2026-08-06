@@ -190,7 +190,7 @@ export const PolicyPage: React.FC = () => {
             </p>
             <p>
               Mỗi tháng trong thời hạn gói, tài khoản được cấp hạn mức{' '}
-              <strong className="text-gray-300">{formatNumber(allowance)} token</strong> để tạo ảnh. Số token tiêu hao
+              <strong className="text-gray-300">Tương ứng với gói đăng ký</strong> để tạo ảnh. Số token tiêu hao
               cho mỗi ảnh phụ thuộc mô hình và độ phân giải bạn chọn
               {cheapest && ` (thấp nhất là ${formatNumber(cheapest.tokenCost)} token/ảnh với ${cheapest.label})`}.
             </p>
