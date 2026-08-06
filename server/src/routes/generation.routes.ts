@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { query, queryOne, type RowDataPacket } from '../db.js';
+import { readAccountState } from '../services/subscriptionService.js';
 import { requireAuth } from '../lib/auth.js';
 import { asyncHandler, notFound } from '../lib/errors.js';
 import { parsePaging, requireInt, requireString, requireStringArray } from '../lib/validate.js';
@@ -90,8 +91,18 @@ generationRouter.get(
       .filter((id) => Number.isInteger(id) && id > 0)
       .slice(0, 50);
 
+    /*
+     * PHẢI trả về tổng dùng được (hạn mức tháng + token đã mua), không phải cột
+     * users.token_balance — cột đó chỉ là phần token MUA THÊM.
+     *
+     * Giao diện gọi endpoint này 3 giây một lần trong lúc vẽ ảnh và ghi đè số dư
+     * đang hiển thị bằng giá trị trả về. Trả nhầm cột khiến khách nào tiêu bằng
+     * hạn mức tháng (token_balance = 0) thấy số dư tụt về 0 ngay khi bắt đầu tạo
+     * ảnh, kèm theo nút bấm đổi thành "Hết hạn mức".
+     */
     if (ids.length === 0) {
-      res.json({ generations: [], tokenBalance: req.user!.token_balance });
+      const state = await readAccountState(req.user!.id);
+      res.json({ generations: [], tokenBalance: state.availableTokens });
       return;
     }
 
@@ -99,12 +110,9 @@ generationRouter.get(
       `SELECT * FROM generations WHERE user_id = ? AND id IN (${ids.map(() => '?').join(',')})`,
       [req.user!.id, ...ids],
     );
-    const balance = await queryOne<RowDataPacket & { token_balance: number }>(
-      'SELECT token_balance FROM users WHERE id = ?',
-      [req.user!.id],
-    );
+    const state = await readAccountState(req.user!.id);
 
-    res.json({ generations: rows.map(serializeGeneration), tokenBalance: balance?.token_balance ?? 0 });
+    res.json({ generations: rows.map(serializeGeneration), tokenBalance: state.availableTokens });
   }),
 );
 

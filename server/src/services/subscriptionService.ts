@@ -97,12 +97,21 @@ async function refreshMonthlyAllowance(conn: PoolConnection, userId: number, sta
     );
   }
 
-  // Cộng mốc bằng SQL để tự xử lý đúng các tháng thiếu ngày (31/1 + 1 tháng = 28/2).
+  /*
+   * Cộng mốc bằng SQL để tự xử lý đúng các tháng thiếu ngày (31/1 + 1 tháng = 28/2).
+   *
+   * COALESCE là bắt buộc: DATE_ADD(NULL, ...) trả về NULL, nên nếu mốc đang NULL
+   * thì nó sẽ NULL vĩnh viễn và mỗi lần chạm vào token lại được cấp hạn mức mới —
+   * token vô hạn nếu allowance > 0, hoặc bị xoá sạch mỗi lần nếu allowance = 0.
+   */
   await conn.query(
     `UPDATE users
         SET monthly_tokens = monthly_allowance,
             monthly_period_end = LEAST(
-              DATE_ADD(monthly_period_end, INTERVAL (TIMESTAMPDIFF(MONTH, monthly_period_end, NOW()) + 1) MONTH),
+              DATE_ADD(
+                COALESCE(monthly_period_end, NOW()),
+                INTERVAL (TIMESTAMPDIFF(MONTH, COALESCE(monthly_period_end, NOW()), NOW()) + 1) MONTH
+              ),
               subscription_expires_at
             )
       WHERE id = ?`,

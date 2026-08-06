@@ -119,13 +119,29 @@ const authHeaders = () => ({
   'Content-Type': 'application/json',
 });
 
+/** Câu báo cho khách khi key bị từ chối — chi tiết kỹ thuật in ra log cho quản trị viên. */
+const AUTH_FAILED_MESSAGE =
+  'Hệ thống chưa kết nối được với nhà cung cấp AI. Vui lòng báo quản trị viên kiểm tra lại API key.';
+
+function throwAuthFailed(url: string, detail: string): never {
+  console.error(
+    `\n[Kie.ai] API KEY BỊ TỪ CHỐI khi gọi ${url}\n` +
+      `  Phản hồi: ${detail}\n` +
+      '  Kiểm tra KIE_API_KEY trong file .env — key sai, đã bị thu hồi, hoặc bị dán thiếu ký tự.\n' +
+      '  Thử trực tiếp bằng lệnh:\n' +
+      `      KEY=$(grep -E '^KIE_API_KEY=' .env | cut -d= -f2-)\n` +
+      `      curl -s -X POST ${url} \\\n` +
+      '        -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \\\n' +
+      `        -d '{"base64Data":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=","uploadPath":"images"}'\n`,
+  );
+  throw new AppError(502, AUTH_FAILED_MESSAGE, 'provider_auth');
+}
+
 async function requestJson(url: string, init: RequestInit): Promise<any> {
   const res = await fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   const text = await res.text();
 
-  if (res.status === 401 || res.status === 403) {
-    throw new AppError(502, 'Kie.ai từ chối API key của hệ thống. Vui lòng liên hệ quản trị viên.', 'provider_auth');
-  }
+  if (res.status === 401 || res.status === 403) throwAuthFailed(url, text.slice(0, 300));
 
   let data: any;
   try {
@@ -134,6 +150,11 @@ async function requestJson(url: string, init: RequestInit): Promise<any> {
     if (!res.ok) throw new AppError(502, `Kie.ai trả về lỗi HTTP ${res.status}: ${text.slice(0, 300)}`, 'provider_error');
     throw new AppError(502, `Kie.ai trả về dữ liệu không hợp lệ: ${text.slice(0, 300)}`, 'provider_error');
   }
+
+  // Endpoint upload trả HTTP 200 nhưng nhét code 401 vào thân phản hồi, nên kiểm
+  // tra mã HTTP thôi là lọt. Thiếu nhánh này thì lỗi sai key hiện ra dưới dạng
+  // "Không upload được ảnh" chung chung, rất khó đoán nguyên nhân.
+  if (data?.code === 401 || data?.code === 403) throwAuthFailed(url, String(data?.msg ?? text).slice(0, 300));
 
   if (!res.ok) {
     throw new AppError(502, `Kie.ai lỗi (${res.status}): ${data?.msg ?? text.slice(0, 300)}`, 'provider_error');

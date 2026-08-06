@@ -153,6 +153,34 @@ pm2 logs copycat --lines 30
 curl -i http://127.0.0.1:4000/api/health
 ```
 
+### Tạo ảnh báo "Authentication failed" / không kết nối được nhà cung cấp AI
+
+Nghĩa là Kie.ai từ chối `KIE_API_KEY`. Kiểm tra chính cái key đó bằng lệnh sau, chạy ngay trong
+thư mục dự án trên VPS (đọc thẳng từ `.env` nên không sợ chép nhầm):
+
+```bash
+cd /var/www/copycat
+KEY=$(grep -E '^KIE_API_KEY=' .env | cut -d= -f2- | tr -d "\"'\r ")
+echo "Độ dài key: ${#KEY}"
+
+curl -s -X POST https://kieai.redpandaai.co/api/file-base64-upload \
+  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -d '{"base64Data":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=","uploadPath":"images"}'
+```
+
+| Kết quả | Nghĩa là | Cách xử lý |
+|---|---|---|
+| `{"success":true,...}` kèm URL | Key tốt, lỗi nằm ở chỗ server chưa nạp lại `.env` | `pm2 restart copycat` rồi thử lại |
+| `code: 401` | Key sai hoặc đã bị thu hồi | Vào kie.ai lấy key mới, dán lại vào `.env`, `pm2 restart copycat` |
+| Độ dài key bằng 0 | Dòng `KIE_API_KEY=` trống hoặc sai tên biến | Kiểm tra lại `.env`, tên biến phải viết đúng, không có dấu cách trước dấu `=` |
+
+Hay gặp nhất: dán key vào `nano` bị **xuống dòng giữa chừng** nên key bị cắt cụt — dòng
+"Độ dài key" ở trên sẽ cho thấy ngay.
+
+> **Đừng đổi `KIE_UPLOAD_URL` sang `api.kie.ai`.** Tài liệu Kie.ai ghi endpoint upload là
+> `https://api.kie.ai/api/file-base64-upload`, nhưng địa chỉ đó trả về **404** (đã kiểm chứng).
+> Endpoint upload thật nằm ở host riêng `kieai.redpandaai.co`, đúng như giá trị mặc định.
+
 ### Gặp lỗi 502 Bad Gateway — kiểm tra theo thứ tự
 
 502 luôn có nghĩa là **nginx chạy bình thường nhưng không gọi được vào tiến trình Node**.
