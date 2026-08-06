@@ -19,7 +19,8 @@ import type { Catalog } from '../types';
  */
 
 const Section: React.FC<{ id: string; title: string; children: React.ReactNode }> = ({ id, title, children }) => (
-  <section id={id} className="scroll-mt-20">
+  // scroll-mt để tiêu đề không bị thanh trên đang dính che mất khi bấm vào mục lục
+  <section id={id} className="scroll-mt-24">
     <h2 className="text-lg font-bold text-gray-100 mb-2">{title}</h2>
     <div className="space-y-2 text-sm text-gray-400 leading-relaxed">{children}</div>
   </section>
@@ -44,10 +45,40 @@ export const PolicyPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [activeId, setActiveId] = useState<string>(SECTIONS[0].id);
 
   useEffect(() => {
     void api.get<Catalog>('/catalog').then(setCatalog).catch(() => setCatalog(null));
   }, []);
+
+  /**
+   * Làm nổi bật mục đang đọc ở cột trái.
+   *
+   * `rootMargin` phía trên trừ đi chiều cao thanh trên đang dính, nếu không mục sẽ
+   * được coi là "đang xem" khi vẫn còn nằm khuất sau thanh đó.
+   * Chỉ chạy sau khi có dữ liệu, vì trước đó các thẻ <section> chưa được vẽ ra.
+   */
+  useEffect(() => {
+    if (!catalog) return;
+
+    const elements = SECTIONS.map((section) => document.getElementById(section.id)).filter(
+      (element): element is HTMLElement => element !== null,
+    );
+    if (elements.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActiveId(visible[0].target.id);
+      },
+      { rootMargin: '-88px 0px -55% 0px', threshold: 0 },
+    );
+
+    for (const element of elements) observer.observe(element);
+    return () => observer.disconnect();
+  }, [catalog]);
 
   if (!catalog) return <PageLoader label="Đang tải chính sách..." />;
 
@@ -80,8 +111,8 @@ export const PolicyPage: React.FC = () => {
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto p-6 space-y-8">
-        <div>
+      <div className="max-w-6xl mx-auto p-6">
+        <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-100">Chính sách &amp; Điều khoản sử dụng</h1>
           <p className="text-sm text-gray-500 mt-1">
             {site.policyUpdatedAt ? `Cập nhật lần cuối: ${site.policyUpdatedAt}.` : ''} Khi tạo tài khoản và thanh toán,
@@ -89,15 +120,8 @@ export const PolicyPage: React.FC = () => {
           </p>
         </div>
 
-        {missingContact && (
-          <Alert tone="warning">
-            Quản trị viên chưa điền thông tin đơn vị và liên hệ (<code>COMPANY_NAME</code>, <code>SUPPORT_EMAIL</code>,{' '}
-            <code>SUPPORT_PHONE</code> trong file <code>.env</code>). Cần bổ sung trước khi bán hàng chính thức.
-          </Alert>
-        )}
-
-        {/* Mục lục */}
-        <Card className="p-4">
+        {/* Màn hình hẹp: mục lục nằm trên nội dung, không dính theo cuộn */}
+        <Card className="p-4 mb-6 lg:hidden">
           <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold mb-2">Nội dung</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
             {SECTIONS.map((section, index) => (
@@ -112,7 +136,34 @@ export const PolicyPage: React.FC = () => {
           </div>
         </Card>
 
-        <Card className="p-6 space-y-7">
+        <div className="flex gap-8 items-start">
+          {/* Màn hình rộng: mục lục là cột trái dính theo cuộn.
+              top-20 = chiều cao thanh trên (3.5rem) cộng một khoảng thở. */}
+          <aside className="hidden lg:block w-56 shrink-0 sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto custom-scrollbar">
+            <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold mb-2 px-3">Nội dung</p>
+            <nav className="space-y-0.5">
+              {SECTIONS.map((section, index) => {
+                const isActive = activeId === section.id;
+                return (
+                  <a
+                    key={section.id}
+                    href={`#${section.id}`}
+                    className={`block text-sm px-3 py-1.5 rounded-lg border-l-2 transition-colors ${
+                      isActive
+                        ? 'border-brand-500 bg-brand-500/10 text-gray-100 font-semibold'
+                        : 'border-transparent text-gray-500 hover:text-gray-300 hover:bg-dark-850'
+                    }`}
+                  >
+                    <span className={isActive ? 'text-brand-500' : 'text-gray-600'}>{index + 1}.</span>{' '}
+                    {section.label}
+                  </a>
+                );
+              })}
+            </nav>
+          </aside>
+
+          <div className="flex-1 min-w-0 space-y-8">
+            <Card className="p-6 space-y-7">
           <Section id="dich-vu" title="1. Về dịch vụ">
             <p>
               Design Copycat AI là dịch vụ tạo ảnh marketing bằng trí tuệ nhân tạo. Bạn tải lên ảnh mẫu và ảnh sản
@@ -299,12 +350,14 @@ export const PolicyPage: React.FC = () => {
               </p>
             )}
             {missingContact && <p className="text-gray-500">Thông tin liên hệ đang được cập nhật.</p>}
-          </Section>
-        </Card>
+              </Section>
+            </Card>
 
-        <p className="text-[11px] text-gray-600 text-center pb-4">
-          Các con số về hạn mức, chu kỳ và giá trong trang này được lấy trực tiếp từ bảng giá đang áp dụng.
-        </p>
+            <p className="text-[11px] text-gray-600 text-center pb-4">
+              Các con số về hạn mức, chu kỳ và giá trong trang này được lấy trực tiếp từ bảng giá đang áp dụng.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
