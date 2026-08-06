@@ -29,6 +29,29 @@ const ASPECT_RATIOS: { value: string; label: string }[] = [
 const POLL_INTERVAL_MS = 3000;
 const SETTINGS_KEY = 'copycat-studio-settings-v3';
 
+/**
+ * Mô tả ngắn giúp khách chọn model, thay cho việc hiện số token.
+ *
+ * Cố ý KHÔNG nói về giá hay token: khách đã trả tiền theo gói tháng, việc của họ
+ * ở màn này là chọn model hợp nhu cầu chứ không phải tính tiền.
+ *
+ * Khoá theo `family` trong bảng giá. Model mới chưa có mô tả thì chỉ hiện tên,
+ * thêm một dòng vào đây là xong.
+ */
+const MODEL_HINTS: Record<string, string> = {
+  'nano-banana-pro': 'Bám sát ảnh mẫu nhất, giữ đúng chi tiết và màu sản phẩm. Chọn khi cần ảnh đăng chính thức.',
+  'nano-banana-2': 'Cân bằng giữa độ đẹp và tốc độ. Lựa chọn an toàn cho phần lớn nhu cầu hằng ngày.',
+  'nano-banana-2-lite': 'Nhanh nhất, hợp để thử nhiều ý tưởng trước khi chạy bản hoàn chỉnh.',
+  'gpt-image-2': 'Xử lý chữ và bố cục quảng cáo tốt. Chọn khi thiết kế có nhiều chữ hoặc layout phức tạp.',
+};
+
+/** Gợi ý ngắn cho từng mức chất lượng, hiện ngay dưới nút chọn. */
+const RESOLUTION_HINTS: Record<string, string> = {
+  '1K': 'đăng mạng xã hội',
+  '2K': 'nét hơn, dùng chung',
+  '4K': 'in ấn, khổ lớn',
+};
+
 interface StoredSettings {
   family?: string;
   resolution?: string;
@@ -139,6 +162,17 @@ export const StudioPage: React.FC = () => {
   const isSubscribed = user?.isSubscribed ?? false;
   const notEnoughTokens = totalCost > balance;
 
+  /**
+   * Hạn mức còn lại quy ra số ảnh ở mức chất lượng đang chọn.
+   *
+   * Màn này không nói chuyện token, nhưng vẫn phải cho khách biết còn tạo được
+   * bao nhiêu — nếu không, việc bị chặn ở nút "Tạo" sẽ đến rất bất ngờ.
+   */
+  const remainingImages =
+    isSubscribed && selectedModel && selectedModel.tokenCost > 0
+      ? Math.floor(balance / selectedModel.tokenCost)
+      : null;
+
   // --- Hỏi trạng thái các ảnh đang xử lý ------------------------------------
   const pendingIds = useMemo(() => generations.filter(isPending).map((g) => g.id), [generations]);
   const pendingKey = pendingIds.join(',');
@@ -243,7 +277,7 @@ export const StudioPage: React.FC = () => {
   return (
     <div className="flex h-[calc(100vh-3.5rem)] w-full overflow-hidden">
       {/* ================= CỘT TRÁI: CẤU HÌNH ================= */}
-      <aside className="w-[380px] flex-shrink-0 flex flex-col border-r border-dark-800 bg-dark-900">
+      <aside className="w-[400px] flex-shrink-0 flex flex-col border-r border-dark-800 bg-dark-900">
         <div className="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-6">
           <ImageUploadBox
             label="1. Ảnh mẫu (style)"
@@ -270,7 +304,7 @@ export const StudioPage: React.FC = () => {
             <p className="text-[11px] text-amber-400 -mt-3">Chỉ 3 ảnh sản phẩm đầu tiên được sử dụng.</p>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-2 pt-5 border-t border-dark-800">
             <div className="flex justify-between items-center">
               <span className="text-sm font-bold text-gray-300 uppercase tracking-wider">3. Mô tả thêm</span>
               <span className="text-xs text-gray-500">{prompt.length} ký tự</span>
@@ -287,12 +321,10 @@ export const StudioPage: React.FC = () => {
             <span className="text-sm font-bold text-gray-300 uppercase tracking-wider">4. Cấu hình AI</span>
 
             <div>
-              <span className="text-xs text-gray-500 mb-1.5 block">Model</span>
-              <div className="grid grid-cols-1 gap-1.5">
+              <span className="text-xs text-gray-500 mb-2 block">Model</span>
+              <div className="grid grid-cols-1 gap-2">
                 {families.map((item) => {
-                  const cheapest = Math.min(
-                    ...catalog.models.filter((m) => m.family === item.key).map((m) => m.tokenCost),
-                  );
+                  const isActive = family === item.key;
                   return (
                     <button
                       key={item.key}
@@ -301,57 +333,82 @@ export const StudioPage: React.FC = () => {
                         const options = catalog.models.filter((m) => m.family === item.key);
                         setResolution(options.find((m) => m.resolution === resolution)?.resolution ?? options[0].resolution);
                       }}
-                      className={`text-left px-3 py-2 rounded-xl border text-sm transition-colors ${
-                        family === item.key
-                          ? 'border-brand-500 bg-brand-500/10 text-gray-100'
-                          : 'border-dark-700 bg-dark-850 text-gray-400 hover:border-dark-600'
+                      className={`text-left p-3 rounded-xl border transition-colors ${
+                        isActive
+                          ? 'border-brand-500 bg-brand-500/10'
+                          : 'border-dark-700 bg-dark-850 hover:border-dark-600'
                       }`}
                     >
-                      <span className="font-semibold">{item.label}</span>
-                      <span className="text-[11px] text-gray-500 ml-2">từ {cheapest} token/ảnh</span>
+                      <span className="flex items-center gap-2">
+                        {/* Chấm tròn kiểu radio để thấy ngay đang chọn cái nào */}
+                        <span
+                          className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                            isActive ? 'border-brand-500' : 'border-dark-600'
+                          }`}
+                        >
+                          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />}
+                        </span>
+                        <span className={`text-sm font-semibold ${isActive ? 'text-gray-100' : 'text-gray-300'}`}>
+                          {item.label}
+                        </span>
+                      </span>
+                      {/* pl khớp bề rộng chấm radio + khoảng cách, cho chữ thẳng hàng với tên model */}
+                      {MODEL_HINTS[item.key] && (
+                        <span className="block text-[11px] text-gray-500 leading-relaxed mt-1.5 pl-[22px]">
+                          {MODEL_HINTS[item.key]}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Xếp dọc: nhãn tỉ lệ khá dài, đặt cạnh nhau sẽ bị cắt chữ trong cột 380px */}
-            <div className="space-y-4">
-              {/* Model chỉ có một mức chất lượng (vd bản Lite) thì không cần cho chọn */}
-              <div className={resolutionOptions.length > 1 ? '' : 'hidden'}>
-                <span className="text-xs text-gray-500 mb-1.5 block">Chất lượng</span>
-                <div className="flex gap-1.5">
-                  {resolutionOptions.map((model) => (
-                    <button
-                      key={model.code}
-                      onClick={() => setResolution(model.resolution)}
-                      title={`${model.tokenCost} token/ảnh`}
-                      className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-colors ${
-                        resolution === model.resolution
-                          ? 'border-brand-500 bg-brand-500/10 text-gray-100'
-                          : 'border-dark-700 bg-dark-850 text-gray-400 hover:border-dark-600'
+            {/* Model chỉ có một mức chất lượng (vd bản Lite) thì không cần cho chọn */}
+            <div className={resolutionOptions.length > 1 ? '' : 'hidden'}>
+              <span className="text-xs text-gray-500 mb-1.5 block">Chất lượng</span>
+              <div className="flex gap-1.5">
+                {resolutionOptions.map((model) => (
+                  <button
+                    key={model.code}
+                    onClick={() => setResolution(model.resolution)}
+                    className={`flex-1 py-2 px-1 rounded-lg border transition-colors ${
+                      resolution === model.resolution
+                        ? 'border-brand-500 bg-brand-500/10'
+                        : 'border-dark-700 bg-dark-850 hover:border-dark-600'
+                    }`}
+                  >
+                    <span
+                      className={`block text-xs font-bold ${
+                        resolution === model.resolution ? 'text-gray-100' : 'text-gray-400'
                       }`}
                     >
                       {model.resolution}
-                    </button>
-                  ))}
-                </div>
+                    </span>
+                    {RESOLUTION_HINTS[model.resolution] && (
+                      <span className="block text-[9px] text-gray-600 mt-0.5 leading-tight">
+                        {RESOLUTION_HINTS[model.resolution]}
+                      </span>
+                    )}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              <div>
-                <span className="text-xs text-gray-500 mb-1.5 block">Tỉ lệ ảnh</span>
-                <select
-                  value={aspectRatio}
-                  onChange={(e) => setAspectRatio(e.target.value)}
-                  className="w-full bg-dark-850 border border-dark-700 text-gray-200 text-xs rounded-lg px-2.5 py-2.5 outline-none focus:border-brand-500 cursor-pointer"
-                >
-                  {ASPECT_RATIOS.map((ratio) => (
-                    <option key={ratio.value} value={ratio.value}>
-                      {ratio.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* Nhãn tỉ lệ khá dài nên để riêng một hàng, đặt cạnh nhau sẽ bị cắt chữ */}
+            <div>
+              <span className="text-xs text-gray-500 mb-1.5 block">Tỉ lệ ảnh</span>
+              <select
+                value={aspectRatio}
+                onChange={(e) => setAspectRatio(e.target.value)}
+                className="w-full bg-dark-850 border border-dark-700 text-gray-200 text-xs rounded-lg px-2.5 py-2.5 outline-none focus:border-brand-500 cursor-pointer"
+              >
+                {ASPECT_RATIOS.map((ratio) => (
+                  <option key={ratio.value} value={ratio.value}>
+                    {ratio.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -369,32 +426,25 @@ export const StudioPage: React.FC = () => {
                 className="w-full h-1.5 bg-dark-800 rounded-lg appearance-none cursor-pointer accent-brand-500"
               />
             </div>
-
-            {selectedModel?.notes && <p className="text-[11px] text-gray-500 leading-relaxed">{selectedModel.notes}</p>}
           </div>
         </div>
 
-        {/* Chi phí + nút tạo */}
+        {/* Thanh hành động */}
         <div className="p-5 border-t border-dark-800 bg-dark-900 space-y-3">
           {error && (
             <Alert tone="error">
-              {error.message}
+              {/* Lỗi hết hạn mức từ server có kèm số token; ở màn này không nói
+                  chuyện token nên thay bằng câu ngắn gọn của giao diện. */}
+              {error instanceof ApiError && error.isInsufficientTokens
+                ? 'Hạn mức tháng của bạn không còn đủ cho số ảnh này.'
+                : error.message}
               {error instanceof ApiError && error.isInsufficientTokens && (
                 <Link to="/nap-tien" className="block mt-2 font-bold underline">
-                  Nạp thêm token →
+                  Mua thêm lượt tạo ảnh →
                 </Link>
               )}
             </Alert>
           )}
-
-          <div className="flex justify-between items-baseline text-sm">
-            <span className="text-gray-500">
-              {jobCount} ảnh × {selectedModel?.tokenCost ?? 0} token
-            </span>
-            <span className={`font-bold text-lg ${notEnoughTokens ? 'text-red-400' : 'text-gray-100'}`}>
-              {formatNumber(totalCost)} token
-            </span>
-          </div>
 
           {!isSubscribed ? (
             <Link to="/nap-tien" className="block">
@@ -403,7 +453,7 @@ export const StudioPage: React.FC = () => {
           ) : notEnoughTokens ? (
             <Link to="/nap-tien" className="block">
               <Button className="w-full !rounded-xl" variant="secondary">
-                Không đủ token · Mua thêm
+                Hết hạn mức · Mua thêm
               </Button>
             </Link>
           ) : (
@@ -414,46 +464,61 @@ export const StudioPage: React.FC = () => {
 
           {isSubscribed ? (
             <p className="text-[11px] text-gray-600 text-center leading-relaxed">
-              Hạn mức tháng {formatNumber(user?.monthlyTokens ?? 0)}
-              {(user?.purchasedTokens ?? 0) > 0 && <> · mua thêm {formatNumber(user!.purchasedTokens)}</>}
-              <br />
-              Trừ hạn mức tháng trước · ảnh lỗi được hoàn token tự động.
+              {remainingImages !== null && (
+                <>
+                  Còn tạo được khoảng <strong className="text-gray-500">{formatNumber(remainingImages)} ảnh</strong> ở
+                  mức chất lượng này.
+                  <br />
+                </>
+              )}
+              Ảnh lỗi được hoàn lại tự động, không tính vào hạn mức.
             </p>
           ) : (
-            <p className="text-[11px] text-gray-600 text-center">
-              Cần có gói dịch vụ theo tháng mới tạo được ảnh.
-            </p>
+            <p className="text-[11px] text-gray-600 text-center">Cần có gói dịch vụ theo tháng mới tạo được ảnh.</p>
           )}
         </div>
       </aside>
 
       {/* ================= CỘT PHẢI: KẾT QUẢ ================= */}
       <section className="flex-1 flex flex-col overflow-hidden">
-        <div className="h-14 border-b border-dark-800 flex items-center justify-between px-6 shrink-0">
-          <h2 className="text-base font-semibold text-gray-200">
-            Kết quả gần đây
-            {pendingIds.length > 0 && (
-              <span className="text-xs text-brand-500 font-normal ml-2">• {pendingIds.length} ảnh đang xử lý</span>
+        <div className="h-14 border-b border-dark-800 flex items-center justify-between px-6 shrink-0 gap-4">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <h2 className="text-base font-semibold text-gray-200 truncate">Kết quả gần đây</h2>
+            {generations.length > 0 && (
+              <span className="text-[11px] font-bold text-gray-500 bg-dark-850 border border-dark-800 rounded-full px-2 py-0.5 shrink-0">
+                {generations.length}
+              </span>
             )}
-          </h2>
-          <Link to="/lich-su" className="text-xs text-gray-500 hover:text-gray-100 transition-colors">
+            {pendingIds.length > 0 && (
+              <span className="flex items-center gap-1.5 text-[11px] text-brand-500 bg-brand-500/10 rounded-full px-2.5 py-0.5 shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" />
+                {pendingIds.length} đang vẽ
+              </span>
+            )}
+          </div>
+          <Link to="/lich-su" className="text-xs text-gray-500 hover:text-gray-100 transition-colors whitespace-nowrap">
             Xem toàn bộ lịch sử →
           </Link>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
           {generations.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-700 select-none">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 mb-4 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={0.6}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              <p className="text-base font-medium text-gray-500">Chưa có thiết kế nào.</p>
-              <p className="text-sm mt-1">Tải ảnh mẫu và ảnh sản phẩm ở cột bên trái để bắt đầu.</p>
+            <div className="h-full flex flex-col items-center justify-center select-none px-6">
+              <div className="w-16 h-16 rounded-2xl bg-dark-900 border border-dark-800 flex items-center justify-center mb-5">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+              <p className="text-base font-semibold text-gray-300">Chưa có thiết kế nào</p>
+              <p className="text-sm mt-1.5 text-gray-500 text-center max-w-sm leading-relaxed">
+                Tải một ảnh mẫu bạn thích và ảnh sản phẩm của mình ở cột bên trái, AI sẽ dựng lại bố cục đó cho sản
+                phẩm của bạn.
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5 pb-10">
@@ -498,7 +563,7 @@ export const StudioPage: React.FC = () => {
           <div className="bg-dark-900 border border-dark-700 rounded-2xl w-full max-w-lg p-6 shadow-2xl">
             <h3 className="text-xl font-bold text-gray-100 mb-1">Vẽ lại thiết kế</h3>
             <p className="text-sm text-gray-500 mb-4">
-              Dùng lại đúng ảnh mẫu và ảnh sản phẩm cũ, chỉ đổi mô tả. Trừ {redoTarget.tokenCost} token.
+              Dùng lại đúng ảnh mẫu và ảnh sản phẩm cũ, chỉ đổi mô tả. Ảnh vẽ lại tính là một ảnh mới.
             </p>
             <textarea
               className="w-full bg-dark-850 border border-dark-700 rounded-xl p-3 text-gray-100 focus:border-brand-500 outline-none min-h-[120px] mb-4 custom-scrollbar text-sm"
@@ -511,7 +576,7 @@ export const StudioPage: React.FC = () => {
               <Button variant="ghost" onClick={() => setRedoTarget(null)}>
                 Huỷ
               </Button>
-              <Button onClick={handleRedo}>Vẽ lại · {redoTarget.tokenCost} token</Button>
+              <Button onClick={handleRedo}>Vẽ lại</Button>
             </div>
           </div>
         </div>
@@ -568,7 +633,7 @@ const GenerationCard: React.FC<{
         <div className="w-full h-full flex flex-col items-center justify-center bg-red-950/20 p-4 text-center gap-2">
           <span className="text-xs text-red-400 line-clamp-4">{generation.errorMessage}</span>
           {generation.status === 'refunded' && (
-            <span className="text-[10px] text-green-500">Đã hoàn {generation.tokenCost} token</span>
+            <span className="text-[10px] text-green-500">Đã hoàn lại, không tính vào hạn mức</span>
           )}
           <button onClick={() => onRedo(generation)} className="text-[11px] text-gray-100 underline mt-1">
             Thử lại
@@ -605,7 +670,7 @@ const GenerationCard: React.FC<{
         </div>
         <span className="text-[10px] text-gray-600 truncate ml-1">{generation.modelLabel}</span>
       </div>
-      <span className="text-[10px] text-gray-500 shrink-0">{generation.tokenCost} token</span>
+      <span className="text-[10px] text-gray-500 shrink-0 uppercase tracking-wider">{generation.resolution}</span>
     </div>
   </div>
 );

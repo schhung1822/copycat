@@ -183,7 +183,7 @@ export const TopUpPage: React.FC = () => {
 
           <section>
             <div className="flex items-baseline justify-between gap-4 mb-3">
-              <h2 className="text-lg font-bold text-gray-100">2. Mua thêm token</h2>
+              <h2 className="text-lg font-bold text-gray-100">Mua thêm token</h2>
               <span className="text-xs text-gray-500">Token mua thêm không hết hạn theo tháng</span>
             </div>
 
@@ -575,7 +575,7 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
 
   return (
     <div>
-      <h2 className="text-lg font-bold text-gray-100 mb-3">Số ảnh có thể tạo hàng tháng</h2>
+      <h2 className="text-lg font-bold text-gray-100 mb-3">Bảng quy đổi</h2>
       <Card className="p-4">
         <TableWrap>
           <thead>
@@ -583,7 +583,7 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
               <th className="text-left font-bold py-2">Model</th>
               <th className="text-left font-bold py-2">Chất lượng</th>
               <th className="text-right font-bold py-2">Token / ảnh</th>
-              {pricePerToken > 0 && <th className="text-right font-bold py-2">Tiền tương đương / ảnh</th>}
+              {pricePerToken > 0 && <th className="text-right font-bold py-2">Quy đổi theo mệnh giá</th>}
               <th className="text-right font-bold py-2">Số ảnh trong hạn mức tháng</th>
             </tr>
           </thead>
