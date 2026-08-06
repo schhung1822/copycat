@@ -5,7 +5,7 @@ import { Alert, Badge, Card, EmptyState, PageLoader, TableWrap } from '../compon
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
 import { countdown, formatDateTime, formatNumber, formatVnd, STATUS_LABEL } from '../lib/format';
-import type { BankInfo, Catalog, Order, SubscriptionPlan, TokenPackage } from '../types';
+import type { BankInfo, Catalog, ModelOption, Order, SubscriptionPlan, TokenPackage } from '../types';
 
 const ORDER_POLL_MS = 5000;
 
@@ -87,6 +87,14 @@ export const TopUpPage: React.FC = () => {
 
   const isSubscribed = user?.isSubscribed ?? false;
 
+  // Quy hạn mức ra số ảnh theo loại rẻ nhất — con số này dễ hình dung hơn nhiều
+  // so với "500.000 token". Lấy từ bảng giá nên đổi giá model là tự cập nhật.
+  const cheapestModel = catalog.models.reduce<ModelOption | null>(
+    (cheapest, model) =>
+      model.tokenCost > 0 && (!cheapest || model.tokenCost < cheapest.tokenCost) ? model : cheapest,
+    null,
+  );
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
       <div>
@@ -118,6 +126,7 @@ export const TopUpPage: React.FC = () => {
             <PlanGrid
               plans={catalog.plans}
               creatingId={creatingId}
+              cheapestModel={cheapestModel}
               onSelect={(plan) => createOrder('/orders/subscription', { planId: plan.id }, `plan-${plan.id}`)}
             />
           </section>
@@ -209,12 +218,15 @@ const PlanGrid: React.FC<{
   plans: SubscriptionPlan[];
   creatingId: string | null;
   onSelect: (plan: SubscriptionPlan) => void;
-}> = ({ plans, creatingId, onSelect }) => {
+  /** Model rẻ nhất đang bán — dùng làm mốc quy đổi hạn mức ra số ảnh */
+  cheapestModel: ModelOption | null;
+}> = ({ plans, creatingId, onSelect, cheapestModel }) => {
   // Mốc so sánh để tính % tiết kiệm: giá mỗi tháng của gói ngắn nhất.
   const basePerMonth = Math.max(...plans.map((plan) => plan.pricePerMonthVnd), 0);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       {plans.map((plan) => {
         const savedPercent = basePerMonth > 0 ? Math.round((1 - plan.pricePerMonthVnd / basePerMonth) * 100) : 0;
 
@@ -241,7 +253,28 @@ const PlanGrid: React.FC<{
             </p>
 
             <div className="mt-3 pt-3 border-t border-dark-800 flex-1">
-              <p className="text-brand-500 font-bold">{formatNumber(plan.monthlyTokenAllowance)} token/tháng</p>
+              {cheapestModel && cheapestModel.tokenCost > 0 ? (
+                (() => {
+                  const perMonth = Math.floor(plan.monthlyTokenAllowance / cheapestModel.tokenCost);
+                  return (
+                    <>
+                      <p className="text-brand-500 font-bold text-xl leading-tight">
+                        {formatNumber(perMonth * plan.months)} ảnh
+                      </p>
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        {plan.months > 1
+                          ? `cho cả ${plan.months} tháng · ~${formatNumber(perMonth)} ảnh mỗi tháng`
+                          : 'trong tháng'}
+                      </p>
+                      <p className="text-[11px] text-gray-600 mt-2">
+                        {formatNumber(plan.monthlyTokenAllowance)} token/tháng · không cộng dồn
+                      </p>
+                    </>
+                  );
+                })()
+              ) : (
+                <p className="text-brand-500 font-bold">{formatNumber(plan.monthlyTokenAllowance)} token/tháng</p>
+              )}
             </div>
 
             <Button
@@ -255,7 +288,16 @@ const PlanGrid: React.FC<{
           </Card>
         );
       })}
-    </div>
+      </div>
+
+      {cheapestModel && (
+        <p className="text-[11px] text-gray-600 mt-3">
+          Số ảnh tính theo loại rẻ nhất — <strong className="text-gray-500">{cheapestModel.label}</strong> (
+          {formatNumber(cheapestModel.tokenCost)} token/ảnh). Dùng model cao cấp hơn thì số ảnh giảm tương ứng, xem bảng
+          token tiêu hao bên dưới. Hạn mức tính theo từng tháng và không cộng dồn.
+        </p>
+      )}
+    </>
   );
 };
 
