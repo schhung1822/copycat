@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
+import { PasswordInput } from '../components/PasswordInput';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { Alert, Field, inputClass } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
@@ -98,9 +99,7 @@ export const LoginPage: React.FC = () => {
         </Field>
 
         <Field label="Mật khẩu">
-          <input
-            type="password"
-            className={inputClass}
+          <PasswordInput
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
@@ -189,25 +188,11 @@ export const RegisterPage: React.FC = () => {
         </Field>
 
         <Field label="Mật khẩu" hint="Tối thiểu 6 ký tự.">
-          <input
-            type="password"
-            className={inputClass}
-            value={form.password}
-            onChange={update('password')}
-            autoComplete="new-password"
-            required
-          />
+          <PasswordInput value={form.password} onChange={update('password')} autoComplete="new-password" required />
         </Field>
 
         <Field label="Nhập lại mật khẩu">
-          <input
-            type="password"
-            className={inputClass}
-            value={form.confirm}
-            onChange={update('confirm')}
-            autoComplete="new-password"
-            required
-          />
+          <PasswordInput value={form.confirm} onChange={update('confirm')} autoComplete="new-password" required />
         </Field>
 
         <Button type="submit" isLoading={isSubmitting} className="w-full !rounded-xl">

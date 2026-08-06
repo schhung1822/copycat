@@ -506,14 +506,13 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
 
   return (
     <div>
-      <h2 className="text-lg font-bold text-gray-100 mb-3">Token tiêu hao mỗi ảnh</h2>
+      <h2 className="text-lg font-bold text-gray-100 mb-3">Số ảnh có thể tạo hàng tháng</h2>
       <Card className="p-4">
         <TableWrap>
           <thead>
             <tr className="text-[11px] uppercase tracking-wider text-gray-500 border-b border-dark-800">
               <th className="text-left font-bold py-2">Model</th>
               <th className="text-left font-bold py-2">Chất lượng</th>
-              <th className="text-right font-bold py-2">Token / ảnh</th>
               <th className="text-right font-bold py-2">Số ảnh trong hạn mức tháng</th>
             </tr>
           </thead>
@@ -522,7 +521,6 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
               <tr key={model.code} className="border-b border-dark-850 last:border-0">
                 <td className="py-2.5 text-gray-300">{model.label.split('—')[0].trim()}</td>
                 <td className="py-2.5 text-gray-400">{model.resolution}</td>
-                <td className="py-2.5 text-right text-brand-500 font-semibold">{formatNumber(model.tokenCost)}</td>
                 <td className="py-2.5 text-right text-gray-500 text-xs">
                   {model.tokenCost > 0 ? `~${formatNumber(Math.floor(allowance / model.tokenCost))} ảnh` : '—'}
                 </td>
