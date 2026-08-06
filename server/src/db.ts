@@ -27,6 +27,16 @@ export function getPool(): Pool {
       // mysql2 trả DECIMAL về dạng string; ép sang number cho gọn phía ứng dụng.
       decimalNumbers: true,
     });
+
+    // `timezone: 'Z'` chỉ nói cho mysql2 biết cách quy đổi Date của JS sang chuỗi
+    // và ngược lại — nó KHÔNG đổi múi giờ của chính MySQL. Nếu không ép ở đây thì
+    // NOW() / CURRENT_TIMESTAMP vẫn chạy theo giờ hệ điều hành, trong khi ngày giờ
+    // do ứng dụng ghi lại là giờ UTC. Hai chuẩn lẫn lộn trong cùng một cột DATETIME
+    // khiến `expires_at > NOW()` sai đúng bằng chênh lệch múi giờ — máy chủ đặt
+    // UTC+7 thì gói hết hạn sớm 7 tiếng, và mọi mốc thời gian hiển thị lệch 7 tiếng.
+    pool.on('connection', (connection) => {
+      connection.query("SET time_zone = '+00:00'");
+    });
   }
   return pool;
 }

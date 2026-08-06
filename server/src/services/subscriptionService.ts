@@ -336,8 +336,16 @@ export async function activateSubscription(
   const isRenewal = !options.restart && Boolean(currentExpiry && currentExpiry.getTime() > now.getTime());
 
   // Nối tiếp từ ngày hết hạn cũ nếu còn hạn, ngược lại tính từ bây giờ.
+  //
+  // CAST(? AS DATETIME) là bắt buộc, không phải cho đẹp: nếu để `SELECT ? AS
+  // started_at` thì MySQL trả về kiểu chuỗi, mysql2 không nhận ra là ngày giờ nên
+  // không áp `timezone: 'Z'` của pool, và `new Date(chuỗi)` lại đọc theo múi giờ
+  // máy chủ. Kết quả là mọi gói bị lùi đúng bằng chênh lệch múi giờ (UTC+7 thì mất
+  // 7 tiếng), và mỗi lần gia hạn lại lùi thêm một lần nữa vì tính tiếp từ ngày đã
+  // sai. CAST khiến cột trả về đúng kiểu DATETIME và mysql2 đọc lại chuẩn UTC.
   const [computed] = await conn.query<(RowDataPacket & { started_at: Date; expires_at: Date })[]>(
-    `SELECT ? AS started_at, DATE_ADD(?, INTERVAL ? MONTH) AS expires_at`,
+    `SELECT CAST(? AS DATETIME) AS started_at,
+            DATE_ADD(CAST(? AS DATETIME), INTERVAL ? MONTH) AS expires_at`,
     [isRenewal ? currentExpiry : now, isRenewal ? currentExpiry : now, plan.months],
   );
   const startedAt = new Date(computed[0].started_at);

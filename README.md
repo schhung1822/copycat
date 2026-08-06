@@ -349,6 +349,22 @@ Sau khi thanh toán thành công:
 Chỉ nâng lên được gói có giá cao hơn. **Hạ gói không hỗ trợ** vì sẽ phát sinh nghĩa vụ hoàn
 tiền mặt, nằm ngoài luồng thanh toán một chiều hiện tại.
 
+Trên giao diện, nâng gói nằm ngay trong lưới gói ở trang **Gói dịch vụ** — không có mục riêng.
+Mỗi thẻ gói có một trong ba nút tuỳ trạng thái:
+
+| Thẻ | Nút |
+|---|---|
+| Gói đang dùng | `Gói đang dùng` (không bấm được) |
+| Gói đắt hơn gói đang dùng | `Nâng gói · bù <số tiền>` → mở hộp thoại chi tiết |
+| Gói còn lại (hoặc chưa có gói nào) | `Gia hạn thêm N tháng` / `Chọn gói` |
+
+Bấm "Nâng gói" chỉ mở hộp thoại xem trước (giá gói mới − phần chưa dùng = số phải bù), chưa
+tạo đơn. Đơn chỉ được tạo khi khách bấm **Bắt đầu thanh toán** trong hộp thoại đó.
+
+Lưu ý "Gia hạn thêm N tháng": khi đã có gói, bấm một thẻ **không phải** gói đang dùng và không
+đắt hơn nó thì server **nối thêm đúng số tháng của thẻ đó** vào ngày hết hạn hiện tại, giữ
+nguyên hạn mức của gói đang dùng — chứ không chuyển sang gói rẻ hơn.
+
 > Lưu ý về vận hành: khấu trừ tính theo **ngày**, không theo token đã dùng. Khách tiêu hết
 > hạn mức tháng rồi nâng gói ngay vẫn được khấu trừ gần như trọn vẹn và nhận thêm một hạn mức
 > mới. Với gói 1 tháng, mức thiệt tối đa khoảng 500.000đ tiền token theo giá vốn. Nếu muốn
@@ -414,6 +430,27 @@ khởi động (`DB_AUTO_MIGRATE=true`).
 | `settings` | Cấu hình sửa nóng không cần restart |
 
 Số tiền lưu dạng số nguyên VNĐ (`BIGINT`), không có phần thập phân.
+
+### Múi giờ: mọi cột `DATETIME` lưu theo giờ UTC
+
+Kết nối MySQL được đặt `timezone: 'Z'` **và** chạy `SET time_zone = '+00:00'` cho từng
+connection (xem [db.ts](server/src/db.ts)). Hai thứ này phải đi cùng nhau:
+
+- `timezone: 'Z'` chỉ nói cho thư viện `mysql2` biết cách quy đổi `Date` của JS ↔ chuỗi.
+- `SET time_zone` mới đổi múi giờ của chính MySQL, tức là của `NOW()` và `CURRENT_TIMESTAMP`.
+
+Nếu thiếu vế thứ hai, ngày giờ do ứng dụng ghi là UTC còn ngày giờ do SQL ghi là giờ hệ điều
+hành — cùng một cột chứa hai chuẩn. Máy chủ đặt UTC+7 thì `expires_at > NOW()` sai 7 tiếng,
+gói hết hạn sớm 7 tiếng và mọi mốc thời gian hiển thị lệch 7 tiếng.
+
+Cùng lý do đó, khi cần MySQL tính toán ngày giờ thì phải `CAST(? AS DATETIME)` chứ đừng viết
+`SELECT ? AS started_at`: cột không ép kiểu sẽ trả về **chuỗi**, `mysql2` không nhận ra là ngày
+giờ nên bỏ qua `timezone: 'Z'`, và `new Date(chuỗi)` lại đọc theo giờ máy chủ.
+
+> Nếu cơ sở dữ liệu đã chạy từ trước bản sửa này, các cột do SQL ghi (`created_at`, `paid_at`…)
+> của **dữ liệu cũ** vẫn đang là giờ hệ điều hành nên hiển thị lệch. Dữ liệu mới thì đúng. Muốn
+> nắn lại lịch sử thì chạy `UPDATE <bảng> SET created_at = CONVERT_TZ(created_at, '+07:00', '+00:00')`
+> cho từng bảng — nhớ backup trước và chỉ chạy đúng **một lần**.
 
 ---
 

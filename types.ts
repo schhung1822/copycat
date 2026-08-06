@@ -87,7 +87,7 @@ export interface UpgradeOption {
 }
 
 export interface UpgradeInfo {
-  currentPlan: { name: string; priceVnd: number; expiresAt: string } | null;
+  currentPlan: { planId: number | null; name: string; priceVnd: number; expiresAt: string } | null;
   options: UpgradeOption[];
 }
 

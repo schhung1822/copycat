@@ -62,6 +62,8 @@ export const TopUpPage: React.FC = () => {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [upgrade, setUpgrade] = useState<UpgradeInfo | null>(null);
+  /** Gói khách vừa bấm "Nâng gói" — mở hộp thoại xem chi tiết trước khi tạo đơn. */
+  const [upgradeTarget, setUpgradeTarget] = useState<UpgradeOption | null>(null);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creatingId, setCreatingId] = useState<string | null>(null);
@@ -104,18 +106,32 @@ export const TopUpPage: React.FC = () => {
     return () => clearInterval(timer);
   }, [activeOrder, refreshUser]);
 
-  const createOrder = async (path: string, body: unknown, key: string) => {
+  /** Trả về true nếu đơn được tạo — nơi gọi dùng để biết có nên đóng hộp thoại không. */
+  const createOrder = async (path: string, body: unknown, key: string): Promise<boolean> => {
     setError(null);
     setCreatingId(key);
     try {
       const data = await api.post<{ order: Order }>(path, body);
       setActiveOrder(data.order);
       setOrders((current) => [data.order, ...current]);
+      return true;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Không tạo được đơn hàng.');
+      return false;
     } finally {
       setCreatingId(null);
     }
+  };
+
+  /**
+   * Tạo đơn nâng gói rồi đóng hộp thoại.
+   *
+   * Chỉ đóng khi tạo đơn thành công — nếu lỗi (gói hết hiệu lực giữa chừng, số
+   * tiền bù quá nhỏ) thì giữ hộp thoại lại để khách còn thấy mình đã bấm gì.
+   */
+  const handleUpgrade = async (option: UpgradeOption) => {
+    const created = await createOrder('/orders/upgrade', { planId: option.planId }, `upgrade-${option.planId}`);
+    if (created) setUpgradeTarget(null);
   };
 
   const handleCancel = async (order: Order) => {
@@ -178,36 +194,26 @@ export const TopUpPage: React.FC = () => {
         <>
           <SubscriptionStatus />
 
-          {isSubscribed && upgrade && upgrade.options.length > 0 && (
-            <section>
-              <div className="flex items-baseline justify-between gap-4 mb-3">
-                <h2 className="text-lg font-bold text-gray-100">Nâng lên gói cao hơn</h2>
-                <span className="text-xs text-gray-500">Chỉ trả phần chênh lệch</span>
-              </div>
-              <UpgradeGrid
-                info={upgrade}
-                creatingId={creatingId}
-                onSelect={(option) =>
-                  createOrder('/orders/upgrade', { planId: option.planId }, `upgrade-${option.planId}`)
-                }
-              />
-            </section>
-          )}
-
           <section>
             <div className="flex items-baseline justify-between gap-4 mb-3">
               <h2 className="text-lg font-bold text-gray-100">
-                {isSubscribed ? 'Gia hạn gói dịch vụ' : '1. Chọn gói dịch vụ'}
+                {isSubscribed ? 'Gói dịch vụ' : '1. Chọn gói dịch vụ'}
               </h2>
               <span className="text-xs text-gray-500">
-                {isSubscribed ? 'Cộng tiếp vào ngày hết hạn hiện tại' : 'Tiết kiệm hơn với gói chu kỳ dài'}
+                {isSubscribed ? 'Gói cao hơn chỉ cần bù phần chênh lệch' : 'Tiết kiệm hơn với gói chu kỳ dài'}
               </span>
             </div>
             <PlanGrid
               plans={catalog.plans}
               creatingId={creatingId}
               referenceModel={referenceModel}
+              upgrade={upgrade}
               onSelect={(plan) => createOrder('/orders/subscription', { planId: plan.id }, `plan-${plan.id}`)}
+              onUpgrade={(option) => {
+                // Xoá lỗi cũ trước khi mở, nếu không hộp thoại mở ra đã thấy lỗi của lần trước.
+                setError(null);
+                setUpgradeTarget(option);
+              }}
             />
           </section>
 
@@ -237,6 +243,17 @@ export const TopUpPage: React.FC = () => {
 
       <PricingReference catalog={catalog} />
       <OrderHistory orders={orders} onResume={setActiveOrder} />
+
+      {upgradeTarget && (
+        <UpgradeDialog
+          option={upgradeTarget}
+          currentPlanName={upgrade?.currentPlan?.name ?? 'gói hiện tại'}
+          isSubmitting={creatingId === `upgrade-${upgradeTarget.planId}`}
+          error={error}
+          onClose={() => setUpgradeTarget(null)}
+          onConfirm={() => void handleUpgrade(upgradeTarget)}
+        />
+      )}
     </div>
   );
 };
@@ -300,7 +317,10 @@ const PlanGrid: React.FC<{
   onSelect: (plan: SubscriptionPlan) => void;
   /** Model rẻ nhất đang bán — dùng làm mốc quy đổi hạn mức ra số ảnh */
   referenceModel: ModelOption | null;
-}> = ({ plans, creatingId, onSelect, referenceModel }) => {
+  /** Thông tin nâng gói; null khi khách chưa có gói nào */
+  upgrade: UpgradeInfo | null;
+  onUpgrade: (option: UpgradeOption) => void;
+}> = ({ plans, creatingId, onSelect, referenceModel, upgrade, onUpgrade }) => {
   // Mốc so sánh để tính % tiết kiệm: giá mỗi tháng của gói ngắn nhất.
   const basePerMonth = Math.max(...plans.map((plan) => plan.pricePerMonthVnd), 0);
 
@@ -313,6 +333,10 @@ const PlanGrid: React.FC<{
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
       {plans.map((plan) => {
         const savedPercent = basePerMonth > 0 ? Math.round((1 - plan.pricePerMonthVnd / basePerMonth) * 100) : 0;
+
+        // Gói này có nâng lên được không, và có phải gói đang dùng không.
+        const upgradeOption = upgrade?.options.find((option) => option.planId === plan.id) ?? null;
+        const isCurrentPlan = upgrade?.currentPlan?.planId === plan.id;
 
         return (
           <Card
@@ -362,14 +386,32 @@ const PlanGrid: React.FC<{
               )}
             </div>
 
-            <Button
-              onClick={() => onSelect(plan)}
-              isLoading={creatingId === `plan-${plan.id}`}
-              variant={plan.isPopular ? 'primary' : 'secondary'}
-              className="w-full mt-4 !rounded-xl !py-2.5 !text-sm"
-            >
-              Chọn gói
-            </Button>
+            {/* Ba trạng thái: gói đang dùng / gói nâng lên được / gói mua hoặc gia hạn bình thường */}
+            {isCurrentPlan ? (
+              <div className="w-full mt-4 rounded-xl py-2.5 text-sm font-bold text-center bg-dark-850 border border-dark-700 text-gray-500">
+                Gói đang dùng
+              </div>
+            ) : upgradeOption ? (
+              <Button
+                onClick={() => onUpgrade(upgradeOption)}
+                variant="primary"
+                className="w-full mt-4 !rounded-xl !py-2.5 !text-sm"
+              >
+                Nâng gói · bù {formatVnd(upgradeOption.payableVnd)}
+              </Button>
+            ) : (
+              <Button
+                onClick={() => onSelect(plan)}
+                isLoading={creatingId === `plan-${plan.id}`}
+                variant={plan.isPopular ? 'primary' : 'secondary'}
+                className="w-full mt-4 !rounded-xl !py-2.5 !text-sm"
+              >
+                {/* Đang có gói mà bấm thẻ khác thì không phải đổi gói — server nối
+                    thêm đúng số tháng của thẻ đó vào ngày hết hạn hiện tại. Ghi rõ
+                    "+N tháng" để khách không hiểu nhầm là chuyển sang gói đó. */}
+                {upgrade?.currentPlan ? `Gia hạn thêm ${plan.months} tháng` : 'Chọn gói'}
+              </Button>
+            )}
           </Card>
         );
       })}
@@ -389,63 +431,63 @@ const PlanGrid: React.FC<{
 };
 
 /**
- * Lưới chọn gói nâng cấp.
+ * Hộp thoại xác nhận nâng gói.
  *
- * Nhấn mạnh SỐ TIỀN PHẢI BÙ chứ không phải giá niêm yết — đó mới là con số khách
- * quan tâm, và nói rõ phần khấu trừ đến từ đâu để khách tự kiểm chứng được.
+ * Bày rõ ba con số — giá gói mới, phần được trừ, số phải bù — để khách tự cộng
+ * lại kiểm chứng được, rồi mới cho bấm thanh toán.
  */
-const UpgradeGrid: React.FC<{
-  info: UpgradeInfo;
-  creatingId: string | null;
-  onSelect: (option: UpgradeOption) => void;
-}> = ({ info, creatingId, onSelect }) => (
-  <>
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-      {info.options.map((option) => (
-        <Card key={option.planId} className="p-5 flex flex-col border-brand-500/40">
-          <div className="flex items-baseline justify-between gap-2">
-            <h3 className="font-bold text-gray-100">{option.name}</h3>
-            <span className="text-[11px] text-gray-500 line-through">{formatVnd(option.listPriceVnd)}</span>
+const UpgradeDialog: React.FC<{
+  option: UpgradeOption;
+  currentPlanName: string;
+  isSubmitting: boolean;
+  /** Lỗi tạo đơn — phải hiện trong hộp thoại, banner ở trang bị lớp phủ che mất. */
+  error: string | null;
+  onClose: () => void;
+  onConfirm: () => void;
+}> = ({ option, currentPlanName, isSubmitting, error, onClose, onConfirm }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <Card className="w-full max-w-md p-6">
+      <h3 className="text-xl font-bold text-gray-100">Nâng lên {option.name}</h3>
+      <p className="text-sm text-gray-500 mt-1">Từ {currentPlanName}</p>
+
+      <div className="mt-5 bg-dark-850 rounded-xl px-4 divide-y divide-dark-800">
+        <div className="flex justify-between items-center py-3">
+          <span className="text-sm text-gray-400">Giá {option.name}</span>
+          <span className="text-sm text-gray-200">{formatVnd(option.listPriceVnd)}</span>
+        </div>
+        <div className="flex justify-between items-center py-3">
+          <div>
+            <span className="text-sm text-gray-400">Trừ phần chưa dùng</span>
+            <span className="block text-[11px] text-gray-600 mt-0.5">
+              Gói hiện tại còn {option.remainingDays}/{option.totalDays} ngày
+            </span>
           </div>
+          <span className="text-sm text-green-400">−{formatVnd(option.creditVnd)}</span>
+        </div>
+        <div className="flex justify-between items-center py-3">
+          <span className="text-sm font-bold text-gray-100">Số tiền cần thanh toán</span>
+          <span className="text-lg font-bold text-brand-500">{formatVnd(option.payableVnd)}</span>
+        </div>
+      </div>
 
-          <p className="text-2xl font-bold text-brand-500 mt-2">{formatVnd(option.payableVnd)}</p>
-          <p className="text-[11px] text-gray-500 mt-1">số tiền cần bù thêm</p>
+      {error && <Alert tone="error">{error}</Alert>}
 
-          <div className="mt-3 pt-3 border-t border-dark-800 space-y-1 flex-1">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-gray-500">Giá gói mới</span>
-              <span className="text-gray-400">{formatVnd(option.listPriceVnd)}</span>
-            </div>
-            <div className="flex justify-between text-[11px]">
-              <span className="text-gray-500">Trừ phần chưa dùng</span>
-              <span className="text-green-400">−{formatVnd(option.creditVnd)}</span>
-            </div>
-            <p className="text-[10px] text-gray-600 pt-1.5 leading-relaxed">
-              Gói hiện tại còn {option.remainingDays}/{option.totalDays} ngày. Hạn mức mới{' '}
-              {formatNumber(option.monthlyTokenAllowance)} token/tháng, tính lại từ lúc nâng gói thành công.
-            </p>
-          </div>
+      <Alert tone="info">
+        Sau khi thanh toán thành công, gói {option.months} tháng bắt đầu tính từ thời điểm đó và hạn mức được cấp lại{' '}
+        {formatNumber(option.monthlyTokenAllowance)} token/tháng. Hạn mức chưa dùng của gói cũ đã được quy thành tiền
+        trừ vào đơn này.
+      </Alert>
 
-          <Button
-            onClick={() => onSelect(option)}
-            isLoading={creatingId === `upgrade-${option.planId}`}
-            className="w-full mt-4 !rounded-xl !py-2.5 !text-sm"
-          >
-            Nâng lên gói này
-          </Button>
-        </Card>
-      ))}
-    </div>
-
-    <p className="text-[11px] text-gray-600 mt-3">
-      Phần khấu trừ tính theo số ngày còn lại của {info.currentPlan?.name ?? 'gói hiện tại'}:{' '}
-      <strong className="text-gray-500">
-        {formatVnd(info.currentPlan?.priceVnd ?? 0)} × số ngày còn lại ÷ tổng số ngày
-      </strong>
-      . Sau khi nâng gói, thời hạn và hạn mức tháng đều bắt đầu lại từ thời điểm thanh toán thành công — hạn mức chưa
-      dùng của gói cũ đã được quy thành tiền trừ vào đơn này.
-    </p>
-  </>
+      <div className="flex justify-end gap-3 mt-5">
+        <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>
+          Để sau
+        </Button>
+        <Button onClick={onConfirm} isLoading={isSubmitting} className="!rounded-xl">
+          Bắt đầu thanh toán
+        </Button>
+      </div>
+    </Card>
+  </div>
 );
 
 const PackageGrid: React.FC<{

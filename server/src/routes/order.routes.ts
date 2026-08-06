@@ -85,7 +85,12 @@ orderRouter.get(
 
     res.json({
       currentPlan: current
-        ? { name: current.plan_name, priceVnd: current.price_vnd, expiresAt: current.expires_at }
+        ? {
+            planId: current.plan_id,
+            name: current.plan_name,
+            priceVnd: current.price_vnd,
+            expiresAt: current.expires_at,
+          }
         : null,
       options: options.map((quote) => ({
         planId: quote.plan.id,
