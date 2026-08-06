@@ -97,8 +97,14 @@ export const TopUpPage: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
-      <div>
+      <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-100">Gói dịch vụ</h1>
+        <Link
+          to="/chinh-sach"
+          className="text-sm text-gray-500 hover:text-brand-500 transition-colors whitespace-nowrap"
+        >
+          Chính sách &amp; Điều khoản →
+        </Link>
       </div>
 
       {error && <Alert tone="error">{error}</Alert>}
@@ -259,15 +265,13 @@ const PlanGrid: React.FC<{
                   return (
                     <>
                       <p className="text-brand-500 font-bold text-xl leading-tight">
-                        {formatNumber(perMonth * plan.months)} ảnh
+                        Tối đa {formatNumber(perMonth * plan.months)} ảnh
                       </p>
                       <p className="text-[11px] text-gray-500 mt-1">
-                        {plan.months > 1
-                          ? `cho cả ${plan.months} tháng · ~${formatNumber(perMonth)} ảnh mỗi tháng`
-                          : 'trong tháng'}
+                        Số lượng ảnh tối đa có thể tạo
                       </p>
                       <p className="text-[11px] text-gray-600 mt-2">
-                        {formatNumber(plan.monthlyTokenAllowance)} token/tháng · không cộng dồn
+                        {formatNumber(plan.monthlyTokenAllowance)} token/tháng
                       </p>
                     </>
                   );

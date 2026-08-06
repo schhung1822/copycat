@@ -79,11 +79,22 @@ export interface BankInfo {
   configured: boolean;
 }
 
+export interface SiteInfo {
+  companyName: string;
+  companyAddress: string;
+  supportEmail: string;
+  supportPhone: string;
+  policyUpdatedAt: string;
+  /** Số phút đơn hàng còn hiệu lực, dùng trong trang Chính sách */
+  orderExpireMinutes: number;
+}
+
 export interface Catalog {
   plans: SubscriptionPlan[];
   models: ModelOption[];
   packages: TokenPackage[];
   bank: BankInfo;
+  site: SiteInfo;
 }
 
 export type GenerationStatus = 'queued' | 'processing' | 'success' | 'failed' | 'refunded';

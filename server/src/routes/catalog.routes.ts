@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { query } from '../db.js';
+import { env } from '../env.js';
 import { asyncHandler } from '../lib/errors.js';
 import type { ModelPricingRow } from '../services/generationService.js';
 import { bankInfo, listActivePackages } from '../services/orderService.js';
@@ -45,6 +46,14 @@ catalogRouter.get(
         isPopular: Boolean(pkg.is_popular),
       })),
       bank: bankInfo(),
+      site: {
+        companyName: env.site.companyName,
+        companyAddress: env.site.companyAddress,
+        supportEmail: env.site.supportEmail,
+        supportPhone: env.site.supportPhone,
+        policyUpdatedAt: env.site.policyUpdatedAt,
+        orderExpireMinutes: env.orderExpireMinutes,
+      },
     });
   }),
 );

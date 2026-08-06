@@ -68,6 +68,15 @@ export const env = {
 
   usdToVnd: num('USD_TO_VND', 28000),
 
+  /** Thông tin pháp lý & liên hệ, hiển thị ở trang Chính sách. */
+  site: {
+    companyName: str('COMPANY_NAME'),
+    companyAddress: str('COMPANY_ADDRESS'),
+    supportEmail: str('SUPPORT_EMAIL'),
+    supportPhone: str('SUPPORT_PHONE'),
+    policyUpdatedAt: str('POLICY_UPDATED_AT'),
+  },
+
   bank: {
     code: str('BANK_CODE', 'MB'),
     accountNumber: str('BANK_ACCOUNT_NUMBER', ''),

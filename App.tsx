@@ -8,6 +8,7 @@ import { AccountPage } from './pages/AccountPage';
 import { AdminPage } from './pages/AdminPage';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
 import { HistoryPage } from './pages/HistoryPage';
+import { PolicyPage } from './pages/PolicyPage';
 import { StudioPage } from './pages/StudioPage';
 import { TopUpPage } from './pages/TopUpPage';
 import { WalletPage } from './pages/WalletPage';
@@ -28,6 +29,8 @@ const AppRoutes: React.FC = () => (
   <Routes>
     <Route path="/dang-nhap" element={<LoginPage />} />
     <Route path="/dang-ky" element={<RegisterPage />} />
+    {/* Công khai: khách phải đọc được điều khoản trước khi tạo tài khoản */}
+    <Route path="/chinh-sach" element={<PolicyPage />} />
 
     <Route
       element={
