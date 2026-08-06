@@ -322,6 +322,40 @@ Mua gói tháng (1 / 3 / 6 / 12 tháng) ──► Tạo đơn (mã NAPxxxxxx) �
 Mua chu kỳ dài **không** cấp nhiều hạn mức hơn một lần: hạn mức vẫn là 500.000 token và vẫn
 được cấp lại theo từng tháng. Chu kỳ dài chỉ rẻ hơn và khỏi phải gia hạn thường xuyên.
 
+### Nâng lên gói cao hơn
+
+Khách đang dùng gói có thể nâng lên gói **đắt hơn** và chỉ trả phần chênh lệch:
+
+```
+Số tiền phải bù = Giá gói mới − ( Giá gói cũ × số ngày còn lại ÷ tổng số ngày )
+```
+
+Ví dụ đang dùng gói 1 tháng (1.500.000đ), còn 30/31 ngày, nâng lên gói 1 năm:
+
+| | |
+|---|---|
+| Giá gói 1 năm | 15.300.000đ |
+| Trừ phần chưa dùng | −1.451.613đ |
+| **Phải bù** | **13.848.387đ** |
+
+Sau khi thanh toán thành công:
+
+- Thời hạn gói mới **tính từ thời điểm nâng**, không cộng nối vào ngày hết hạn cũ.
+- Hạn mức tháng được cấp lại ngay theo mức của gói mới. Hạn mức chưa dùng của gói cũ bị thu
+  hồi (có ghi dòng `expire` trong sổ cái) vì phần đó đã được quy thành tiền khấu trừ vào đơn.
+- Thuê bao lưu **giá niêm yết** của gói, không phải số tiền đã trả — nếu lưu số đã trả thì lần
+  nâng sau khách sẽ bị tính khấu trừ trên một con số thấp hơn giá trị thật.
+
+Chỉ nâng lên được gói có giá cao hơn. **Hạ gói không hỗ trợ** vì sẽ phát sinh nghĩa vụ hoàn
+tiền mặt, nằm ngoài luồng thanh toán một chiều hiện tại.
+
+> Lưu ý về vận hành: khấu trừ tính theo **ngày**, không theo token đã dùng. Khách tiêu hết
+> hạn mức tháng rồi nâng gói ngay vẫn được khấu trừ gần như trọn vẹn và nhận thêm một hạn mức
+> mới. Với gói 1 tháng, mức thiệt tối đa khoảng 500.000đ tiền token theo giá vốn. Nếu muốn
+> chặn, sửa `computeUpgradeQuote` trong
+> [subscriptionService.ts](server/src/services/subscriptionService.ts) để lấy tỉ lệ nhỏ hơn
+> giữa "ngày còn lại" và "token còn lại".
+
 ### Bảng giá gói token lẻ
 
 Số token của mỗi gói neo theo hạn mức tháng cho khách dễ hình dung, giá bán làm tròn xuống

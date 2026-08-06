@@ -147,7 +147,11 @@ CREATE TABLE IF NOT EXISTS orders (
   -- Snapshot thông tin gói tại thời điểm đặt, để đổi bảng giá không làm sai lịch sử.
   package_code    VARCHAR(50)     NULL,
   package_name    VARCHAR(120)    NOT NULL,
-  amount_vnd      BIGINT          NOT NULL,
+  amount_vnd      BIGINT          NOT NULL,   -- số tiền khách thực trả
+  -- Nâng gói: số tiền được khấu trừ từ phần chưa dùng của gói cũ.
+  -- Giá niêm yết của gói mới = amount_vnd + credit_vnd.
+  credit_vnd      BIGINT          NOT NULL DEFAULT 0,
+  is_upgrade      TINYINT(1)      NOT NULL DEFAULT 0,
   base_tokens     INT             NOT NULL,
   bonus_tokens    INT             NOT NULL DEFAULT 0,
   total_tokens    INT             NOT NULL,

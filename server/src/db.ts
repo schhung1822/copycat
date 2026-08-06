@@ -115,6 +115,10 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   await ensureColumn(conn, 'orders', 'plan_id', 'INT UNSIGNED NULL');
   await ensureColumn(conn, 'orders', 'subscription_months', 'INT NULL');
 
+  // Nâng gói: phần khấu trừ từ gói cũ
+  await ensureColumn(conn, 'orders', 'credit_vnd', 'BIGINT NOT NULL DEFAULT 0');
+  await ensureColumn(conn, 'orders', 'is_upgrade', 'TINYINT(1) NOT NULL DEFAULT 0');
+
   // Đánh dấu đơn đã được giao hàng (cộng token / kích hoạt gói).
   // Tách khỏi `status` để hệ thống ngoài chỉ cần đổi status = 'paid', phần giao
   // hàng do server tự làm — xem `fulfillPaidOrders`.

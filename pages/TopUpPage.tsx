@@ -5,7 +5,16 @@ import { Alert, Badge, Card, EmptyState, PageLoader, TableWrap } from '../compon
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
 import { countdown, formatDateTime, formatNumber, formatVnd, STATUS_LABEL } from '../lib/format';
-import type { BankInfo, Catalog, ModelOption, Order, SubscriptionPlan, TokenPackage } from '../types';
+import type {
+  BankInfo,
+  Catalog,
+  ModelOption,
+  Order,
+  SubscriptionPlan,
+  TokenPackage,
+  UpgradeInfo,
+  UpgradeOption,
+} from '../types';
 
 const ORDER_POLL_MS = 5000;
 
@@ -52,17 +61,20 @@ export const TopUpPage: React.FC = () => {
   const { user, refreshUser } = useAuth();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [upgrade, setUpgrade] = useState<UpgradeInfo | null>(null);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creatingId, setCreatingId] = useState<string | null>(null);
 
   const load = async () => {
-    const [catalogData, orderData] = await Promise.all([
+    const [catalogData, orderData, upgradeData] = await Promise.all([
       api.get<Catalog>('/catalog'),
       api.get<{ orders: Order[] }>('/orders?limit=20'),
+      api.get<UpgradeInfo>('/orders/upgrade-options'),
     ]);
     setCatalog(catalogData);
     setOrders(orderData.orders);
+    setUpgrade(upgradeData);
     setActiveOrder((current) => current ?? orderData.orders.find((order) => isAwaitingPayment(order)) ?? null);
   };
 
@@ -166,12 +178,30 @@ export const TopUpPage: React.FC = () => {
         <>
           <SubscriptionStatus />
 
+          {isSubscribed && upgrade && upgrade.options.length > 0 && (
+            <section>
+              <div className="flex items-baseline justify-between gap-4 mb-3">
+                <h2 className="text-lg font-bold text-gray-100">Nâng lên gói cao hơn</h2>
+                <span className="text-xs text-gray-500">Chỉ trả phần chênh lệch</span>
+              </div>
+              <UpgradeGrid
+                info={upgrade}
+                creatingId={creatingId}
+                onSelect={(option) =>
+                  createOrder('/orders/upgrade', { planId: option.planId }, `upgrade-${option.planId}`)
+                }
+              />
+            </section>
+          )}
+
           <section>
             <div className="flex items-baseline justify-between gap-4 mb-3">
               <h2 className="text-lg font-bold text-gray-100">
                 {isSubscribed ? 'Gia hạn gói dịch vụ' : '1. Chọn gói dịch vụ'}
               </h2>
-              <span className="text-xs text-gray-500">Tiết kiệm hơn với gói chu kỳ dài</span>
+              <span className="text-xs text-gray-500">
+                {isSubscribed ? 'Cộng tiếp vào ngày hết hạn hiện tại' : 'Tiết kiệm hơn với gói chu kỳ dài'}
+              </span>
             </div>
             <PlanGrid
               plans={catalog.plans}
@@ -357,6 +387,66 @@ const PlanGrid: React.FC<{
     </>
   );
 };
+
+/**
+ * Lưới chọn gói nâng cấp.
+ *
+ * Nhấn mạnh SỐ TIỀN PHẢI BÙ chứ không phải giá niêm yết — đó mới là con số khách
+ * quan tâm, và nói rõ phần khấu trừ đến từ đâu để khách tự kiểm chứng được.
+ */
+const UpgradeGrid: React.FC<{
+  info: UpgradeInfo;
+  creatingId: string | null;
+  onSelect: (option: UpgradeOption) => void;
+}> = ({ info, creatingId, onSelect }) => (
+  <>
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      {info.options.map((option) => (
+        <Card key={option.planId} className="p-5 flex flex-col border-brand-500/40">
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="font-bold text-gray-100">{option.name}</h3>
+            <span className="text-[11px] text-gray-500 line-through">{formatVnd(option.listPriceVnd)}</span>
+          </div>
+
+          <p className="text-2xl font-bold text-brand-500 mt-2">{formatVnd(option.payableVnd)}</p>
+          <p className="text-[11px] text-gray-500 mt-1">số tiền cần bù thêm</p>
+
+          <div className="mt-3 pt-3 border-t border-dark-800 space-y-1 flex-1">
+            <div className="flex justify-between text-[11px]">
+              <span className="text-gray-500">Giá gói mới</span>
+              <span className="text-gray-400">{formatVnd(option.listPriceVnd)}</span>
+            </div>
+            <div className="flex justify-between text-[11px]">
+              <span className="text-gray-500">Trừ phần chưa dùng</span>
+              <span className="text-green-400">−{formatVnd(option.creditVnd)}</span>
+            </div>
+            <p className="text-[10px] text-gray-600 pt-1.5 leading-relaxed">
+              Gói hiện tại còn {option.remainingDays}/{option.totalDays} ngày. Hạn mức mới{' '}
+              {formatNumber(option.monthlyTokenAllowance)} token/tháng, tính lại từ lúc nâng gói thành công.
+            </p>
+          </div>
+
+          <Button
+            onClick={() => onSelect(option)}
+            isLoading={creatingId === `upgrade-${option.planId}`}
+            className="w-full mt-4 !rounded-xl !py-2.5 !text-sm"
+          >
+            Nâng lên gói này
+          </Button>
+        </Card>
+      ))}
+    </div>
+
+    <p className="text-[11px] text-gray-600 mt-3">
+      Phần khấu trừ tính theo số ngày còn lại của {info.currentPlan?.name ?? 'gói hiện tại'}:{' '}
+      <strong className="text-gray-500">
+        {formatVnd(info.currentPlan?.priceVnd ?? 0)} × số ngày còn lại ÷ tổng số ngày
+      </strong>
+      . Sau khi nâng gói, thời hạn và hạn mức tháng đều bắt đầu lại từ thời điểm thanh toán thành công — hạn mức chưa
+      dùng của gói cũ đã được quy thành tiền trừ vào đơn này.
+    </p>
+  </>
+);
 
 const PackageGrid: React.FC<{
   packages: TokenPackage[];

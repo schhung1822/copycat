@@ -56,6 +56,99 @@ export const NO_SUBSCRIPTION_MESSAGE =
 export const listActivePlans = (): Promise<PlanRow[]> =>
   query<PlanRow>('SELECT * FROM subscription_plans WHERE is_active = 1 ORDER BY sort_order, months');
 
+/** Số tiền tối thiểu của một đơn nâng gói — dưới mức này thì chuyển khoản không đáng. */
+const MIN_UPGRADE_PAYMENT_VND = 10_000;
+
+/** Thuê bao đang có hiệu lực của một tài khoản (bản ghi mới nhất còn hạn). */
+export const getActiveSubscription = (userId: number): Promise<SubscriptionRow | null> =>
+  queryOne<SubscriptionRow>(
+    `SELECT * FROM subscriptions
+      WHERE user_id = ? AND expires_at > NOW() AND status <> 'cancelled'
+      ORDER BY id DESC LIMIT 1`,
+    [userId],
+  );
+
+export interface UpgradeQuote {
+  plan: PlanRow;
+  /** Giá niêm yết của gói mới */
+  listPriceVnd: number;
+  /** Phần khấu trừ từ gói cũ */
+  creditVnd: number;
+  /** Số tiền khách thực trả */
+  payableVnd: number;
+  remainingDays: number;
+  totalDays: number;
+}
+
+/**
+ * Tính tiền nâng gói.
+ *
+ * Khấu trừ theo **số ngày còn lại** của gói hiện tại:
+ *
+ *     khấu trừ = giá gói cũ × (số ngày còn lại / tổng số ngày)
+ *
+ * Đây là cách tính chuẩn của ngành (Stripe, Google Workspace… đều làm vậy) và
+ * khách tự kiểm chứng được bằng phép chia đơn giản.
+ *
+ * Chỉ cho nâng lên gói ĐẮT HƠN gói hiện tại. Hạ gói không hỗ trợ vì sẽ phát sinh
+ * nghĩa vụ hoàn tiền mặt — nằm ngoài luồng thanh toán một chiều hiện tại.
+ */
+export async function computeUpgradeQuote(userId: number, planId: number): Promise<UpgradeQuote> {
+  const current = await getActiveSubscription(userId);
+  if (!current) throw badRequest('Bạn chưa có gói dịch vụ nào đang hoạt động để nâng cấp.', 'no_subscription');
+
+  const plan = await queryOne<PlanRow>('SELECT * FROM subscription_plans WHERE id = ? AND is_active = 1', [planId]);
+  if (!plan) throw badRequest('Gói dịch vụ không tồn tại hoặc đã ngừng bán.');
+
+  if (plan.price_vnd <= current.price_vnd) {
+    throw badRequest(
+      `Chỉ nâng lên được gói có giá cao hơn gói hiện tại (${current.plan_name}). Vui lòng chọn gói khác.`,
+      'not_an_upgrade',
+    );
+  }
+
+  // Tính bằng SQL để dùng đúng đồng hồ của database, tránh lệch múi giờ với server.
+  const span = await queryOne<RowDataPacket & { total_days: number; remaining_days: number }>(
+    `SELECT TIMESTAMPDIFF(DAY, ?, ?) AS total_days,
+            GREATEST(TIMESTAMPDIFF(DAY, NOW(), ?), 0) AS remaining_days`,
+    [current.started_at, current.expires_at, current.expires_at],
+  );
+
+  const totalDays = Math.max(Number(span?.total_days ?? 0), 1);
+  const remainingDays = Math.min(Number(span?.remaining_days ?? 0), totalDays);
+
+  const creditVnd = Math.round((current.price_vnd * remainingDays) / totalDays);
+  const payableVnd = plan.price_vnd - creditVnd;
+
+  if (payableVnd < MIN_UPGRADE_PAYMENT_VND) {
+    throw badRequest(
+      `Số tiền cần bù chỉ ${payableVnd.toLocaleString('vi-VN')}đ, quá nhỏ để tạo đơn chuyển khoản. ` +
+        'Vui lòng chọn gói cao hơn hoặc đợi gói hiện tại gần hết hạn rồi gia hạn.',
+      'upgrade_too_small',
+    );
+  }
+
+  return { plan, listPriceVnd: plan.price_vnd, creditVnd, payableVnd, remainingDays, totalDays };
+}
+
+/** Danh sách các gói có thể nâng lên, kèm số tiền phải bù cho từng gói. */
+export async function listUpgradeOptions(userId: number): Promise<UpgradeQuote[]> {
+  const current = await getActiveSubscription(userId);
+  if (!current) return [];
+
+  const plans = await listActivePlans();
+  const quotes: UpgradeQuote[] = [];
+  for (const plan of plans) {
+    if (plan.price_vnd <= current.price_vnd) continue;
+    try {
+      quotes.push(await computeUpgradeQuote(userId, plan.id));
+    } catch {
+      // Gói nào không đủ điều kiện (vd tiền bù quá nhỏ) thì lặng lẽ bỏ qua.
+    }
+  }
+  return quotes;
+}
+
 /**
  * Cấp lại hạn mức tháng nếu đã sang chu kỳ mới.
  *
@@ -225,6 +318,12 @@ export async function activateSubscription(
   userId: number,
   plan: { id: number | null; code: string | null; name: string; months: number; priceVnd: number; allowance: number },
   orderId: number | null,
+  /**
+   * `restart: true` dùng cho NÂNG GÓI — gói mới tính giờ từ thời điểm kích hoạt
+   * thay vì nối tiếp ngày hết hạn cũ, và hạn mức được cấp lại ngay theo mức của
+   * gói mới. Phần chưa dùng của gói cũ đã được quy thành tiền khấu trừ vào đơn.
+   */
+  options: { restart?: boolean } = {},
 ): Promise<{ startedAt: Date; expiresAt: Date; isRenewal: boolean }> {
   const [rows] = await conn.query<UserStateRow[]>(
     `SELECT token_balance, subscription_expires_at, monthly_allowance, monthly_tokens, monthly_period_end
@@ -234,7 +333,7 @@ export async function activateSubscription(
   const current = rows[0];
   const now = new Date();
   const currentExpiry = current?.subscription_expires_at ? new Date(current.subscription_expires_at) : null;
-  const isRenewal = Boolean(currentExpiry && currentExpiry.getTime() > now.getTime());
+  const isRenewal = !options.restart && Boolean(currentExpiry && currentExpiry.getTime() > now.getTime());
 
   // Nối tiếp từ ngày hết hạn cũ nếu còn hạn, ngược lại tính từ bây giờ.
   const [computed] = await conn.query<(RowDataPacket & { started_at: Date; expires_at: Date })[]>(
@@ -259,7 +358,29 @@ export async function activateSubscription(
       userId,
     ]);
   } else {
-    // Bắt đầu chu kỳ mới: cấp hạn mức ngay, mốc reset là 1 tháng kể từ bây giờ.
+    /*
+     * Bắt đầu chu kỳ mới: cấp hạn mức ngay, mốc reset là 1 tháng kể từ bây giờ.
+     *
+     * Hạn mức cũ còn thừa bị THAY THẾ chứ không cộng dồn, nên phải ghi một dòng
+     * `expire` cho phần đó trước khi ghi `grant`. Thiếu bước này thì cột
+     * balance_after trong sổ cái không khớp với số dư thật (vd còn 300.000 rồi
+     * ghi "grant +500.000 → 500.000" là sai số học).
+     */
+    const leftover = current?.monthly_tokens ?? 0;
+    if (leftover > 0) {
+      await writeLedger(
+        conn,
+        userId,
+        'expire',
+        'monthly',
+        -leftover,
+        0,
+        options.restart
+          ? `Nâng lên ${plan.name} — hạn mức của gói cũ được quy thành tiền khấu trừ vào đơn`
+          : 'Bắt đầu gói mới — thu hồi hạn mức còn lại của gói cũ',
+      );
+    }
+
     await conn.query(
       `UPDATE users
           SET subscription_expires_at = ?,
@@ -276,7 +397,7 @@ export async function activateSubscription(
       'monthly',
       plan.allowance,
       plan.allowance,
-      `Kích hoạt ${plan.name} — hạn mức ${plan.allowance.toLocaleString('vi-VN')} token/tháng`,
+      `${options.restart ? 'Nâng lên' : 'Kích hoạt'} ${plan.name} — hạn mức ${plan.allowance.toLocaleString('vi-VN')} token/tháng`,
     );
   }
 

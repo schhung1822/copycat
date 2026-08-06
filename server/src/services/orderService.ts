@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { execute, query, queryOne, withTransaction, type PoolConnection, type ResultSetHeader, type RowDataPacket } from '../db.js';
 import { env } from '../env.js';
 import { badRequest, conflict, notFound } from '../lib/errors.js';
-import { activateSubscription, type PlanRow } from './subscriptionService.js';
+import { activateSubscription, computeUpgradeQuote, type PlanRow } from './subscriptionService.js';
 import { creditPurchasedTokens } from './tokenService.js';
 
 export interface PackageRow extends RowDataPacket {
@@ -29,6 +29,8 @@ export interface OrderRow extends RowDataPacket {
   package_code: string | null;
   package_name: string;
   amount_vnd: number;
+  credit_vnd: number;
+  is_upgrade: number;
   base_tokens: number;
   bonus_tokens: number;
   total_tokens: number;
@@ -147,6 +149,25 @@ export async function createSubscriptionOrder(userId: number, planId: number): P
   });
 }
 
+/** Tạo đơn nâng lên gói cao hơn, đã trừ phần chưa dùng của gói hiện tại. */
+export async function createUpgradeOrder(userId: number, planId: number): Promise<OrderRow> {
+  const quote = await computeUpgradeQuote(userId, planId);
+
+  return insertOrder({
+    userId,
+    orderType: 'subscription',
+    planId: quote.plan.id,
+    packageCode: quote.plan.code,
+    itemName: `Nâng lên ${quote.plan.name}`,
+    amountVnd: quote.payableVnd,
+    creditVnd: quote.creditVnd,
+    isUpgrade: true,
+    subscriptionMonths: quote.plan.months,
+    baseTokens: 0,
+    bonusTokens: 0,
+  });
+}
+
 interface InsertOrderInput {
   userId: number;
   orderType: 'subscription' | 'token_package';
@@ -158,6 +179,8 @@ interface InsertOrderInput {
   planId?: number | null;
   packageCode?: string | null;
   subscriptionMonths?: number | null;
+  creditVnd?: number;
+  isUpgrade?: boolean;
 }
 
 async function insertOrder(input: InsertOrderInput): Promise<OrderRow> {
@@ -176,8 +199,8 @@ async function insertOrder(input: InsertOrderInput): Promise<OrderRow> {
       const result = await execute(
         `INSERT INTO orders
            (code, user_id, order_type, plan_id, subscription_months, package_id, package_code,
-            package_name, amount_vnd, base_tokens, bonus_tokens, total_tokens, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE))`,
+            package_name, amount_vnd, credit_vnd, is_upgrade, base_tokens, bonus_tokens, total_tokens, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE))`,
         [
           code,
           input.userId,
@@ -188,6 +211,8 @@ async function insertOrder(input: InsertOrderInput): Promise<OrderRow> {
           input.packageCode ?? null,
           input.itemName,
           input.amountVnd,
+          input.creditVnd ?? 0,
+          input.isUpgrade ? 1 : 0,
           input.baseTokens,
           input.bonusTokens,
           input.baseTokens + input.bonusTokens,
@@ -298,13 +323,26 @@ async function fulfillOrder(
       {
         id: order.plan_id,
         code: order.package_code,
-        name: order.package_name,
+        // Tên gói sạch ("Gói 1 năm"), không lấy tên đơn ("Nâng lên Gói 1 năm").
+        name: plan?.name ?? order.package_name,
         months: order.subscription_months ?? plan?.months ?? 1,
+        /*
+         * GIÁ NIÊM YẾT của gói, không phải số tiền khách trả.
+         *
+         * Với đơn nâng gói, amount_vnd đã bị trừ phần khấu trừ. Lưu số đã trừ vào
+         * thuê bao sẽ làm hỏng hai thứ ở lần nâng sau: khách bị tính khấu trừ trên
+         * giá thấp hơn thực tế, và gói cao nhất vẫn hiện ra như một lựa chọn để
+         * "nâng lên chính nó" vì giá niêm yết luôn lớn hơn số đã trả.
+         *
+         * amount_vnd + credit_vnd = giá niêm yết (credit_vnd = 0 với đơn thường).
+         */
+        priceVnd: order.amount_vnd + order.credit_vnd,
         // Gói bị xoá khỏi bảng giá thì vẫn dùng được hạn mức mặc định 500.000.
-        priceVnd: order.amount_vnd,
         allowance: plan?.monthly_token_allowance ?? 500_000,
       },
       order.id,
+      // Nâng gói: gói mới tính giờ từ bây giờ, không nối tiếp hạn cũ.
+      { restart: Boolean(order.is_upgrade) },
     );
     subscriptionExpiresAt = activated.expiresAt;
   } else {
@@ -416,6 +454,8 @@ export function serializeOrder(order: OrderRow) {
     code: order.code,
     orderType: order.order_type,
     subscriptionMonths: order.subscription_months,
+    isUpgrade: Boolean(order.is_upgrade),
+    creditVnd: order.credit_vnd,
     packageName: order.package_name,
     amountVnd: order.amount_vnd,
     baseTokens: order.base_tokens,

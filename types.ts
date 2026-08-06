@@ -71,6 +71,26 @@ export interface TokenPackage {
   isPopular: boolean;
 }
 
+export interface UpgradeOption {
+  planId: number;
+  name: string;
+  months: number;
+  monthlyTokenAllowance: number;
+  /** Giá niêm yết của gói mới */
+  listPriceVnd: number;
+  /** Phần khấu trừ từ gói hiện tại */
+  creditVnd: number;
+  /** Số tiền thực phải trả */
+  payableVnd: number;
+  remainingDays: number;
+  totalDays: number;
+}
+
+export interface UpgradeInfo {
+  currentPlan: { name: string; priceVnd: number; expiresAt: string } | null;
+  options: UpgradeOption[];
+}
+
 export interface BankInfo {
   bankCode: string;
   bankName: string;
@@ -125,6 +145,9 @@ export interface Order {
   code: string;
   orderType: 'subscription' | 'token_package';
   subscriptionMonths: number | null;
+  isUpgrade: boolean;
+  /** Nâng gói: số tiền được khấu trừ từ phần chưa dùng của gói cũ */
+  creditVnd: number;
   packageName: string;
   amountVnd: number;
   baseTokens: number;
