@@ -24,6 +24,17 @@ const isAwaitingPayment = (order: Order) => order.status === 'pending' || order.
 const IMAGE_COUNT_STEP = 10;
 
 /**
+ * Model dùng làm mốc quy đổi hạn mức ra số ảnh trên thẻ gói.
+ *
+ * Phải trùng với model ghi ở dòng chú thích dưới lưới, nếu không số ảnh hiển thị
+ * sẽ không khớp với lời giải thích — khách đọc "tính theo Nano Banana 2" nhưng
+ * con số lại tính bằng model rẻ hơn là thành hứa quá.
+ *
+ * Nếu bảng giá không còn model này thì lùi về model rẻ nhất cùng độ phân giải.
+ */
+const REFERENCE_MODEL = { family: 'nano-banana-2', resolution: '2K' };
+
+/**
  * Quy hạn mức token ra số ảnh, làm tròn XUỐNG cho số gọn mắt.
  *
  * Luôn làm tròn xuống chứ không làm tròn gần nhất: làm tròn lên sẽ hứa nhiều ảnh
@@ -110,9 +121,8 @@ export const TopUpPage: React.FC = () => {
   const isSubscribed = user?.isSubscribed ?? false;
 
   // Quy hạn mức ra số ảnh — con số này dễ hình dung hơn nhiều so với "500.000
-  // token". Mốc quy đổi là model 2K rẻ nhất: đây là chất lượng khách dùng nhiều
-  // nhất, lấy mốc 1K sẽ ra con số to nhưng không sát thực tế sử dụng.
-  // Nếu bảng giá không còn model 2K nào thì lùi về model rẻ nhất bất kỳ.
+  // token". Mốc quy đổi lấy đúng model ghi trên thẻ (REFERENCE_MODEL), nếu không
+  // số hiển thị sẽ không khớp với dòng chú thích bên dưới.
   const cheapestOf = (list: ModelOption[]) =>
     list.reduce<ModelOption | null>(
       (cheapest, model) =>
@@ -120,7 +130,14 @@ export const TopUpPage: React.FC = () => {
       null,
     );
   const referenceModel =
-    cheapestOf(catalog.models.filter((model) => model.resolution === '2K')) ?? cheapestOf(catalog.models);
+    catalog.models.find(
+      (model) =>
+        model.family === REFERENCE_MODEL.family &&
+        model.resolution === REFERENCE_MODEL.resolution &&
+        model.tokenCost > 0,
+    ) ??
+    cheapestOf(catalog.models.filter((model) => model.resolution === REFERENCE_MODEL.resolution)) ??
+    cheapestOf(catalog.models);
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
@@ -257,6 +274,10 @@ const PlanGrid: React.FC<{
   // Mốc so sánh để tính % tiết kiệm: giá mỗi tháng của gói ngắn nhất.
   const basePerMonth = Math.max(...plans.map((plan) => plan.pricePerMonthVnd), 0);
 
+  // "Nano Banana 2 — 2K" -> "Nano Banana 2". Lấy từ bảng giá chứ không gõ tay,
+  // để đổi model mốc là chữ trên thẻ tự đổi theo.
+  const modelShortName = referenceModel?.label.split('—')[0].trim() ?? '';
+
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -294,11 +315,14 @@ const PlanGrid: React.FC<{
                   const perMonth = roundedImageCount(plan.monthlyTokenAllowance, referenceModel.tokenCost);
                   return (
                     <>
+                      {/* Bọc phép nhân BÊN TRONG formatNumber: formatNumber trả về
+                          chuỗi, nhân chuỗi với số sẽ mất dấu phân cách nghìn và cho
+                          kết quả sai hẳn khi số vượt 1.000 ("1.170" * 3 = 3.51). */}
                       <p className="text-brand-500 font-bold text-xl leading-tight">
-                        Miễn phí {formatNumber(perMonth)} ảnh
+                        Miễn phí {formatNumber(perMonth * plan.months)} ảnh
                       </p>
                       <p className="text-[11px] text-gray-500 mt-1">
-                        Thống kê ảnh có độ phân giải 2K
+                        Ảnh có độ phân giải {referenceModel.resolution} - {modelShortName}
                       </p>
                     </>
                   );
@@ -323,10 +347,11 @@ const PlanGrid: React.FC<{
 
       {referenceModel && (
         <p className="text-[11px] text-gray-600 mt-3">
-          Số ảnh tính theo <strong className="text-gray-500">Nano Banana 2</strong> (
-          {formatNumber(referenceModel.tokenCost)} token/ảnh) — hạn mức thực tế còn dư ra
-          một chút. Chọn ảnh 1K sẽ được nhiều ảnh hơn, chọn 4K thì ít hơn; xem bảng token tiêu hao bên dưới. Hạn mức
-          tính theo từng tháng và không cộng dồn.
+          {/* Số token lấy từ bảng giá, không gõ tay — gõ tay là sớm muộn cũng
+              lệch với con số thật khi bảng giá đổi. */}
+          Số ảnh tính theo <strong className="text-gray-500">{modelShortName}</strong> (
+          {formatNumber(referenceModel.tokenCost)} token/ảnh). Chọn ảnh 1K sẽ được nhiều ảnh hơn, chọn 4K thì ít hơn;
+          xem bảng token tiêu hao bên dưới. Hạn mức tính theo từng tháng và không cộng dồn.
         </p>
       )}
     </>
