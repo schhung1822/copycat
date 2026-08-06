@@ -303,7 +303,7 @@ export const StudioPage: React.FC = () => {
                       }}
                       className={`text-left px-3 py-2 rounded-xl border text-sm transition-colors ${
                         family === item.key
-                          ? 'border-brand-500 bg-brand-500/10 text-white'
+                          ? 'border-brand-500 bg-brand-500/10 text-gray-100'
                           : 'border-dark-700 bg-dark-850 text-gray-400 hover:border-dark-600'
                       }`}
                     >
@@ -328,7 +328,7 @@ export const StudioPage: React.FC = () => {
                       title={`${model.tokenCost} token/ảnh`}
                       className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-colors ${
                         resolution === model.resolution
-                          ? 'border-brand-500 bg-brand-500/10 text-white'
+                          ? 'border-brand-500 bg-brand-500/10 text-gray-100'
                           : 'border-dark-700 bg-dark-850 text-gray-400 hover:border-dark-600'
                       }`}
                     >
@@ -391,7 +391,7 @@ export const StudioPage: React.FC = () => {
             <span className="text-gray-500">
               {jobCount} ảnh × {selectedModel?.tokenCost ?? 0} token
             </span>
-            <span className={`font-bold text-lg ${notEnoughTokens ? 'text-red-400' : 'text-white'}`}>
+            <span className={`font-bold text-lg ${notEnoughTokens ? 'text-red-400' : 'text-gray-100'}`}>
               {formatNumber(totalCost)} token
             </span>
           </div>
@@ -436,7 +436,7 @@ export const StudioPage: React.FC = () => {
               <span className="text-xs text-brand-500 font-normal ml-2">• {pendingIds.length} ảnh đang xử lý</span>
             )}
           </h2>
-          <Link to="/lich-su" className="text-xs text-gray-500 hover:text-white transition-colors">
+          <Link to="/lich-su" className="text-xs text-gray-500 hover:text-gray-100 transition-colors">
             Xem toàn bộ lịch sử →
           </Link>
         </div>
@@ -496,12 +496,12 @@ export const StudioPage: React.FC = () => {
       {redoTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-dark-900 border border-dark-700 rounded-2xl w-full max-w-lg p-6 shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-1">Vẽ lại thiết kế</h3>
+            <h3 className="text-xl font-bold text-gray-100 mb-1">Vẽ lại thiết kế</h3>
             <p className="text-sm text-gray-500 mb-4">
               Dùng lại đúng ảnh mẫu và ảnh sản phẩm cũ, chỉ đổi mô tả. Trừ {redoTarget.tokenCost} token.
             </p>
             <textarea
-              className="w-full bg-dark-850 border border-dark-700 rounded-xl p-3 text-white focus:border-brand-500 outline-none min-h-[120px] mb-4 custom-scrollbar text-sm"
+              className="w-full bg-dark-850 border border-dark-700 rounded-xl p-3 text-gray-100 focus:border-brand-500 outline-none min-h-[120px] mb-4 custom-scrollbar text-sm"
               placeholder="VD: Thêm logo góc trái, làm sáng nền, đổi tông sang xanh navy..."
               value={redoPrompt}
               onChange={(e) => setRedoPrompt(e.target.value)}
@@ -529,14 +529,14 @@ const GenerationCard: React.FC<{
   onRedo: (generation: Generation) => void;
 }> = ({ generation, onPreview, onDownload, onRedo }) => (
   <div className="group relative bg-dark-900 rounded-2xl overflow-hidden border border-dark-800 flex flex-col hover:border-dark-600 transition-colors">
-    <div className="relative aspect-[3/4] bg-black/40">
+    <div className="relative aspect-[3/4] bg-dark-850">
       {generation.status === 'success' && generation.imageUrl ? (
         <>
           <img src={generation.imageUrl} alt="Kết quả" className="w-full h-full object-contain" />
           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-sm">
             <button
               onClick={() => onDownload(generation.imageUrl!, `copycat-${generation.id}.png`)}
-              className="bg-white hover:bg-gray-200 text-black p-3 rounded-full transition-transform hover:scale-110"
+              className="bg-white hover:bg-gray-100 text-black p-3 rounded-full transition-transform hover:scale-110"
               title="Tải xuống"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -545,7 +545,7 @@ const GenerationCard: React.FC<{
             </button>
             <button
               onClick={() => onPreview(generation.imageUrl!)}
-              className="bg-dark-700 hover:bg-dark-600 text-white p-3 rounded-full border border-gray-600 transition-transform hover:scale-110"
+              className="bg-dark-700 hover:bg-dark-600 text-gray-100 p-3 rounded-full border border-gray-600 transition-transform hover:scale-110"
               title="Xem lớn"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -570,7 +570,7 @@ const GenerationCard: React.FC<{
           {generation.status === 'refunded' && (
             <span className="text-[10px] text-green-500">Đã hoàn {generation.tokenCost} token</span>
           )}
-          <button onClick={() => onRedo(generation)} className="text-[11px] text-white underline mt-1">
+          <button onClick={() => onRedo(generation)} className="text-[11px] text-gray-100 underline mt-1">
             Thử lại
           </button>
         </div>

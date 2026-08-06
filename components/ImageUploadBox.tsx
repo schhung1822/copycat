@@ -132,7 +132,7 @@ export const ImageUploadBox: React.FC<ImageUploadBoxProps> = ({
         </label>
         <button 
           onClick={handlePasteButtonClick}
-          className="text-xs bg-dark-700 hover:bg-dark-600 text-white px-2 py-1 rounded flex items-center gap-1 transition-colors"
+          className="text-xs bg-dark-700 hover:bg-dark-600 text-gray-100 px-2 py-1 rounded flex items-center gap-1 transition-colors"
           title="Dán từ Clipboard (hoặc nhấn Ctrl+V)"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

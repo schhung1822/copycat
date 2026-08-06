@@ -503,9 +503,30 @@ Không phải sửa route, không phải sửa giao diện — trang tạo ảnh
 │   └── admin/                các tab của bảng điều khiển
 ├── components/               thành phần dùng chung (Layout, BarChart, ui, upload)
 ├── context/AuthContext.tsx   trạng thái đăng nhập
+├── context/ThemeContext.tsx  chế độ sáng / tối
 ├── lib/                      gọi API, định dạng số/ngày
 └── types.ts                  kiểu dữ liệu dùng chung
 ```
+
+## 8b. Chế độ sáng / tối
+
+Mặc định là **chế độ sáng** (nền ghi dịu). Nút chuyển nằm ở góc phải thanh điều hướng và ở
+màn hình đăng nhập; lựa chọn được ghi nhớ trong `localStorage`.
+
+Toàn bộ bảng màu nằm trong khối `<style>` của [index.html](index.html) dưới dạng biến CSS,
+ghi theo bộ ba kênh RGB nên Tailwind vẫn dùng được cú pháp độ mờ (`bg-dark-900/50`). Tên biến:
+
+| Nhóm | Vai trò |
+|---|---|
+| `--s-*` | Bề mặt: nền trang, thẻ, ô nhập, viền (`dark-950` → `dark-600`) |
+| `--t-*` | Chữ: `100` rõ nhất → `700` mờ nhất (ánh xạ vào `gray-100`…`gray-700`) |
+| `--st-*` | Màu trạng thái: đỏ / xanh lá / vàng / xanh dương / cam |
+
+**Đổi màu chỉ cần sửa biến, không phải sửa class ở từng thành phần.** Đỏ thương hiệu
+(`brand-500`) cố định ở cả hai chế độ vì luôn nằm trên nền đặc kèm chữ trắng.
+
+Các cặp màu trạng thái ở chế độ sáng đã được tính độ tương phản WCAG trên nền thẻ và đều đạt
+tối thiểu 4,5:1 (mức AA cho chữ nhỏ). Nếu bạn đổi giá trị trong `--st-*` thì phải tính lại.
 
 ## 9. Lệnh có sẵn
 

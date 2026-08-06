@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
+import { ThemeToggle } from '../components/ThemeToggle';
 import { Alert, Field, inputClass } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../lib/api';
@@ -11,7 +12,12 @@ const AuthShell: React.FC<{ title: string; subtitle: string; children: React.Rea
   children,
   footer,
 }) => (
-  <div className="min-h-screen flex items-center justify-center bg-dark-950 p-4">
+  <div className="min-h-screen flex items-center justify-center bg-dark-950 p-4 relative">
+    {/* Cho phép đổi chế độ sáng/tối ngay từ màn hình đăng nhập */}
+    <div className="absolute top-5 right-5">
+      <ThemeToggle />
+    </div>
+
     <div className="w-full max-w-md">
       <div className="flex items-center gap-3 justify-center mb-8">
         <div className="w-10 h-10 bg-brand-500 rounded-full flex items-center justify-center shadow-lg shadow-brand-500/25">
@@ -24,11 +30,11 @@ const AuthShell: React.FC<{ title: string; subtitle: string; children: React.Rea
             />
           </svg>
         </div>
-        <h1 className="text-xl font-bold text-white tracking-tight">Design Copycat AI</h1>
+        <h1 className="text-xl font-bold text-gray-100 tracking-tight">Design Copycat AI</h1>
       </div>
 
       <div className="bg-dark-900 border border-dark-800 rounded-2xl p-6 shadow-2xl">
-        <h2 className="text-2xl font-bold text-white">{title}</h2>
+        <h2 className="text-2xl font-bold text-gray-100">{title}</h2>
         <p className="text-sm text-gray-500 mt-1 mb-6">{subtitle}</p>
         {children}
       </div>

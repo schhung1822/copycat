@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { formatNumber } from '../lib/format';
+import { ThemeToggle } from './ThemeToggle';
 
 const navItems = [
   { to: '/', label: 'Tạo ảnh', end: true },
@@ -22,7 +23,7 @@ const Logo: React.FC = () => (
         />
       </svg>
     </div>
-    <span className="font-bold text-white tracking-tight hidden sm:block">Design Copycat AI</span>
+    <span className="font-bold text-gray-100 tracking-tight hidden sm:block">Design Copycat AI</span>
   </Link>
 );
 
@@ -37,7 +38,7 @@ export const Layout: React.FC = () => {
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `px-3 py-1.5 rounded-lg text-sm transition-colors ${
-      isActive ? 'bg-dark-800 text-white font-semibold' : 'text-gray-400 hover:text-white hover:bg-dark-850'
+      isActive ? 'bg-dark-800 text-gray-100 font-semibold' : 'text-gray-400 hover:text-gray-100 hover:bg-dark-850'
     }`;
 
   return (
@@ -83,6 +84,8 @@ export const Layout: React.FC = () => {
             </Link>
           )}
 
+          <ThemeToggle />
+
           <div className="relative group">
             <button className="w-8 h-8 rounded-full bg-dark-800 border border-dark-700 text-gray-300 text-xs font-bold hover:border-gray-500 transition-colors">
               {(user?.fullName ?? user?.email ?? '?').charAt(0).toUpperCase()}
@@ -90,7 +93,7 @@ export const Layout: React.FC = () => {
             <div className="absolute right-0 top-full pt-2 hidden group-hover:block z-50">
               <div className="bg-dark-850 border border-dark-700 rounded-xl shadow-2xl w-56 py-2">
                 <div className="px-4 py-2 border-b border-dark-800">
-                  <p className="text-sm text-white truncate">{user?.fullName || 'Chưa đặt tên'}</p>
+                  <p className="text-sm text-gray-100 truncate">{user?.fullName || 'Chưa đặt tên'}</p>
                   <p className="text-[11px] text-gray-500 truncate">{user?.email}</p>
                 </div>
                 <Link to="/tai-khoan" className="block px-4 py-2 text-sm text-gray-300 hover:bg-dark-800">

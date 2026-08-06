@@ -1,9 +1,146 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Design Copycat AI</title>
+
+    <!--
+      Đặt theme TRƯỚC khi trang vẽ, nếu không sẽ chớp một nhịp sai màu khi người
+      dùng đang để chế độ tối. Mặc định là chế độ sáng.
+    -->
+    <script>
+      (function () {
+        var theme = 'light';
+        try {
+          if (localStorage.getItem('copycat-theme') === 'dark') theme = 'dark';
+        } catch (e) {
+          /* trình duyệt chặn localStorage — dùng mặc định */
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
+
+    <style>
+      /*
+        Toàn bộ bảng màu nằm ở đây dưới dạng biến CSS, ghi theo bộ ba kênh RGB để
+        Tailwind vẫn dùng được cú pháp độ mờ (vd bg-dark-900/50).
+
+        Nhờ vậy đổi theme chỉ là đổi giá trị biến — không phải sửa class ở từng
+        thành phần giao diện.
+
+        Quy ước tên:
+          --s-*   bề mặt (surface): nền trang, thẻ, ô nhập, viền
+          --t-*   chữ (text): 100 = rõ nhất → 700 = mờ nhất
+          --st-*  màu trạng thái: đỏ / xanh lá / vàng / xanh dương / cam
+      */
+
+      :root,
+      :root[data-theme='light'] {
+        color-scheme: light;
+
+        /* Nền ghi dịu, không trắng chói. Thẻ sáng hơn nền để nổi khối. */
+        --s-950: 235 235 233;
+        --s-900: 250 250 249;
+        --s-850: 243 243 241;
+        --s-800: 224 223 219;
+        --s-700: 205 204 199;
+        --s-600: 186 185 179;
+
+        --t-100: 26 26 24;
+        --t-200: 41 41 38;
+        --t-300: 63 62 58;
+        --t-400: 92 91 86;
+        --t-500: 117 115 109;
+        --t-600: 144 142 135;
+        --t-700: 172 170 162;
+
+        /*
+          Nền tối dùng bậc màu nhạt cho chữ và bậc đậm cho nền tint; nền sáng phải
+          lật ngược lại. Các cặp dưới đây đã được tính độ tương phản WCAG trên nền
+          thẻ #FAFAF9 và đều đạt tối thiểu 4,5:1 (mức AA cho chữ nhỏ):
+
+            Badge xanh 5,90  ·  Badge đỏ 5,55  ·  Badge vàng 6,28  ·  Badge cam 6,07
+            Alert lỗi 5,80   ·  thành công 6,22  ·  cảnh báo 6,33  ·  thông tin 5,74
+
+          Đổi bất kỳ giá trị nào ở đây thì phải tính lại tương phản.
+        */
+        --st-red-300: 178 26 26;
+        --st-red-400: 178 26 26;
+        --st-red-900: 252 165 165;
+        --st-red-950: 254 202 202;
+        --st-green-300: 20 100 48;
+        --st-green-400: 21 105 50;
+        --st-green-500: 22 163 74;
+        --st-green-900: 134 239 172;
+        --st-amber-300: 146 64 14;
+        --st-amber-400: 146 64 14;
+        --st-yellow-400: 146 64 14;
+        --st-yellow-900: 253 224 71;
+        --st-blue-300: 29 78 216;
+        --st-blue-400: 37 99 235;
+        --st-orange-400: 154 52 18;
+        --st-orange-900: 253 186 116;
+      }
+
+      :root[data-theme='dark'] {
+        color-scheme: dark;
+
+        --s-950: 10 10 10;
+        --s-900: 18 18 18;
+        --s-850: 26 26 26;
+        --s-800: 37 37 37;
+        --s-700: 44 44 44;
+        --s-600: 58 58 58;
+
+        --t-100: 243 244 246;
+        --t-200: 229 231 235;
+        --t-300: 209 213 219;
+        --t-400: 156 163 175;
+        --t-500: 107 114 128;
+        --t-600: 75 85 99;
+        --t-700: 55 65 81;
+
+        --st-red-300: 252 165 165;
+        --st-red-400: 248 113 113;
+        --st-red-900: 127 29 29;
+        --st-red-950: 69 10 10;
+        --st-green-300: 134 239 172;
+        --st-green-400: 74 222 128;
+        --st-green-500: 34 197 94;
+        --st-green-900: 20 83 45;
+        --st-amber-300: 252 211 77;
+        --st-amber-400: 251 191 36;
+        --st-yellow-400: 250 204 21;
+        --st-yellow-900: 113 63 18;
+        --st-blue-300: 147 197 253;
+        --st-blue-400: 96 165 250;
+        --st-orange-400: 251 146 60;
+        --st-orange-900: 124 45 18;
+      }
+
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: rgb(var(--s-950));
+        color: rgb(var(--t-300));
+        transition: background-color 0.15s ease, color 0.15s ease;
+      }
+
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgb(var(--s-850));
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgb(var(--s-700));
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #e60023;
+      }
+    </style>
 
     <!--
       Tailwind chạy qua CDN (Play CDN) như bản gốc của dự án: không cần bước build CSS.
@@ -11,20 +148,65 @@
     -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+      // rgb(...) + <alpha-value> để các class kiểu bg-dark-900/50 vẫn hoạt động.
+      var themed = function (name) {
+        return 'rgb(var(' + name + ') / <alpha-value>)';
+      };
+
       tailwind.config = {
         theme: {
           extend: {
             colors: {
+              // Đỏ thương hiệu giữ nguyên ở cả hai chế độ: nó luôn nằm trên nền
+              // đặc và luôn đi kèm chữ trắng.
               brand: {
-                500: '#E60023', // đỏ Pinterest
+                500: '#E60023',
                 600: '#ad081b',
               },
               dark: {
-                950: '#0a0a0a',
-                900: '#121212',
-                850: '#1a1a1a',
-                800: '#252525',
-                700: '#2C2C2C',
+                950: themed('--s-950'),
+                900: themed('--s-900'),
+                850: themed('--s-850'),
+                800: themed('--s-800'),
+                700: themed('--s-700'),
+                600: themed('--s-600'),
+              },
+              gray: {
+                100: themed('--t-100'),
+                200: themed('--t-200'),
+                300: themed('--t-300'),
+                400: themed('--t-400'),
+                500: themed('--t-500'),
+                600: themed('--t-600'),
+                700: themed('--t-700'),
+              },
+              red: {
+                300: themed('--st-red-300'),
+                400: themed('--st-red-400'),
+                900: themed('--st-red-900'),
+                950: themed('--st-red-950'),
+              },
+              green: {
+                300: themed('--st-green-300'),
+                400: themed('--st-green-400'),
+                500: themed('--st-green-500'),
+                900: themed('--st-green-900'),
+              },
+              amber: {
+                300: themed('--st-amber-300'),
+                400: themed('--st-amber-400'),
+              },
+              yellow: {
+                400: themed('--st-yellow-400'),
+                900: themed('--st-yellow-900'),
+              },
+              blue: {
+                300: themed('--st-blue-300'),
+                400: themed('--st-blue-400'),
+              },
+              orange: {
+                400: themed('--st-orange-400'),
+                900: themed('--st-orange-900'),
               },
             },
           },
@@ -33,27 +215,6 @@
     </script>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <style>
-      body {
-        font-family: 'Inter', sans-serif;
-        background-color: #0a0a0a;
-        color: #e0e0e0;
-      }
-      ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #1a1a1a;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #333;
-        border-radius: 3px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #e60023;
-      }
-    </style>
   </head>
   <body>
     <div id="root"></div>

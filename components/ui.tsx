@@ -57,7 +57,7 @@ export const StatCard: React.FC<{
   tone?: 'default' | 'positive' | 'negative' | 'warning';
 }> = ({ label, value, sub, tone = 'default' }) => {
   const tones = {
-    default: 'text-white',
+    default: 'text-gray-100',
     positive: 'text-green-400',
     negative: 'text-red-400',
     warning: 'text-amber-400',

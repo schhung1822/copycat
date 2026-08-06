@@ -118,7 +118,7 @@ export const PricingTab: React.FC = () => {
 
       <Card className="p-5">
         <div className="mb-4">
-          <h2 className="font-bold text-white">Gói dịch vụ theo tháng</h2>
+          <h2 className="font-bold text-gray-100">Gói dịch vụ theo tháng</h2>
           <p className="text-xs text-gray-500 mt-1">
             Khách bắt buộc mua gói này trước khi tạo ảnh. <strong>Hạn mức</strong> được cấp lại mỗi tháng và không cộng
             dồn, kể cả khi mua chu kỳ dài. 1 token = 1đ giá vốn, nên hạn mức 500.000 token đúng bằng 500.000đ tiền
@@ -197,7 +197,7 @@ export const PricingTab: React.FC = () => {
 
       <Card className="p-5">
         <div className="mb-4">
-          <h2 className="font-bold text-white">Bảng giá model</h2>
+          <h2 className="font-bold text-gray-100">Bảng giá model</h2>
           <p className="text-xs text-gray-500 mt-1">
             <strong>Giá vốn</strong> là giá nhà cung cấp thu mỗi ảnh (theo bảng giá Kie.ai).{' '}
             <strong>Token thu</strong> là số token trừ của khách. Sửa trực tiếp trong ô rồi bấm ra ngoài để lưu.
@@ -275,7 +275,7 @@ export const PricingTab: React.FC = () => {
 
       <Card className="p-5">
         <div className="mb-4">
-          <h2 className="font-bold text-white">Gói token lẻ</h2>
+          <h2 className="font-bold text-gray-100">Gói token lẻ</h2>
           <p className="text-xs text-gray-500 mt-1">
             Dành cho khách đã dùng hết hạn mức tháng. Quy tắc định giá: bán <strong>gấp đôi giá vốn</strong>, tức số
             token nhận được bằng nửa số tiền nạp. Token mua thêm không hết hạn theo chu kỳ tháng.

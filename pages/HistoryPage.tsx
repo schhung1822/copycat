@@ -45,7 +45,7 @@ export const HistoryPage: React.FC = () => {
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Lịch sử thiết kế</h1>
+          <h1 className="text-2xl font-bold text-gray-100">Lịch sử thiết kế</h1>
           <p className="text-sm text-gray-500 mt-1">{total} ảnh đã tạo</p>
         </div>
 
@@ -77,7 +77,7 @@ export const HistoryPage: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
           {generations.map((item) => (
             <Card key={item.id} className="overflow-hidden flex flex-col">
-              <div className="aspect-[3/4] bg-black/40 relative">
+              <div className="aspect-[3/4] bg-dark-850 relative">
                 {item.imageUrl && item.status === 'success' ? (
                   <img
                     src={item.imageUrl}

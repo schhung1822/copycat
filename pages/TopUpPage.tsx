@@ -90,7 +90,7 @@ export const TopUpPage: React.FC = () => {
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-white">Gói dịch vụ</h1>
+        <h1 className="text-2xl font-bold text-gray-100">Gói dịch vụ</h1>
       </div>
 
       {error && <Alert tone="error">{error}</Alert>}
@@ -110,7 +110,7 @@ export const TopUpPage: React.FC = () => {
 
           <section>
             <div className="flex items-baseline justify-between gap-4 mb-3">
-              <h2 className="text-lg font-bold text-white">
+              <h2 className="text-lg font-bold text-gray-100">
                 {isSubscribed ? 'Gia hạn gói dịch vụ' : '1. Chọn gói dịch vụ'}
               </h2>
               <span className="text-xs text-gray-500">Tiết kiệm hơn với gói chu kỳ dài</span>
@@ -124,7 +124,7 @@ export const TopUpPage: React.FC = () => {
 
           <section>
             <div className="flex items-baseline justify-between gap-4 mb-3">
-              <h2 className="text-lg font-bold text-white">2. Mua thêm token</h2>
+              <h2 className="text-lg font-bold text-gray-100">2. Mua thêm token</h2>
               <span className="text-xs text-gray-500">Token mua thêm không hết hạn theo tháng</span>
             </div>
 
@@ -177,7 +177,7 @@ const SubscriptionStatus: React.FC = () => {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">Gói đang dùng</p>
-          <p className="text-white font-semibold mt-1">
+          <p className="text-gray-100 font-semibold mt-1">
             Còn hiệu lực tới {formatDateTime(user.subscriptionExpiresAt)}
           </p>
         </div>
@@ -234,8 +234,8 @@ const PlanGrid: React.FC<{
               </span>
             )}
 
-            <h3 className="font-bold text-white">{plan.name}</h3>
-            <p className="text-2xl font-bold text-white mt-2">{formatVnd(plan.priceVnd)}</p>
+            <h3 className="font-bold text-gray-100">{plan.name}</h3>
+            <p className="text-2xl font-bold text-gray-100 mt-2">{formatVnd(plan.priceVnd)}</p>
             <p className="text-[11px] text-gray-500 mt-1">
               {plan.months > 1 ? `${formatVnd(plan.pricePerMonthVnd)}/tháng` : 'thanh toán hàng tháng'}
             </p>
@@ -273,7 +273,7 @@ const PackageGrid: React.FC<{
       return (
         <Card key={pkg.id} className={`p-5 flex flex-col ${pkg.isPopular ? 'border-brand-500/60' : ''}`}>
           <div className="flex items-baseline justify-between gap-2">
-            <h3 className="font-bold text-white">{pkg.name}</h3>
+            <h3 className="font-bold text-gray-100">{pkg.name}</h3>
             {ratio > 0 && (
               <span className="text-[10px] text-gray-500 whitespace-nowrap">
                 {ratio >= 1 ? `${ratio}×` : `${Math.round(ratio * 100)}%`} hạn mức
@@ -303,13 +303,13 @@ const PaidPanel: React.FC<{ order: Order; onContinue: () => void }> = ({ order, 
     <h2 className="text-xl font-bold text-green-400">Thanh toán thành công!</h2>
     {order.orderType === 'subscription' ? (
       <p className="text-sm text-gray-300 mt-2">
-        Đơn <strong>{order.code}</strong> đã kích hoạt <strong className="text-white">{order.packageName}</strong>. Bạn
+        Đơn <strong>{order.code}</strong> đã kích hoạt <strong className="text-gray-100">{order.packageName}</strong>. Bạn
         có thể bắt đầu tạo ảnh ngay.
       </p>
     ) : (
       <p className="text-sm text-gray-300 mt-2">
         Đơn <strong>{order.code}</strong> đã cộng{' '}
-        <strong className="text-white">{formatNumber(order.totalTokens)} token</strong> vào tài khoản.
+        <strong className="text-gray-100">{formatNumber(order.totalTokens)} token</strong> vào tài khoản.
       </p>
     )}
     <div className="flex gap-3 mt-5">
@@ -375,14 +375,14 @@ const PaymentPanel: React.FC<{
     <Card className="p-6">
       <div className="flex items-start justify-between gap-4 mb-5">
         <div>
-          <h2 className="text-xl font-bold text-white">Chuyển khoản để hoàn tất</h2>
+          <h2 className="text-xl font-bold text-gray-100">Chuyển khoản để hoàn tất</h2>
           <p className="text-sm text-gray-500 mt-1">
             {order.orderType === 'subscription'
               ? `${order.packageName} · ${order.subscriptionMonths} tháng`
               : `${order.packageName} · nhận ${formatNumber(order.totalTokens)} token`}
           </p>
         </div>
-        <button onClick={onBack} className="text-xs text-gray-500 hover:text-white whitespace-nowrap">
+        <button onClick={onBack} className="text-xs text-gray-500 hover:text-gray-100 whitespace-nowrap">
           ← Chọn gói khác
         </button>
       </div>
@@ -460,7 +460,7 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
 
   return (
     <div>
-      <h2 className="text-lg font-bold text-white mb-3">Token tiêu hao mỗi ảnh</h2>
+      <h2 className="text-lg font-bold text-gray-100 mb-3">Token tiêu hao mỗi ảnh</h2>
       <Card className="p-4">
         <TableWrap>
           <thead>
@@ -494,7 +494,7 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
 
 const OrderHistory: React.FC<{ orders: Order[]; onResume: (order: Order) => void }> = ({ orders, onResume }) => (
   <div>
-    <h2 className="text-lg font-bold text-white mb-3">Lịch sử đơn hàng</h2>
+    <h2 className="text-lg font-bold text-gray-100 mb-3">Lịch sử đơn hàng</h2>
     <Card className="p-4">
       {orders.length === 0 ? (
         <EmptyState title="Chưa có đơn hàng nào." />

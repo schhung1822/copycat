@@ -94,7 +94,7 @@ export const UsersTab: React.FC = () => {
                   <td className="py-2.5 text-right whitespace-nowrap">
                     <button
                       onClick={() => setAdjustTarget(user)}
-                      className="text-xs text-gray-400 hover:text-white px-2 transition-colors"
+                      className="text-xs text-gray-400 hover:text-gray-100 px-2 transition-colors"
                     >
                       Sửa token
                     </button>
@@ -172,7 +172,7 @@ const AdjustTokenModal: React.FC<{
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <Card className="w-full max-w-md p-6">
-        <h3 className="text-lg font-bold text-white">Điều chỉnh token</h3>
+        <h3 className="text-lg font-bold text-gray-100">Điều chỉnh token</h3>
         <p className="text-sm text-gray-500 mt-1 mb-5">
           {user.email} · số dư hiện tại {formatNumber(user.tokenBalance)} token
         </p>

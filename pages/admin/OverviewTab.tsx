@@ -129,14 +129,14 @@ export const OverviewTab: React.FC = () => {
       {/* ---- Biểu đồ ---- */}
       <Card className="p-5">
         <div className="flex items-center justify-between mb-4 gap-4">
-          <h2 className="font-bold text-white">Doanh thu và chi phí vốn theo ngày</h2>
+          <h2 className="font-bold text-gray-100">Doanh thu và chi phí vốn theo ngày</h2>
           <div className="flex gap-1">
             {[7, 30, 90].map((option) => (
               <button
                 key={option}
                 onClick={() => setDays(option)}
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
-                  days === option ? 'bg-dark-700 text-white' : 'bg-dark-850 text-gray-500 hover:text-gray-300'
+                  days === option ? 'bg-dark-700 text-gray-100' : 'bg-dark-850 text-gray-500 hover:text-gray-300'
                 }`}
               >
                 {option} ngày
@@ -167,7 +167,7 @@ export const OverviewTab: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="p-5">
-          <h2 className="font-bold text-white mb-4">Số ảnh tạo mỗi ngày</h2>
+          <h2 className="font-bold text-gray-100 mb-4">Số ảnh tạo mỗi ngày</h2>
           <BarChart
             labels={labels}
             format={(value) => formatNumber(Math.round(value))}
@@ -184,7 +184,7 @@ export const OverviewTab: React.FC = () => {
         </Card>
 
         <Card className="p-5">
-          <h2 className="font-bold text-white mb-4">Khách đăng ký mới mỗi ngày</h2>
+          <h2 className="font-bold text-gray-100 mb-4">Khách đăng ký mới mỗi ngày</h2>
           <BarChart
             labels={labels}
             format={(value) => formatNumber(Math.round(value))}
@@ -204,7 +204,7 @@ export const OverviewTab: React.FC = () => {
       {/* ---- Bảng phụ ---- */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <Card className="p-5">
-          <h2 className="font-bold text-white mb-3">Hiệu quả theo model</h2>
+          <h2 className="font-bold text-gray-100 mb-3">Hiệu quả theo model</h2>
           <TableWrap>
             <thead>
               <tr className="text-[11px] uppercase tracking-wider text-gray-500 border-b border-dark-800">
@@ -246,7 +246,7 @@ export const OverviewTab: React.FC = () => {
         </Card>
 
         <Card className="p-5">
-          <h2 className="font-bold text-white mb-3">Khách hàng chi nhiều nhất</h2>
+          <h2 className="font-bold text-gray-100 mb-3">Khách hàng chi nhiều nhất</h2>
           <TableWrap>
             <thead>
               <tr className="text-[11px] uppercase tracking-wider text-gray-500 border-b border-dark-800">
@@ -279,7 +279,7 @@ export const OverviewTab: React.FC = () => {
       </div>
 
       <Card className="p-5">
-        <h2 className="font-bold text-white mb-3">Cấu hình hệ thống</h2>
+        <h2 className="font-bold text-gray-100 mb-3">Cấu hình hệ thống</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
           <div>
             <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">Email quản trị (.env)</p>

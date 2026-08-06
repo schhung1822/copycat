@@ -56,13 +56,13 @@ export const AccountPage: React.FC = () => {
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-white">Thông tin tài khoản</h1>
+      <h1 className="text-2xl font-bold text-gray-100">Thông tin tài khoản</h1>
 
       <Card className="p-5">
         <div className="flex justify-between text-sm pb-4 mb-4 border-b border-dark-800">
           <div>
             <p className="text-gray-500 text-xs uppercase tracking-wider font-bold">Email</p>
-            <p className="text-white mt-1">{user?.email}</p>
+            <p className="text-gray-100 mt-1">{user?.email}</p>
           </div>
           <div className="text-right">
             <p className="text-gray-500 text-xs uppercase tracking-wider font-bold">Tham gia</p>
@@ -96,7 +96,7 @@ export const AccountPage: React.FC = () => {
       </Card>
 
       <Card className="p-5">
-        <h2 className="font-bold text-white mb-4">Đổi mật khẩu</h2>
+        <h2 className="font-bold text-gray-100 mb-4">Đổi mật khẩu</h2>
         <form onSubmit={savePassword} className="space-y-4">
           {passwordMessage && <Alert tone={passwordMessage.tone}>{passwordMessage.text}</Alert>}
 

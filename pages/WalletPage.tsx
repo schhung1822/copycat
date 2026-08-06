@@ -42,7 +42,7 @@ export const WalletPage: React.FC = () => {
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Ví token</h1>
+          <h1 className="text-2xl font-bold text-gray-100">Ví token</h1>
           <p className="text-sm text-gray-500 mt-1">Toàn bộ biến động token của tài khoản.</p>
         </div>
         <Link to="/nap-tien">
@@ -55,7 +55,7 @@ export const WalletPage: React.FC = () => {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">Gói dịch vụ</p>
-              <p className="text-white font-semibold mt-1">{summary.subscriptionName ?? 'Đang hoạt động'}</p>
+              <p className="text-gray-100 font-semibold mt-1">{summary.subscriptionName ?? 'Đang hoạt động'}</p>
               <p className="text-[11px] text-gray-500 mt-0.5">
                 Hết hạn {formatDateTime(summary.subscriptionExpiresAt)}
               </p>
@@ -105,7 +105,7 @@ export const WalletPage: React.FC = () => {
       </Alert>
 
       <Card className="p-4">
-        <h2 className="font-bold text-white mb-3">Sao kê</h2>
+        <h2 className="font-bold text-gray-100 mb-3">Sao kê</h2>
         {transactions.length === 0 ? (
           <EmptyState title="Chưa có biến động nào." />
         ) : (

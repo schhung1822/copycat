@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { PageLoader } from './components/ui';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { AccountPage } from './pages/AccountPage';
 import { AdminPage } from './pages/AdminPage';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
@@ -55,9 +56,11 @@ const AppRoutes: React.FC = () => (
 );
 
 const App: React.FC = () => (
-  <AuthProvider>
-    <AppRoutes />
-  </AuthProvider>
+  <ThemeProvider>
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
+  </ThemeProvider>
 );
 
 export default App;
