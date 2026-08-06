@@ -207,10 +207,10 @@ function buildPrompt(userPrompt: string, hasReference: boolean): string {
   return [
     'Generate a high-quality professional marketing image.',
     'INPUTS:',
-    '- The FIRST image provided is the REFERENCE STYLE (composition, lighting, colour, mood).',
-    '- The SUBSEQUENT images are the PRODUCTS that must appear in the result.',
+    '- The FIRST image provided is the REFERENCE STYLE (composition, lighting, vibe).',
+    '- The SUBSEQUENT images are the PRODUCTS to be featured.',
     'TASK:',
-    'Create a new image that features the provided PRODUCT(S) while closely mimicking the style and layout of the REFERENCE image. Keep the products true to their original shape, colour, label and branding.',
+    'Create a new image that features the provided PRODUCT(S) but seamlessly mimics the style and layout of the REFERENCE image.',
     'DETAILS:',
     userPrompt || 'Integrate the products naturally into the scene defined by the reference style.',
   ].join('\n');
