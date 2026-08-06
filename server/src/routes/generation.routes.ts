@@ -53,13 +53,20 @@ generationRouter.get(
   '/',
   asyncHandler(async (req, res) => {
     const { limit, offset, page } = parsePaging(req.query as Record<string, unknown>, 24);
-    const status = typeof req.query.status === 'string' ? req.query.status : null;
+
+    // Nhận nhiều trạng thái phân tách bằng dấu phẩy, vd ?status=queued,processing
+    // để trang tạo ảnh lấy đúng những ảnh còn đang chạy.
+    const allowed = ['queued', 'processing', 'success', 'failed', 'refunded'];
+    const statuses = String(req.query.status ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter((value) => allowed.includes(value));
 
     const filters = ['user_id = ?'];
     const params: unknown[] = [req.user!.id];
-    if (status && ['queued', 'processing', 'success', 'failed', 'refunded'].includes(status)) {
-      filters.push('status = ?');
-      params.push(status);
+    if (statuses.length > 0) {
+      filters.push(`status IN (${statuses.map(() => '?').join(',')})`);
+      params.push(...statuses);
     }
     const where = `WHERE ${filters.join(' AND ')}`;
 

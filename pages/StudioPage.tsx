@@ -90,17 +90,28 @@ export const StudioPage: React.FC = () => {
 
     void (async () => {
       try {
-        // Đọc lại số dư cùng lúc: đây là trang duy nhất chặn thao tác dựa trên
-        // số token, nên không được phép dùng giá trị đã cũ trong bộ nhớ.
-        const [catalogData, historyData, walletData] = await Promise.all([
+        /*
+         * Chỉ nạp những ảnh CÒN ĐANG CHẠY, không nạp ảnh đã xong từ trước.
+         *
+         * Trang này là bàn làm việc của phiên hiện tại; ảnh đã tạo xong xem ở
+         * trang Lịch sử. Nhờ vậy tải lại trang hay đăng nhập ở máy khác đều bắt
+         * đầu với màn hình sạch.
+         *
+         * Vẫn phải lấy ảnh đang chạy dở: bỏ luôn thì khách tải lại trang giữa
+         * chừng sẽ tưởng ảnh hỏng và bấm tạo lại, tốn hạn mức oan.
+         *
+         * Đọc lại số dư cùng lúc vì đây là trang duy nhất chặn thao tác dựa trên
+         * số token, không được phép dùng giá trị đã cũ trong bộ nhớ.
+         */
+        const [catalogData, runningData, walletData] = await Promise.all([
           api.get<Catalog>('/catalog'),
-          api.get<{ generations: Generation[] }>('/generations?limit=24'),
+          api.get<{ generations: Generation[] }>('/generations?status=queued,processing&limit=24'),
           api.get<{ tokenBalance: number }>('/wallet'),
         ]);
         if (cancelled) return;
 
         setCatalog(catalogData);
-        setGenerations(historyData.generations);
+        setGenerations(runningData.generations);
         setTokenBalance(walletData.tokenBalance);
 
         const stored = readSettings();
@@ -245,6 +256,17 @@ export const StudioPage: React.FC = () => {
       setError(err instanceof Error ? err : new Error('Không vẽ lại được.'));
     }
   };
+
+  /**
+   * Dọn màn hình kết quả.
+   *
+   * Chỉ ẩn những ảnh đã xong, giữ lại ảnh còn đang vẽ — xoá cả ảnh đang chạy thì
+   * việc theo dõi tiến độ bị mất trong khi hạn mức đã trừ rồi. Ảnh bị ẩn vẫn nằm
+   * nguyên trong trang Lịch sử, đây chỉ là thao tác hiển thị.
+   */
+  const clearFinished = useCallback(() => {
+    setGenerations((current) => current.filter(isPending));
+  }, []);
 
   const handleDownload = useCallback(async (url: string, fileName: string) => {
     try {
@@ -498,9 +520,28 @@ export const StudioPage: React.FC = () => {
               </span>
             )}
           </div>
-          <Link to="/lich-su" className="text-xs text-gray-500 hover:text-gray-100 transition-colors whitespace-nowrap">
-            Xem toàn bộ lịch sử →
-          </Link>
+          <div className="flex items-center gap-3 shrink-0">
+            {generations.some((item) => !isPending(item)) && (
+              <button
+                onClick={clearFinished}
+                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-100 transition-colors"
+                title="Ẩn các ảnh đã xong khỏi màn hình. Ảnh vẫn được lưu trong Lịch sử."
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                Làm mới
+              </button>
+            )}
+            <Link to="/lich-su" className="text-xs text-gray-500 hover:text-gray-100 transition-colors whitespace-nowrap">
+              Xem toàn bộ lịch sử →
+            </Link>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
@@ -516,11 +557,14 @@ export const StudioPage: React.FC = () => {
                   />
                 </svg>
               </div>
-              <p className="text-base font-semibold text-gray-300">Chưa có thiết kế nào</p>
+              <p className="text-base font-semibold text-gray-300">Bắt đầu một phiên làm việc mới</p>
               <p className="text-sm mt-1.5 text-gray-500 text-center max-w-sm leading-relaxed">
                 Tải một ảnh mẫu bạn thích và ảnh sản phẩm của mình ở cột bên trái, AI sẽ dựng lại bố cục đó cho sản
                 phẩm của bạn.
               </p>
+              <Link to="/lich-su" className="text-xs text-gray-500 hover:text-brand-500 transition-colors mt-4">
+                Ảnh đã tạo trước đó nằm trong Lịch sử →
+              </Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5 pb-10">
