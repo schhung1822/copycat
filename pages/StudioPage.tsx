@@ -15,16 +15,16 @@ import type { Catalog, Generation, ImageState, ModelOption } from '../types';
  */
 const ASPECT_RATIOS: { value: string; label: string }[] = [
   { value: 'auto', label: 'Tự động (theo ảnh mẫu)' },
-  { value: '1:1', label: '1:1 — Vuông' },
-  { value: '3:4', label: '3:4 — Dọc' },
-  { value: '4:3', label: '4:3 — Ngang' },
-  { value: '4:5', label: '4:5 — Instagram' },
+  { value: '1:1', label: '1:1 - Vuông' },
+  { value: '3:4', label: '3:4 - Dọc' },
+  { value: '4:3', label: '4:3 - Ngang' },
+  { value: '4:5', label: '4:5 - Instagram' },
   { value: '5:4', label: '5:4' },
-  { value: '9:16', label: '9:16 — Story / Reels' },
-  { value: '16:9', label: '16:9 — Ngang rộng' },
+  { value: '9:16', label: '9:16 - Story / Reels' },
+  { value: '16:9', label: '16:9 - Ngang rộng' },
   { value: '2:3', label: '2:3' },
   { value: '3:2', label: '3:2' },
-  { value: '21:9', label: '21:9 — Siêu rộng' },
+  { value: '21:9', label: '21:9 - Siêu rộng' },
 ];
 const POLL_INTERVAL_MS = 3000;
 const SETTINGS_KEY = 'copycat-studio-settings-v3';

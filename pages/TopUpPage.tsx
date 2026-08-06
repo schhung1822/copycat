@@ -559,6 +559,20 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
   const basePlan = catalog.plans[0] ?? null;
   const allowance = basePlan?.monthlyTokenAllowance ?? 0;
 
+  /**
+   * Đơn giá token để quy ảnh ra tiền, lấy từ chính các gói token lẻ đang bán.
+   *
+   * Dùng đơn giá RẺ NHẤT trong các gói: đây là mức thấp nhất khách có thể mua
+   * được, nên con số quy đổi là mức tối thiểu chứ không thổi phồng giá trị gói.
+   */
+  const pricePerToken =
+    catalog.packages.length > 0
+      ? Math.min(...catalog.packages.filter((pkg) => pkg.totalTokens > 0).map((pkg) => pkg.priceVnd / pkg.totalTokens))
+      : 0;
+
+  // Làm tròn tới trăm đồng cho dễ đọc — đây là giá tham chiếu, không phải giá thu.
+  const equivalentPrice = (tokenCost: number) => Math.round((tokenCost * pricePerToken) / 100) * 100;
+
   return (
     <div>
       <h2 className="text-lg font-bold text-gray-100 mb-3">Số ảnh có thể tạo hàng tháng</h2>
@@ -569,6 +583,7 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
               <th className="text-left font-bold py-2">Model</th>
               <th className="text-left font-bold py-2">Chất lượng</th>
               <th className="text-right font-bold py-2">Token / ảnh</th>
+              {pricePerToken > 0 && <th className="text-right font-bold py-2">Tiền tương đương / ảnh</th>}
               <th className="text-right font-bold py-2">Số ảnh trong hạn mức tháng</th>
             </tr>
           </thead>
@@ -578,6 +593,11 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
                 <td className="py-2.5 text-gray-300">{model.label.split('—')[0].trim()}</td>
                 <td className="py-2.5 text-gray-400">{model.resolution}</td>
                 <td className="py-2.5 text-right text-brand-500 font-semibold">{formatNumber(model.tokenCost)}</td>
+                {pricePerToken > 0 && (
+                  <td className="py-2.5 text-right text-gray-300">
+                    {model.tokenCost > 0 ? formatVnd(equivalentPrice(model.tokenCost)) : '—'}
+                  </td>
+                )}
                 <td className="py-2.5 text-right text-gray-500 text-xs">
                   {model.tokenCost > 0 ? `~${formatNumber(Math.floor(allowance / model.tokenCost))} ảnh` : '—'}
                 </td>
@@ -589,6 +609,15 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
           Cột cuối tính trên hạn mức {formatNumber(allowance)} token/tháng
           {basePlan && ` của ${basePlan.name}`}, nếu chỉ dùng một loại ảnh duy nhất. Gói có hạn mức cao hơn thì số ảnh
           tăng tương ứng.
+          {pricePerToken > 0 && (
+            <>
+              {' '}
+              Cột <strong className="text-gray-500">tiền tương đương</strong> là số tiền bạn phải bỏ ra cho mỗi ảnh nếu
+              mua token lẻ, tính theo đơn giá tốt nhất trong các gói token đang bán (
+              {pricePerToken.toLocaleString('vi-VN', { maximumFractionDigits: 2 })}đ/token). Token trong gói dịch vụ đã
+              bao gồm sẵn, không phải trả thêm.
+            </>
+          )}
         </p>
       </Card>
     </div>
