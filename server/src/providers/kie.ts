@@ -119,22 +119,35 @@ const authHeaders = () => ({
   'Content-Type': 'application/json',
 });
 
-/** Câu báo cho khách khi key bị từ chối — chi tiết kỹ thuật in ra log cho quản trị viên. */
-const AUTH_FAILED_MESSAGE =
-  'Hệ thống chưa kết nối được với nhà cung cấp AI. Vui lòng báo quản trị viên kiểm tra lại API key.';
+/*
+ * Thông báo cho KHÁCH cố ý không nhắc tên nhà cung cấp và không lộ chi tiết kỹ
+ * thuật: khách mua dịch vụ của bạn, việc bạn gọi API của ai là chuyện nội bộ.
+ * Toàn bộ chi tiết để gỡ lỗi được in ra log của server cho quản trị viên.
+ */
+const USER_MESSAGE = {
+  system: 'Hệ thống tạm thời chưa tạo được ảnh. Vui lòng thử lại sau ít phút.',
+  config: 'Hệ thống chưa sẵn sàng tạo ảnh. Vui lòng liên hệ quản trị viên.',
+  timeout: 'Ảnh xử lý quá lâu nên đã dừng lại. Vui lòng thử lại.',
+} as const;
+
+/** Ghi chi tiết kỹ thuật ra log rồi ném lỗi với câu ngắn gọn cho khách. */
+function providerFailure(logDetail: string, userMessage: string = USER_MESSAGE.system, code = 'provider_error'): never {
+  console.error(`[kie] ${logDetail}`);
+  throw new AppError(502, userMessage, code);
+}
 
 function throwAuthFailed(url: string, detail: string): never {
   console.error(
-    `\n[Kie.ai] API KEY BỊ TỪ CHỐI khi gọi ${url}\n` +
+    `\n[kie] API KEY BỊ TỪ CHỐI khi gọi ${url}\n` +
       `  Phản hồi: ${detail}\n` +
       '  Kiểm tra KIE_API_KEY trong file .env — key sai, đã bị thu hồi, hoặc bị dán thiếu ký tự.\n' +
       '  Thử trực tiếp bằng lệnh:\n' +
-      `      KEY=$(grep -E '^KIE_API_KEY=' .env | cut -d= -f2-)\n` +
+      `      KEY=$(grep -E '^KIE_API_KEY=' .env | cut -d= -f2- | tr -d "\\"'\\r ")\n` +
       `      curl -s -X POST ${url} \\\n` +
       '        -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \\\n' +
       `        -d '{"base64Data":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=","uploadPath":"images"}'\n`,
   );
-  throw new AppError(502, AUTH_FAILED_MESSAGE, 'provider_auth');
+  throw new AppError(502, USER_MESSAGE.config, 'provider_auth');
 }
 
 async function requestJson(url: string, init: RequestInit): Promise<any> {
@@ -147,8 +160,8 @@ async function requestJson(url: string, init: RequestInit): Promise<any> {
   try {
     data = JSON.parse(text);
   } catch {
-    if (!res.ok) throw new AppError(502, `Kie.ai trả về lỗi HTTP ${res.status}: ${text.slice(0, 300)}`, 'provider_error');
-    throw new AppError(502, `Kie.ai trả về dữ liệu không hợp lệ: ${text.slice(0, 300)}`, 'provider_error');
+    if (!res.ok) providerFailure(`HTTP ${res.status} tại ${url}: ${text.slice(0, 300)}`);
+    providerFailure(`Phản hồi không phải JSON tại ${url}: ${text.slice(0, 300)}`);
   }
 
   // Endpoint upload trả HTTP 200 nhưng nhét code 401 vào thân phản hồi, nên kiểm
@@ -157,7 +170,7 @@ async function requestJson(url: string, init: RequestInit): Promise<any> {
   if (data?.code === 401 || data?.code === 403) throwAuthFailed(url, String(data?.msg ?? text).slice(0, 300));
 
   if (!res.ok) {
-    throw new AppError(502, `Kie.ai lỗi (${res.status}): ${data?.msg ?? text.slice(0, 300)}`, 'provider_error');
+    providerFailure(`HTTP ${res.status} tại ${url}: ${data?.msg ?? text.slice(0, 300)}`);
   }
   return data;
 }
@@ -171,14 +184,14 @@ async function uploadImage(dataUri: string): Promise<string> {
   });
 
   if (data.success === false && data.code !== 200) {
-    throw new AppError(502, `Không upload được ảnh lên Kie.ai: ${data.msg ?? 'lỗi không rõ'}`, 'provider_error');
+    providerFailure(`Upload ảnh thất bại: ${data.msg ?? 'lỗi không rõ'}`);
   }
 
   const fileUrl: unknown =
     data.data?.downloadUrl ?? data.data?.fileUrl ?? data.data?.url ?? data.downloadUrl ?? data.url ?? data.fileUrl;
 
   if (typeof fileUrl !== 'string' || !/^https?:\/\//.test(fileUrl)) {
-    throw new AppError(502, 'Kie.ai nhận ảnh nhưng không trả về URL hợp lệ.', 'provider_error');
+    providerFailure(`Upload xong nhưng không có URL hợp lệ: ${JSON.stringify(data).slice(0, 200)}`);
   }
   return fileUrl;
 }
@@ -252,7 +265,7 @@ export const kieProvider: ImageProvider = {
 
   async generate(request: GenerateRequest): Promise<GenerateResult> {
     if (!env.kie.apiKey) {
-      throw new AppError(503, 'Hệ thống chưa cấu hình KIE_API_KEY.', 'provider_not_configured');
+      providerFailure('Chưa cấu hình KIE_API_KEY trong file .env.', USER_MESSAGE.config, 'provider_not_configured');
     }
 
     const spec = specFor(request.providerModel);
@@ -287,11 +300,11 @@ export const kieProvider: ImageProvider = {
     });
 
     if (createData.code !== 200) {
-      throw new AppError(502, `Kie.ai từ chối yêu cầu: ${createData.msg ?? JSON.stringify(createData)}`, 'provider_error');
+      providerFailure(`Tạo task bị từ chối: ${createData.msg ?? JSON.stringify(createData)}`);
     }
 
     const taskId: string | undefined = createData.data?.taskId;
-    if (!taskId) throw new AppError(502, 'Kie.ai không trả về mã task.', 'provider_error');
+    if (!taskId) providerFailure('Tạo task thành công nhưng không có taskId.');
     await request.onTaskCreated?.(taskId);
 
     // 3. Chờ kết quả
@@ -304,14 +317,14 @@ export const kieProvider: ImageProvider = {
         { method: 'GET', headers: authHeaders() },
       );
       if (pollData.code !== 200) {
-        throw new AppError(502, `Không tra được trạng thái task: ${pollData.msg ?? 'lỗi không rõ'}`, 'provider_error');
+        providerFailure(`Tra trạng thái task ${taskId} thất bại: ${pollData.msg ?? 'lỗi không rõ'}`);
       }
 
       const status: string = pollData.data?.status ?? pollData.data?.state ?? '';
 
       if (status === 'success') {
         const url = extractResultUrl(pollData.data);
-        if (!url) throw new AppError(502, 'Kie.ai báo thành công nhưng không có ảnh trả về.', 'provider_error');
+        if (!url) providerFailure(`Task ${taskId} báo success nhưng không có URL ảnh.`);
         return { url, taskId };
       }
 
@@ -321,6 +334,6 @@ export const kieProvider: ImageProvider = {
       }
     }
 
-    throw new AppError(504, 'Quá thời gian chờ kết quả từ Kie.ai (6 phút).', 'provider_timeout');
+    providerFailure(`Task ${taskId} quá 6 phút chưa xong.`, USER_MESSAGE.timeout, 'provider_timeout');
   },
 };

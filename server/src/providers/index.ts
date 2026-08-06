@@ -10,7 +10,9 @@ const PROVIDERS: Record<string, ImageProvider> = {
 export function getProvider(name: string): ImageProvider {
   const provider = PROVIDERS[name];
   if (!provider) {
-    throw new AppError(500, `Chưa hỗ trợ nhà cung cấp "${name}".`, 'unknown_provider');
+    // Sai cấu hình bảng giá — chi tiết ra log, khách chỉ thấy câu chung.
+    console.error(`[provider] Bảng giá trỏ tới nhà cung cấp "${name}" nhưng chưa có adapter nào tên đó.`);
+    throw new AppError(500, 'Hệ thống chưa sẵn sàng tạo ảnh. Vui lòng liên hệ quản trị viên.', 'unknown_provider');
   }
   return provider;
 }

@@ -92,7 +92,9 @@ export async function createGenerations(
   const model = await getActiveModel(input.modelCode);
   const provider = getProvider(model.provider);
   if (!provider.isConfigured()) {
-    throw new AppError(503, `Nhà cung cấp "${model.provider}" chưa được cấu hình API key.`, 'provider_not_configured');
+    // Chi tiết ra log cho quản trị viên, khách chỉ thấy câu ngắn gọn.
+    console.error(`[generation] Nhà cung cấp "${model.provider}" chưa được cấu hình API key.`);
+    throw new AppError(503, 'Hệ thống chưa sẵn sàng tạo ảnh. Vui lòng liên hệ quản trị viên.', 'provider_not_configured');
   }
 
   const quantity = Math.min(Math.max(Math.trunc(input.quantityPerReference) || 1, 1), MAX_QUANTITY_PER_REFERENCE);
