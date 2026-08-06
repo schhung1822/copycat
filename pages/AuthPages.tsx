@@ -92,7 +92,7 @@ export const LoginPage: React.FC = () => {
             className={inputClass}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="ban@example.com"
+            placeholder="example@gmail.com"
             autoComplete="email"
             required
           />
@@ -177,7 +177,7 @@ export const RegisterPage: React.FC = () => {
             className={inputClass}
             value={form.email}
             onChange={update('email')}
-            placeholder="ban@example.com"
+            placeholder="example@gmail.com"
             autoComplete="email"
             required
           />
