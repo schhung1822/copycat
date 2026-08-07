@@ -3,7 +3,7 @@ import { query, queryOne, type RowDataPacket } from '../db.js';
 import { readAccountState } from '../services/subscriptionService.js';
 import { requireAuth } from '../lib/auth.js';
 import { asyncHandler, notFound } from '../lib/errors.js';
-import { parsePaging, requireInt, requireString, requireStringArray } from '../lib/validate.js';
+import { optionalString, parsePaging, requireInt, requireString, requireStringArray } from '../lib/validate.js';
 import {
   createGenerations,
   redoGeneration,
@@ -32,6 +32,7 @@ generationRouter.post(
       referenceImages: requireStringArray(req.body, 'referenceImages', { max: 8, label: 'Ảnh mẫu' }),
       productImages: requireStringArray(req.body, 'productImages', { max: 3, label: 'Ảnh sản phẩm' }),
       quantityPerReference: requireInt(req.body, 'quantityPerReference', { min: 1, max: 4, label: 'Số lượng' }),
+      clientSession: optionalString(req.body, 'clientSession', 64),
     });
 
     const rows = await query<GenerationRow>(
@@ -68,6 +69,19 @@ generationRouter.get(
       filters.push(`status IN (${statuses.map(() => '?').join(',')})`);
       params.push(...statuses);
     }
+
+    /*
+     * ?session=... để một tab chỉ nạp lại việc của chính nó.
+     *
+     * Là bộ lọc TUỲ CHỌN chứ không bắt buộc: trang Lịch sử cố tình không gửi, vì
+     * ở đó khách muốn xem toàn bộ ảnh mình từng tạo, bất kể tạo từ tab nào.
+     */
+    const session = typeof req.query.session === 'string' ? req.query.session.trim().slice(0, 64) : '';
+    if (session) {
+      filters.push('client_session = ?');
+      params.push(session);
+    }
+
     const where = `WHERE ${filters.join(' AND ')}`;
 
     const rows = await query<GenerationRow>(`SELECT * FROM generations ${where} ORDER BY id DESC LIMIT ? OFFSET ?`, [

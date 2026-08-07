@@ -235,24 +235,47 @@ const productImageRange = (productCount: number, firstIndex: number): string =>
 /**
  * Dặn riêng cho từng bản trong lô.
  *
- * Bản đầu bám ảnh mẫu sát nhất. Từ bản thứ hai, liệt kê ĐÍCH DANH những thứ được
- * phép khác đi — danh sách đóng như vậy an toàn hơn hẳn câu chung chung kiểu
- * "hãy làm khác đi", vốn là thứ khiến model tự ý đổi luôn sản phẩm.
+ * Mức tự do phụ thuộc vào việc khách có nhập mô tả hay không:
+ *
+ *   - KHÔNG có mô tả: khách chỉ muốn đúng thiết kế của ảnh mẫu với hàng của
+ *     mình, nên các bản chỉ được khác nhau ở chi tiết phụ. Danh sách được liệt
+ *     kê ĐÍCH DANH và đóng — an toàn hơn hẳn câu chung chung kiểu "hãy làm khác
+ *     đi", vốn là thứ khiến model tự ý đổi luôn sản phẩm.
+ *
+ *   - CÓ mô tả: khách đang đặt hàng một hướng riêng, nên bản thứ hai trở đi được
+ *     đổi cả thiết kế, dáng sản phẩm và bối cảnh miễn là vẫn đúng mô tả. Nhờ vậy
+ *     một lượt bốn ảnh cho ra bốn phương án thật sự khác nhau chứ không phải bốn
+ *     bản gần như trùng khít.
+ *
+ * Dù ở mức tự do nào, nhận diện sản phẩm vẫn nằm ngoài phạm vi được đổi.
  */
-function variantBlock(index: number, total: number): string {
+function variantBlock(index: number, total: number, hasUserPrompt: boolean): string {
   if (total <= 1) return '';
 
   if (index <= 1) {
-    return `VARIATION 1 of ${total} — stay as close to the reference design as possible.`;
+    return hasUserPrompt
+      ? `VARIATION 1 of ${total} — the most direct, straightforward reading of the user instructions below.`
+      : `VARIATION 1 of ${total} — stay as close to the reference design as possible.`;
   }
 
+  const allowedToVary = hasUserPrompt
+    ? [
+        'you may also change the design itself: composition and arrangement of the graphic blocks, the pose and',
+        'camera angle of the product, the setting and environment, background scenery, lighting mood and accent',
+        'colours — as long as the result still satisfies the user instructions below and still reads as the same',
+        'campaign. Treat the reference as a style guide here, not a template to copy.',
+      ]
+    : [
+        'you may vary ONLY these secondary details: camera angle and pose of the product within the same style,',
+        'arrangement of the product pieces, background scenery detail and texture, position and accent colour of',
+        'the decorative graphic blocks, minor typography layout shifts. The reference layout itself stays intact.',
+      ];
+
   return [
-    `VARIATION ${index} of ${total} — this image must look noticeably different from the other variations,`,
-    'but ONLY in these secondary details: camera angle and pose of the product within the same style,',
-    'arrangement of the product pieces, background scenery detail and texture, position and accent colour',
-    'of the decorative graphic blocks, minor typography layout shifts.',
-    'Everything in STEP 4 and the HARD RULES stays exactly the same: same physical item, same colours,',
-    'same graphics, same logos. Never vary the product itself.',
+    `VARIATION ${index} of ${total} — this image must look noticeably different from the other variations:`,
+    ...allowedToVary,
+    'STEP 4 and the HARD RULES never loosen: same physical item, same colours, same graphics, same logos.',
+    'Never vary the product itself.',
   ].join(' ');
 }
 
@@ -266,10 +289,13 @@ function userBlock(userPrompt: string, hasReference: boolean): string {
 
   return [
     'USER INSTRUCTIONS — written by the customer, usually in Vietnamese. Follow them whatever the language.',
+    'This is the primary brief. Give it precedence over the reference design.',
     hasReference
-      ? 'They MAY override the reference design: scene, background, model pose, setting, colours of the design, text.'
+      ? 'Wherever they ask for something different — scene, setting, model pose, background, colours, text, mood —' +
+        ' follow them and let the design depart from Image 1. Keep the reference only for what they did not mention.'
       : 'They define the scene.',
-    'They MAY NOT override product identity: the product must stay the exact item from the product image(s).',
+    'The one thing they MAY NOT override is product identity: the product must stay the exact item from the',
+    'product image(s), unchanged in shape, colour and graphics.',
     '"""',
     userPrompt,
     '"""',
@@ -291,6 +317,7 @@ const joinBlocks = (blocks: (string | string[])[]): string =>
 
 function buildPrompt(request: GenerateRequest): string {
   const userPrompt = request.prompt.trim();
+  const hasUserPrompt = userPrompt !== '';
   const productCount = Math.max(request.productImages.length, 1);
   const index = Math.max(request.variantIndex ?? 1, 1);
   const total = Math.max(request.variantTotal ?? 1, 1);
@@ -307,7 +334,7 @@ function buildPrompt(request: GenerateRequest): string {
         'identical colours and where each colour sits, identical material and texture, identical prints,',
         'graphics, logos, lettering, trims and proportions. Do not redesign, recolour, simplify or replace it.',
       ],
-      variantBlock(index, total),
+      variantBlock(index, total, hasUserPrompt),
       userBlock(userPrompt, false),
       'Output a single finished image — no collage, no side-by-side comparison, no before/after panel.',
     ]);
@@ -345,6 +372,16 @@ function buildPrompt(request: GenerateRequest): string {
       'Everything that is not the product stays as in Image 1: canvas layout and grid, background and scenery,',
       'colour grading, lighting mood, typography style, text blocks, logos, badges, decorative shapes, borders,',
       'margins and overall composition.',
+      // Có mô tả nghĩa là khách đang đặt hàng một hướng riêng — bám cứng ảnh mẫu
+      // lúc này là làm sai ý khách, nên phải nới ngay tại chỗ chứ không chỉ ghi ở
+      // mục thứ tự ưu tiên cuối prompt.
+      ...(hasUserPrompt
+        ? [
+            'EXCEPTION: the USER INSTRUCTIONS below outrank this step. Wherever they ask for a different scene,',
+            'setting, pose, background, mood or styling, follow them and let the design depart from Image 1.',
+            'Keep the reference only for what the user did not mention.',
+          ]
+        : []),
     ],
 
     [
@@ -367,12 +404,15 @@ function buildPrompt(request: GenerateRequest): string {
       '   panel, no visible thumbnail of the input images.',
     ],
 
-    variantBlock(index, total),
+    variantBlock(index, total, hasUserPrompt),
     userBlock(userPrompt, true),
 
     [
       'PRIORITY when instructions conflict: (1) product identity in STEP 4, (2) the user instructions,',
       '(3) fidelity to the reference design.',
+      ...(hasUserPrompt
+        ? ['Because the user gave instructions, the reference is a style guide here, not a strict template.']
+        : []),
     ],
 
     [

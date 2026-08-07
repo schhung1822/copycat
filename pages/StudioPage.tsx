@@ -6,6 +6,7 @@ import { Alert, PageLoader, Spinner } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
 import { formatNumber, STATUS_LABEL } from '../lib/format';
+import { getTabSessionId, readTabSettings, writeTabSettings } from '../lib/session';
 import type { Catalog, Generation, ImageState, ModelOption } from '../types';
 
 /**
@@ -65,6 +66,13 @@ const isPending = (generation: Generation) => generation.status === 'queued' || 
 export const StudioPage: React.FC = () => {
   const { user, setTokenBalance } = useAuth();
 
+  /*
+   * Id của tab hiện tại. Gửi kèm mỗi lệnh tạo ảnh và mỗi lần nạp lại danh sách
+   * đang chạy, để tab này chỉ thấy việc của chính nó khi khách mở nhiều tab
+   * cùng lúc. Tính một lần cho cả vòng đời component vì nó không bao giờ đổi.
+   */
+  const sessionId = useMemo(getTabSessionId, []);
+
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
@@ -100,12 +108,18 @@ export const StudioPage: React.FC = () => {
          * Vẫn phải lấy ảnh đang chạy dở: bỏ luôn thì khách tải lại trang giữa
          * chừng sẽ tưởng ảnh hỏng và bấm tạo lại, tốn hạn mức oan.
          *
+         * Lọc theo `session` để chỉ lấy ảnh do CHÍNH TAB NÀY tạo. Khách mở vài
+         * tab chạy song song mấy bộ ảnh khác nhau, không có bộ lọc này thì tab
+         * áo hiện luôn ảnh giày đang chạy ở tab bên cạnh.
+         *
          * Đọc lại số dư cùng lúc vì đây là trang duy nhất chặn thao tác dựa trên
          * số token, không được phép dùng giá trị đã cũ trong bộ nhớ.
          */
         const [catalogData, runningData, walletData] = await Promise.all([
           api.get<Catalog>('/catalog'),
-          api.get<{ generations: Generation[] }>('/generations?status=queued,processing&limit=24'),
+          api.get<{ generations: Generation[] }>(
+            `/generations?status=queued,processing&limit=24&session=${encodeURIComponent(sessionId)}`,
+          ),
           api.get<{ tokenBalance: number }>('/wallet'),
         ]);
         if (cancelled) return;
@@ -132,18 +146,21 @@ export const StudioPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [setTokenBalance]);
+  }, [setTokenBalance, sessionId]);
 
-  // Ghi nhớ cấu hình để lần sau vào không phải chọn lại.
+  /*
+   * Ghi nhớ cấu hình để lần sau vào không phải chọn lại.
+   *
+   * `writeTabSettings` ghi vào sessionStorage (riêng từng tab) lẫn localStorage
+   * (mồi cho tab mở sau). Trước đây chỉ ghi localStorage nên hai tab giẫm lên
+   * cấu hình của nhau: đổi model ở tab này, F5 tab kia là mất lựa chọn cũ.
+   */
   useEffect(() => {
     if (!family) return;
-    const timer = setTimeout(() => {
-      try {
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify({ family, resolution, aspectRatio, quantity, prompt }));
-      } catch {
-        /* bỏ qua nếu trình duyệt chặn localStorage */
-      }
-    }, 800);
+    const timer = setTimeout(
+      () => writeTabSettings(SETTINGS_KEY, { family, resolution, aspectRatio, quantity, prompt }),
+      800,
+    );
     return () => clearTimeout(timer);
   }, [family, resolution, aspectRatio, quantity, prompt]);
 
@@ -228,6 +245,7 @@ export const StudioPage: React.FC = () => {
         referenceImages: refImages.map(toDataUri),
         productImages: prodImages.map(toDataUri),
         quantityPerReference: quantity,
+        clientSession: sessionId,
       });
 
       setGenerations((current) => [...data.generations, ...current]);
@@ -721,10 +739,8 @@ const GenerationCard: React.FC<{
   </div>
 );
 
-function readSettings(): StoredSettings {
-  try {
-    return JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as StoredSettings;
-  } catch {
-    return {};
-  }
-}
+/**
+ * Cấu hình của tab hiện tại, ưu tiên trạng thái riêng của tab; tab mới mở thì
+ * rơi về lựa chọn dùng gần nhất. Xem `lib/session.ts`.
+ */
+const readSettings = (): StoredSettings => readTabSettings<StoredSettings>(SETTINGS_KEY);

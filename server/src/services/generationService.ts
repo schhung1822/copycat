@@ -37,6 +37,8 @@ export interface GenerationRow extends RowDataPacket {
   /** Bản thứ mấy / tổng số bản của cùng một ảnh mẫu trong một lần bấm nút */
   variant_index: number;
   variant_total: number;
+  /** Tab trình duyệt đã tạo ảnh này; null với ảnh tạo trước khi có tính năng này */
+  client_session: string | null;
   token_cost: number;
   monthly_cost: number;
   purchased_cost: number;
@@ -72,6 +74,15 @@ export interface CreateGenerationInput {
   referenceImages: string[];
   productImages: string[];
   quantityPerReference: number;
+  /**
+   * Tab trình duyệt gửi lệnh.
+   *
+   * Khách hay mở vài tab để chạy song song mấy bộ ảnh khác nhau. Ghi lại tab nào
+   * tạo ảnh nào để mỗi tab chỉ nạp lại việc của chính nó khi tải lại trang —
+   * không có nó thì tab này hiện ảnh đang chạy của tab kia và khách tưởng mình
+   * bấm nhầm.
+   */
+  clientSession: string | null;
 }
 
 export async function getActiveModel(code: string): Promise<ModelPricingRow> {
@@ -162,8 +173,9 @@ export async function createGenerations(
         const [result] = await conn.query<ResultSetHeader>(
           `INSERT INTO generations
              (user_id, batch_id, model_code, model_label, provider, provider_model, resolution,
-              aspect_ratio, prompt, input_images, variant_index, variant_total, token_cost, api_cost_usd, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued')`,
+              aspect_ratio, prompt, input_images, variant_index, variant_total, client_session,
+              token_cost, api_cost_usd, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued')`,
           [
             userId,
             batchId,
@@ -179,6 +191,7 @@ export async function createGenerations(
             // thiết kế riêng, nên "bản 1/4" phải tính lại từ đầu cho ảnh mẫu sau.
             i + 1,
             quantity,
+            input.clientSession,
             model.token_cost,
             model.api_cost_usd,
           ],
@@ -242,8 +255,8 @@ export async function redoGeneration(
     const [result] = await conn.query<ResultSetHeader>(
       `INSERT INTO generations
          (user_id, batch_id, model_code, model_label, provider, provider_model, resolution,
-          aspect_ratio, prompt, input_images, token_cost, api_cost_usd, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued')`,
+          aspect_ratio, prompt, input_images, client_session, token_cost, api_cost_usd, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued')`,
       [
         userId,
         source.batch_id,
@@ -255,6 +268,9 @@ export async function redoGeneration(
         source.aspect_ratio,
         prompt,
         JSON.stringify(inputImages),
+        // Thừa kế tab của ảnh gốc: vẽ lại là làm tiếp việc của tab đó, nên ảnh
+        // mới phải hiện ở đúng tab đang xem ảnh cũ.
+        source.client_session,
         model.token_cost,
         model.api_cost_usd,
       ],

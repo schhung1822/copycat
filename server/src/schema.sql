@@ -224,6 +224,9 @@ CREATE TABLE IF NOT EXISTS generations (
   -- sản phẩm" — xem buildPrompt trong providers/kie.ts.
   variant_index    INT             NOT NULL DEFAULT 1,
   variant_total    INT             NOT NULL DEFAULT 1,
+  -- Tab trình duyệt đã tạo ảnh này. Khách mở nhiều tab để chạy song song nhiều
+  -- bộ ảnh khác nhau, mỗi tab chỉ được thấy việc của chính nó.
+  client_session   VARCHAR(64)     NULL,
   token_cost       INT             NOT NULL, -- token đã trừ của khách
   -- Tách rõ token lấy từ nguồn nào, để khi lỗi thì hoàn về đúng nguồn đó
   monthly_cost     INT             NOT NULL DEFAULT 0, -- lấy từ hạn mức tháng
