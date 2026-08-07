@@ -9,6 +9,7 @@ import { AdminPage } from './pages/AdminPage';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
 import { HistoryPage } from './pages/HistoryPage';
 import { LandingPage } from './pages/LandingPage';
+import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordResetPages';
 import { PolicyPage } from './pages/PolicyPage';
 import { StudioPage } from './pages/StudioPage';
 import { TopUpPage } from './pages/TopUpPage';
@@ -26,7 +27,7 @@ const RequireAuth: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> 
      * Khách vào thẳng trang chủ thì đưa sang trang giới thiệu, không đá vào form
      * đăng nhập: người chưa biết hệ thống làm gì mà đã bị đòi mật khẩu sẽ đóng
      * tab. Các trang bên trong vẫn về thẳng form đăng nhập như cũ vì ai gõ đúng
-     * /vi-token thì đã biết mình đang tìm gì.
+     * /vi-diem thì đã biết mình đang tìm gì.
      */
     if (location.pathname === '/') return <Navigate to="/gioi-thieu" replace />;
     return <Navigate to="/dang-nhap" state={{ from: location.pathname }} replace />;
@@ -41,6 +42,9 @@ const AppRoutes: React.FC = () => (
   <Routes>
     <Route path="/dang-nhap" element={<LoginPage />} />
     <Route path="/dang-ky" element={<RegisterPage />} />
+    {/* Công khai: người quên mật khẩu thì đương nhiên chưa đăng nhập được */}
+    <Route path="/quen-mat-khau" element={<ForgotPasswordPage />} />
+    <Route path="/dat-lai-mat-khau" element={<ResetPasswordPage />} />
     {/* Công khai: khách phải đọc được điều khoản trước khi tạo tài khoản */}
     <Route path="/chinh-sach" element={<PolicyPage />} />
     {/* Công khai: trang giới thiệu, cũng là nơi khách chưa đăng nhập đáp xuống */}
@@ -55,7 +59,7 @@ const AppRoutes: React.FC = () => (
     >
       <Route index element={<StudioPage />} />
       <Route path="lich-su" element={<HistoryPage />} />
-      <Route path="vi-token" element={<WalletPage />} />
+      <Route path="vi-diem" element={<WalletPage />} />
       <Route path="nap-tien" element={<TopUpPage />} />
       <Route path="tai-khoan" element={<AccountPage />} />
       <Route

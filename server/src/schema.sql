@@ -3,6 +3,13 @@
 --  Server tự chạy file này khi khởi động nếu DB_AUTO_MIGRATE=true.
 --  Mọi câu lệnh đều idempotent (IF NOT EXISTS) nên chạy lại vô hại.
 --  Đơn vị tiền: VND, lưu dạng số nguyên (BIGINT), không có phần thập phân.
+--
+--  LƯU Ý VỀ TÊN GỌI: đơn vị tiêu dùng của khách nay gọi là ĐIỂM trên toàn bộ
+--  giao diện, nhưng tên cột và tên bảng vẫn giữ tiền tố `token_`
+--  (users.token_balance, generations.token_cost, bảng token_transactions,
+--  token_packages...). Giữ nguyên là có chủ đích: đổi tên cột trên cơ sở dữ liệu
+--  đang chạy thật đòi hỏi dừng dịch vụ và sửa đồng loạt cả server, trong khi
+--  khách không bao giờ nhìn thấy tên cột. Đọc `token_*` = "điểm".
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -266,6 +273,26 @@ CREATE TABLE IF NOT EXISTS payment_events (
   PRIMARY KEY (id),
   UNIQUE KEY uq_event_provider_external (provider, external_id),
   KEY idx_event_order (order_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- 7b. YÊU CẦU ĐẶT LẠI MẬT KHẨU
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS password_resets (
+  id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id      BIGINT UNSIGNED NOT NULL,
+  -- Lưu SHA-256 của token chứ KHÔNG lưu token gốc. Ai đọc trộm được bảng này
+  -- cũng không dựng lại được link trong mail để chiếm tài khoản.
+  token_hash   CHAR(64)        NOT NULL,
+  expires_at   DATETIME        NOT NULL,
+  -- Đánh dấu đã dùng thay vì xoá dòng, để còn tra soát khi có tranh chấp.
+  used_at      DATETIME        NULL,
+  request_ip   VARCHAR(64)     NULL,
+  created_at   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_pwreset_token (token_hash),
+  KEY idx_pwreset_user (user_id, created_at),
+  CONSTRAINT fk_pwreset_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------

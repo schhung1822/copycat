@@ -60,6 +60,30 @@ export const env = {
     password: str('ADMIN_BOOTSTRAP_PASSWORD'),
   },
 
+  /**
+   * Máy chủ gửi mail.
+   *
+   * `secure` là true khi nối thẳng bằng TLS (cổng 465), false khi dùng STARTTLS
+   * (cổng 587 — kiểu phổ biến nhất). Mặc định suy ra từ cổng để người cấu hình
+   * chỉ cần điền host/port/user/pass là chạy được.
+   *
+   * Gmail và nhiều nhà cung cấp khác KHÔNG nhận mật khẩu đăng nhập thường; phải
+   * tạo "mật khẩu ứng dụng" riêng rồi điền vào SMTP_PASSWORD.
+   */
+  smtp: {
+    host: str('SMTP_HOST'),
+    port: num('SMTP_PORT', 587),
+    secure: bool('SMTP_SECURE', num('SMTP_PORT', 587) === 465),
+    user: str('SMTP_USER'),
+    password: str('SMTP_PASSWORD'),
+    /** Địa chỉ hiện ở ô "Từ". Bỏ trống thì dùng luôn SMTP_USER. */
+    from: str('SMTP_FROM') || str('SMTP_USER'),
+    fromName: str('SMTP_FROM_NAME', 'Design Copycat AI'),
+  },
+
+  /** Link đặt lại mật khẩu sống được bao lâu (phút). */
+  passwordResetMinutes: Math.max(num('PASSWORD_RESET_MINUTES', 15), 1),
+
   kie: {
     apiKey: str('KIE_API_KEY'),
     baseUrl: str('KIE_BASE_URL', 'https://api.kie.ai').replace(/\/+$/, ''),
@@ -122,6 +146,9 @@ export function checkEnv(): void {
   }
   if (!env.bank.accountNumber) {
     warnings.push('BANK_ACCOUNT_NUMBER chưa cấu hình — trang nạp tiền sẽ không hiện được mã QR.');
+  }
+  if (!env.smtp.host || !env.smtp.user) {
+    warnings.push('SMTP_HOST / SMTP_USER chưa cấu hình — chức năng quên mật khẩu sẽ không gửi được mail.');
   }
   if (!env.sepayApiKey && !env.cassoSecureToken) {
     warnings.push('Chưa cấu hình SEPAY_WEBHOOK_API_KEY / CASSO_WEBHOOK_SECURE_TOKEN — đơn nạp phải duyệt tay trong trang Admin.');

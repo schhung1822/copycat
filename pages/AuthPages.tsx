@@ -7,7 +7,13 @@ import { Alert, Field, inputClass } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../lib/api';
 
-const AuthShell: React.FC<{ title: string; subtitle: string; children: React.ReactNode; footer: React.ReactNode }> = ({
+/** Khung chung của các màn hình ngoài ứng dụng; dùng lại ở trang quên mật khẩu. */
+export const AuthShell: React.FC<{
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+  footer: React.ReactNode;
+}> = ({
   title,
   subtitle,
   children,
@@ -108,6 +114,12 @@ export const LoginPage: React.FC = () => {
           />
         </Field>
 
+        <div className="flex justify-end">
+          <Link to="/quen-mat-khau" className="text-xs text-gray-500 hover:text-brand-500">
+            Quên mật khẩu?
+          </Link>
+        </div>
+
         <Button type="submit" isLoading={isSubmitting} className="w-full !rounded-xl">
           Đăng nhập
         </Button>
@@ -154,7 +166,7 @@ export const RegisterPage: React.FC = () => {
   return (
     <AuthShell
       title="Tạo tài khoản"
-      subtitle="Đăng ký miễn phí, nạp token khi cần tạo ảnh."
+      subtitle="Đăng ký miễn phí, nạp điểm khi cần tạo ảnh."
       footer={
         <>
           Đã có tài khoản?{' '}

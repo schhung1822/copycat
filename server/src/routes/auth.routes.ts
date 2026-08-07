@@ -12,6 +12,11 @@ import {
 } from '../lib/auth.js';
 import { asyncHandler, conflict, forbidden, unauthorized } from '../lib/errors.js';
 import { optionalString, requireEmail, requireString } from '../lib/validate.js';
+import {
+  checkResetToken,
+  requestPasswordReset,
+  resetPassword,
+} from '../services/passwordResetService.js';
 import { readAccountState, type AccountState } from '../services/subscriptionService.js';
 
 export const authRouter = Router();
@@ -116,6 +121,54 @@ authRouter.post(
     const token = signToken(user.id);
     res.cookie(AUTH_COOKIE, token, cookieOptions);
     res.json({ user: publicUser(user), token });
+  }),
+);
+
+/**
+ * Quên mật khẩu — nhận email HOẶC số điện thoại đã đăng ký.
+ *
+ * LUÔN trả về `{ ok: true }`, dù tài khoản có tồn tại hay không, gửi mail được
+ * hay không. Nếu phản hồi khác nhau giữa hai trường hợp thì bất kỳ ai cũng dùng
+ * được endpoint này để dò xem email/số điện thoại nào đã đăng ký ở đây.
+ */
+authRouter.post(
+  '/forgot-password',
+  asyncHandler(async (req, res) => {
+    const identifier = requireString(req.body, 'identifier', {
+      label: 'Email hoặc số điện thoại',
+      min: 3,
+      max: 190,
+    });
+
+    // Ghi IP để tra soát khi bị lạm dụng. `req.ip` đã tính sẵn theo trust proxy.
+    await requestPasswordReset(identifier, req.ip ?? null);
+    res.json({ ok: true });
+  }),
+);
+
+/** Kiểm tra link còn dùng được không, để trang đặt lại báo hỏng ngay khi mở. */
+authRouter.get(
+  '/reset-password',
+  asyncHandler(async (req, res) => {
+    const token = typeof req.query.token === 'string' ? req.query.token : '';
+    res.json({ valid: token ? await checkResetToken(token) : false });
+  }),
+);
+
+authRouter.post(
+  '/reset-password',
+  asyncHandler(async (req, res) => {
+    const token = requireString(req.body, 'token', { label: 'Mã đặt lại mật khẩu', max: 190 });
+    const password = requireString(req.body, 'password', { label: 'Mật khẩu mới', min: 6, max: 100 });
+
+    await resetPassword(token, password);
+
+    /*
+     * Cố tình KHÔNG tự đăng nhập sau khi đổi. Ai mở được hộp thư thì đổi được
+     * mật khẩu, nhưng bắt gõ lại mật khẩu mới một lần nữa ở màn đăng nhập là
+     * lớp xác nhận cuối rằng người đó nhớ đúng thứ mình vừa đặt.
+     */
+    res.json({ ok: true });
   }),
 );
 
