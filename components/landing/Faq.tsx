@@ -13,16 +13,16 @@ const QUESTIONS = [
     a: 'Được. Bạn chỉ cần tải hai ảnh lên và bấm tạo. Phần ghi chú thêm là tuỳ chọn, viết bằng tiếng Việt bình thường như đang nhờ người khác làm giúp.',
   },
   {
-    q: 'Token là gì và tính thế nào?',
-    a: 'Token là đơn vị đo mức sử dụng: 1 token tương ứng 1đ chi phí gốc trả cho nhà cung cấp mô hình. Mỗi ảnh trừ một số token cố định theo model và độ phân giải, hiện rõ trước khi bạn bấm tạo. Gói thuê bao cấp 500.000 token mỗi tháng.',
+    q: 'Điểm là gì và tính thế nào?',
+    a: 'Điểm là đơn vị đo mức sử dụng: 1 điểm tương ứng 1đ chi phí gốc trả cho nhà cung cấp mô hình. Mỗi ảnh trừ một số điểm cố định theo model và độ phân giải, hiện rõ trước khi bạn bấm tạo. Gói thuê bao cấp 500.000 điểm mỗi tháng.',
   },
   {
     q: 'Hạn mức tháng dùng không hết có được cộng dồn không?',
-    a: 'Không. Hạn mức 500.000 token được cấp lại vào đầu mỗi chu kỳ tháng và phần chưa dùng sẽ không chuyển sang tháng sau. Riêng token bạn mua thêm thì không hết hạn.',
+    a: 'Không. Hạn mức 500.000 điểm được cấp lại vào đầu mỗi chu kỳ tháng và phần chưa dùng sẽ không chuyển sang tháng sau. Riêng điểm bạn mua thêm thì không hết hạn.',
   },
   {
-    q: 'Ảnh bị lỗi thì có mất token không?',
-    a: 'Không. Khi nhà cung cấp trả về lỗi, hệ thống tự hoàn lại đúng số token đã trừ và ghi rõ trong sao kê ví. Bạn không phải liên hệ để đòi lại.',
+    q: 'Ảnh bị lỗi thì có mất điểm không?',
+    a: 'Không. Khi nhà cung cấp trả về lỗi, hệ thống tự hoàn lại đúng số điểm đã trừ và ghi rõ trong sao kê ví. Bạn không phải liên hệ để đòi lại.',
   },
   {
     q: 'Thanh toán bằng cách nào?',
@@ -51,7 +51,7 @@ export const Faq: React.FC = () => {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section id="cau-hoi" className="scroll-mt-20 py-20 sm:py-28">
+    <section id="cau-hoi" className="scroll-mt-20 py-14 sm:py-20 lg:py-28">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
         <SectionHeading
           eyebrow="Câu hỏi thường gặp"
@@ -59,7 +59,7 @@ export const Faq: React.FC = () => {
           description="Chưa thấy câu bạn cần? Đọc thêm ở trang Chính sách & Điều khoản, mọi con số nghiệp vụ đều ghi rõ ở đó."
         />
 
-        <div className="mt-12 space-y-2.5">
+        <div className="mt-9 space-y-2.5 sm:mt-12">
           {QUESTIONS.map((item, index) => {
             const isOpen = openIndex === index;
 
@@ -74,7 +74,7 @@ export const Faq: React.FC = () => {
                 <button
                   onClick={() => setOpenIndex(isOpen ? null : index)}
                   aria-expanded={isOpen}
-                  className="flex w-full items-center gap-4 px-5 py-4 text-left"
+                  className="flex w-full items-center gap-3 px-4 py-3.5 text-left sm:gap-4 sm:px-5 sm:py-4"
                 >
                   <span className="flex-1 text-sm font-semibold text-gray-100 sm:text-base">{item.q}</span>
                   <span
@@ -99,7 +99,7 @@ export const Faq: React.FC = () => {
                   }`}
                 >
                   <div className="overflow-hidden">
-                    <p className="px-5 pb-5 text-sm leading-relaxed text-gray-400">{item.a}</p>
+                    <p className="px-4 pb-4 text-sm leading-relaxed text-gray-400 sm:px-5 sm:pb-5">{item.a}</p>
                   </div>
                 </div>
               </Reveal>

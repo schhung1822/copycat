@@ -32,8 +32,8 @@ const INCLUDED = [
   'Toàn bộ model đang bán, không khoá bản cao cấp',
   'Xuất ảnh tới 4K, 11 tỉ lệ khung hình',
   'Tạo tối đa 4 phương án cho mỗi ảnh mẫu, mỗi lượt',
-  'Lịch sử ảnh và sao kê token đầy đủ',
-  'Ảnh lỗi được hoàn token tự động',
+  'Lịch sử ảnh và sao kê điểm đầy đủ',
+  'Ảnh lỗi được hoàn điểm tự động',
 ];
 
 export const Pricing: React.FC<{ plans?: SubscriptionPlan[]; packages?: TokenPackage[] }> = ({ plans, packages }) => {
@@ -50,15 +50,15 @@ export const Pricing: React.FC<{ plans?: SubscriptionPlan[]; packages?: TokenPac
   );
 
   return (
-    <section id="bang-gia" className="scroll-mt-20 py-20 sm:py-28">
+    <section id="bang-gia" className="scroll-mt-20 py-14 sm:py-20 lg:py-28">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
         <SectionHeading
           eyebrow="Bảng giá"
           title="Một mức thuê bao, trả trước càng dài càng rẻ"
-          description="Mỗi tháng bạn nhận 500.000 token dùng cho mọi model. Hạn mức được cấp lại đầu mỗi chu kỳ tháng và không cộng dồn sang tháng sau."
+          description="Mỗi tháng bạn nhận 500.000 điểm dùng cho mọi model. Hạn mức được cấp lại đầu mỗi chu kỳ tháng và không cộng dồn sang tháng sau."
         />
 
-        <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 grid sm:mt-14 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {planList.map((plan, index) => {
             const savedPercent = baseline > 0 ? Math.round((1 - plan.pricePerMonthVnd / baseline) * 100) : 0;
 
@@ -66,7 +66,7 @@ export const Pricing: React.FC<{ plans?: SubscriptionPlan[]; packages?: TokenPac
               <Reveal
                 key={plan.code}
                 delay={index * 90}
-                className={`relative flex flex-col rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-1 ${
+                className={`relative flex flex-col rounded-2xl border p-5 transition-all sm:p-6 duration-300 hover:-translate-y-1 ${
                   plan.isPopular
                     ? 'border-brand-500 bg-dark-900 shadow-2xl shadow-brand-500/10'
                     : 'border-dark-800 bg-dark-900 hover:border-dark-700'
@@ -97,7 +97,7 @@ export const Pricing: React.FC<{ plans?: SubscriptionPlan[]; packages?: TokenPac
                 </p>
 
                 <p className="mt-5 rounded-lg bg-dark-850 px-3 py-2 text-xs text-gray-400">
-                  <span className="font-bold text-brand-500">{formatNumber(plan.monthlyTokenAllowance)}</span> token mỗi
+                  <span className="font-bold text-brand-500">{formatNumber(plan.monthlyTokenAllowance)}</span> điểm mỗi
                   tháng
                 </p>
 
@@ -116,9 +116,9 @@ export const Pricing: React.FC<{ plans?: SubscriptionPlan[]; packages?: TokenPac
           })}
         </div>
 
-        {/* Quyền lợi chung + gói token lẻ */}
+        {/* Quyền lợi chung + gói điểm lẻ */}
         <div className="mt-6 grid gap-4 lg:grid-cols-5">
-          <Reveal className="rounded-2xl border border-dark-800 bg-dark-900 p-6 lg:col-span-3">
+          <Reveal className="rounded-2xl border border-dark-800 bg-dark-900 p-5 sm:p-6 lg:col-span-3">
             <h3 className="text-sm font-bold text-gray-100">Gói nào cũng có đủ</h3>
             <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
               {INCLUDED.map((item) => (
@@ -138,10 +138,10 @@ export const Pricing: React.FC<{ plans?: SubscriptionPlan[]; packages?: TokenPac
             </ul>
           </Reveal>
 
-          <Reveal delay={100} className="rounded-2xl border border-dark-800 bg-dark-900 p-6 lg:col-span-2">
+          <Reveal delay={100} className="rounded-2xl border border-dark-800 bg-dark-900 p-5 sm:p-6 lg:col-span-2">
             <h3 className="text-sm font-bold text-gray-100">Dùng hết hạn mức giữa tháng?</h3>
             <p className="mt-2 text-sm leading-relaxed text-gray-400">
-              Mua thêm token lẻ, cộng vào ví ngay sau khi chuyển khoản. Token mua thêm{' '}
+              Mua thêm điểm lẻ, cộng vào ví ngay sau khi chuyển khoản. Điểm mua thêm{' '}
               <span className="font-semibold text-gray-300">không hết hạn</span> theo chu kỳ tháng.
             </p>
 
@@ -157,7 +157,7 @@ export const Pricing: React.FC<{ plans?: SubscriptionPlan[]; packages?: TokenPac
                 >
                   <span className="font-bold text-gray-200">{formatVnd(pkg.priceVnd)}</span>
                   <span className="mx-1 text-gray-600">·</span>
-                  {formatNumber(pkg.totalTokens)} token
+                  {formatNumber(pkg.totalTokens)} điểm
                 </span>
               ))}
             </div>

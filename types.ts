@@ -24,13 +24,13 @@ export interface User {
   /** Đang có gói dịch vụ còn hiệu lực hay không — quyết định có được tạo ảnh */
   isSubscribed: boolean;
   subscriptionExpiresAt: string | null;
-  /** Hạn mức token được cấp mỗi tháng theo gói */
+  /** Hạn mức điểm được cấp mỗi tháng theo gói */
   monthlyAllowance: number;
   /** Hạn mức còn lại của chu kỳ tháng hiện tại (không cộng dồn sang tháng sau) */
   monthlyTokens: number;
   /** Thời điểm hạn mức được cấp lại */
   monthlyPeriodEnd: string | null;
-  /** Token mua thêm từ gói lẻ — không hết hạn */
+  /** Điểm mua thêm từ gói lẻ — không hết hạn */
   purchasedTokens: number;
   /** Tổng dùng được ngay = monthlyTokens + purchasedTokens */
   tokenBalance: number;
@@ -264,7 +264,7 @@ export interface AdminUser {
   status: 'active' | 'banned';
   /** Tổng dùng được ngay = monthlyTokens + purchasedTokens */
   tokenBalance: number;
-  /** Token mua thêm — không hết hạn */
+  /** Điểm mua thêm — không hết hạn */
   purchasedTokens: number;
   /** Hạn mức tháng còn lại */
   monthlyTokens: number;

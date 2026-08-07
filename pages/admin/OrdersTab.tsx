@@ -30,14 +30,14 @@ export const OrdersTab: React.FC = () => {
   }, [load]);
 
   const approve = async (order: AdminOrder) => {
-    if (!confirm(`Xác nhận đã nhận ${formatVnd(order.amountVnd)} cho đơn ${order.code} và cộng ${formatNumber(order.totalTokens)} token?`)) {
+    if (!confirm(`Xác nhận đã nhận ${formatVnd(order.amountVnd)} cho đơn ${order.code} và cộng ${formatNumber(order.totalTokens)} điểm?`)) {
       return;
     }
     setMessage(null);
     setBusyCode(order.code);
     try {
       await api.post(`/admin/orders/${order.code}/approve`, { note: 'Duyệt tay từ bảng điều khiển' });
-      setMessage({ tone: 'success', text: `Đã cộng ${formatNumber(order.totalTokens)} token cho ${order.user.email}.` });
+      setMessage({ tone: 'success', text: `Đã cộng ${formatNumber(order.totalTokens)} điểm cho ${order.user.email}.` });
       await load();
     } catch (err) {
       setMessage({ tone: 'error', text: err instanceof ApiError ? err.message : 'Duyệt đơn thất bại.' });
@@ -96,7 +96,7 @@ export const OrdersTab: React.FC = () => {
                 <th className="text-left font-bold py-2">Khách hàng</th>
                 <th className="text-left font-bold py-2">Gói</th>
                 <th className="text-right font-bold py-2">Số tiền</th>
-                <th className="text-right font-bold py-2">Token</th>
+                <th className="text-right font-bold py-2">Điểm</th>
                 <th className="text-left font-bold py-2 pl-4">Trạng thái</th>
                 <th className="text-left font-bold py-2">Tạo lúc</th>
                 <th className="text-right font-bold py-2">Thao tác</th>
@@ -150,7 +150,7 @@ export const OrdersTab: React.FC = () => {
 
       <p className="text-[11px] text-gray-600">
         Duyệt tay dùng khi khách chuyển khoản sai nội dung. Đơn đã thanh toán không thể duyệt lại nên không có rủi ro
-        cộng token hai lần.
+        cộng điểm hai lần.
       </p>
     </div>
   );

@@ -91,14 +91,14 @@ export const OverviewTab: React.FC = () => {
           )}% tổng doanh thu`}
         />
         <StatCard
-          label="Doanh thu token lẻ"
+          label="Doanh thu điểm lẻ"
           value={formatVnd(overview.revenue.extraTokenRevenue)}
           sub="khách mua thêm ngoài hạn mức"
         />
         <StatCard
           label="Hạn mức chưa dùng"
           value={formatNumber(overview.subscribers.monthlyTokensRemaining)}
-          sub="token, sẽ mất khi sang chu kỳ mới"
+          sub="điểm, sẽ mất khi sang chu kỳ mới"
         />
       </div>
 
@@ -114,7 +114,7 @@ export const OverviewTab: React.FC = () => {
           sub={`${overview.generations.today} hôm nay · tỉ lệ thành công ${overview.generations.successRate}%`}
         />
         <StatCard
-          label="Token lẻ chưa dùng"
+          label="Điểm lẻ chưa dùng"
           value={formatNumber(overview.users.outstandingTokens)}
           sub={`Khách đã trả ~${formatVnd(overview.users.outstandingLiabilityVnd)} cho số này`}
           tone="warning"

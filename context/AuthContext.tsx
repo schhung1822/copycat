@@ -9,7 +9,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (input: { email: string; password: string; fullName?: string; phone?: string }) => Promise<void>;
   logout: () => Promise<void>;
-  /** Cập nhật số dư token tại chỗ sau khi tạo ảnh / nạp tiền, không cần gọi lại API. */
+  /** Cập nhật số dư điểm tại chỗ sau khi tạo ảnh / nạp tiền, không cần gọi lại API. */
   setTokenBalance: (balance: number) => void;
   refreshUser: () => Promise<void>;
 }
@@ -37,9 +37,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [refreshUser]);
 
   /**
-   * Số dư token thay đổi được từ bên ngoài phiên làm việc này: admin cộng/trừ tay,
+   * Số dư điểm thay đổi được từ bên ngoài phiên làm việc này: admin cộng/trừ tay,
    * webhook ngân hàng cộng sau khi khách chuyển khoản. Nếu chỉ đọc một lần lúc mở
-   * ứng dụng thì huy hiệu token trên thanh điều hướng sẽ kẹt ở giá trị cũ và trang
+   * ứng dụng thì huy hiệu điểm trên thanh điều hướng sẽ kẹt ở giá trị cũ và trang
    * Tạo ảnh chặn nhầm dù tài khoản còn tiền. Vì vậy đọc lại mỗi khi người dùng
    * quay lại tab.
    */

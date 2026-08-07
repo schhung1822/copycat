@@ -18,7 +18,7 @@ const NAV_LINKS = [
  * ngay khi cuộn xuống — nếu không chữ trong thanh sẽ chìm vào nội dung bên dưới.
  *
  * Cố tình KHÔNG dùng <Layout> của ứng dụng: khách chưa đăng nhập không có số dư
- * token hay menu tài khoản để hiện, và trang này cần thanh trên rộng hơn.
+ * điểm hay menu tài khoản để hiện, và trang này cần thanh trên rộng hơn.
  */
 export const LandingNav: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -48,7 +48,14 @@ export const LandingNav: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) =>
         isScrolled ? 'border-b border-dark-800 bg-dark-950/85 backdrop-blur-xl' : 'border-b border-transparent'
       }`}
     >
-      <div className="mx-auto flex h-16 max-w-[1280px] items-center gap-4 px-4 sm:px-6">
+      {/*
+        Trên máy hẹp (iPhone SE ~375px) thanh này từng bị tràn: logo + tên đầy đủ
+        + nút đổi chế độ + nút kêu gọi + nút menu cộng lại vượt quá bề ngang màn
+        hình. Cách chữa là bớt thứ ở bản mobile chứ không thu nhỏ tất cả: nút đổi
+        sáng/tối chuyển xuống trong menu, nút kêu gọi rút gọn chữ, tên thương
+        hiệu ẩn dưới 380px — chỉ nút kêu gọi và nút menu là luôn có mặt.
+      */}
+      <div className="mx-auto flex h-16 max-w-[1280px] items-center gap-2 px-4 sm:gap-4 sm:px-6">
         <LandingLogo />
 
         <nav className="ml-6 hidden items-center gap-1 lg:flex">
@@ -64,12 +71,15 @@ export const LandingNav: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) =>
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <ThemeToggle />
+          {/* Nút đổi sáng/tối nhường chỗ trên mobile, đã có bản khác trong menu */}
+          <span className="hidden lg:block">
+            <ThemeToggle />
+          </span>
 
           {isLoggedIn ? (
             <Link
               to="/"
-              className="rounded-full bg-brand-500 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-600"
+              className="whitespace-nowrap rounded-full bg-brand-500 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-brand-600 sm:px-4 sm:text-sm"
             >
               Đăng nhập
             </Link>
@@ -83,9 +93,11 @@ export const LandingNav: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) =>
               </Link>
               <Link
                 to="/dang-ky"
-                className="rounded-full bg-brand-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-brand-500/25 transition-all hover:bg-brand-600 hover:shadow-brand-500/40"
+                className="whitespace-nowrap rounded-full bg-brand-500 px-3 py-2 text-xs font-bold text-white shadow-lg shadow-brand-500/25 transition-all hover:bg-brand-600 hover:shadow-brand-500/40 sm:px-4 sm:text-sm"
               >
-                Dùng thử ngay
+                {/* Chữ ngắn trên mobile để thanh trên không bị đẩy tràn */}
+                <span className="sm:hidden">Dùng thử</span>
+                <span className="hidden sm:inline">Dùng thử ngay</span>
               </Link>
             </>
           )}
@@ -129,6 +141,12 @@ export const LandingNav: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) =>
                 Đăng nhập
               </Link>
             )}
+
+            {/* Nút đổi sáng/tối bị ẩn ở thanh trên bản mobile nên đặt lại ở đây */}
+            <div className="mt-2 flex items-center justify-between border-t border-dark-800 px-3 pt-4">
+              <span className="text-sm text-gray-500">Giao diện sáng / tối</span>
+              <ThemeToggle />
+            </div>
           </nav>
         </div>
       )}

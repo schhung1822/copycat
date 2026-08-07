@@ -28,7 +28,7 @@ const STEPS = [
   {
     tag: 'Bước 3',
     title: 'Chọn model, độ phân giải và tỉ lệ khung',
-    body: 'Mỗi model có thế mạnh riêng và mức token khác nhau. Chọn 1K để thử nhanh, 4K khi cần file in. Thêm ghi chú nếu muốn đổi màu nền hay bỏ bớt chữ.',
+    body: 'Mỗi model có thế mạnh riêng và mức điểm khác nhau. Chọn 1K để thử nhanh, 4K khi cần file in. Thêm ghi chú nếu muốn đổi màu nền hay bỏ bớt chữ.',
     image: '/img/b3.webp',
     imageAlt: 'Bảng chọn model, độ phân giải và tỉ lệ khung hình',
   },
@@ -89,7 +89,7 @@ export const HowItWorks: React.FC = () => {
   };
 
   return (
-    <section id="quy-trinh" className="scroll-mt-20 py-20 sm:py-28">
+    <section id="quy-trinh" className="scroll-mt-20 py-14 sm:py-20 lg:py-28">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
         <SectionHeading
           eyebrow="Quy trình"
@@ -101,7 +101,7 @@ export const HowItWorks: React.FC = () => {
           description="Không có bảng điều khiển rối rắm, không có thuật ngữ kỹ thuật. Ai bán hàng online cũng làm được trong lần đầu tiên."
         />
 
-        <div className="mt-14 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start lg:gap-12">
+        <div className="mt-10 grid sm:mt-14 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start lg:gap-12">
           {/* Cột trái: danh sách bước bấm được */}
           <div className="relative">
             {/* Nét kẻ nối các bước, tự vẽ từ trên xuống khi cuộn tới */}
@@ -146,7 +146,7 @@ export const HowItWorks: React.FC = () => {
                       aria-controls={`quy-trinh-panel-${index}`}
                       tabIndex={isActive ? 0 : -1}
                       onClick={() => setActiveIndex(index)}
-                      className={`flex-1 rounded-2xl border p-5 text-left transition-all duration-300 ${
+                      className={`flex-1 rounded-2xl border p-4 text-left transition-all duration-300 sm:p-5 ${
                         isActive
                           ? 'border-brand-500/40 bg-dark-900 shadow-xl shadow-black/10'
                           : 'border-dark-800 bg-dark-900/60 hover:border-dark-700 hover:bg-dark-900'

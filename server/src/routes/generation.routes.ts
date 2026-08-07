@@ -113,8 +113,8 @@ generationRouter.get(
       .slice(0, 50);
 
     /*
-     * PHẢI trả về tổng dùng được (hạn mức tháng + token đã mua), không phải cột
-     * users.token_balance — cột đó chỉ là phần token MUA THÊM.
+     * PHẢI trả về tổng dùng được (hạn mức tháng + điểm đã mua), không phải cột
+     * users.token_balance — cột đó chỉ là phần điểm MUA THÊM.
      *
      * Giao diện gọi endpoint này 3 giây một lần trong lúc vẽ ảnh và ghi đè số dư
      * đang hiển thị bằng giá trị trả về. Trả nhầm cột khiến khách nào tiêu bằng
@@ -149,7 +149,7 @@ generationRouter.get(
   }),
 );
 
-/** Vẽ lại với prompt mới, dùng lại ảnh đầu vào cũ. Trừ token như một ảnh mới. */
+/** Vẽ lại với prompt mới, dùng lại ảnh đầu vào cũ. Trừ điểm như một ảnh mới. */
 generationRouter.post(
   '/:id/redo',
   asyncHandler(async (req, res) => {

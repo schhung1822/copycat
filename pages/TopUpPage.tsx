@@ -44,11 +44,11 @@ const IMAGE_COUNT_STEP = 10;
 const REFERENCE_MODEL = { family: 'nano-banana-2', resolution: '2K' };
 
 /**
- * Quy hạn mức token ra số ảnh, làm tròn XUỐNG cho số gọn mắt.
+ * Quy hạn mức điểm ra số ảnh, làm tròn XUỐNG cho số gọn mắt.
  *
  * Luôn làm tròn xuống chứ không làm tròn gần nhất: làm tròn lên sẽ hứa nhiều ảnh
  * hơn số hạn mức thật sự cho phép (vd 357 ảnh mà ghi 400), khách tạo tới ảnh thứ
- * 358 là hết token và có cơ sở khiếu nại.
+ * 358 là hết điểm và có cơ sở khiếu nại.
  */
 function roundedImageCount(allowance: number, tokenCostPerImage: number): number {
   const exact = Math.floor(allowance / tokenCostPerImage);
@@ -149,7 +149,7 @@ export const TopUpPage: React.FC = () => {
   const isSubscribed = user?.isSubscribed ?? false;
 
   // Quy hạn mức ra số ảnh — con số này dễ hình dung hơn nhiều so với "500.000
-  // token". Mốc quy đổi lấy đúng model ghi trên thẻ (REFERENCE_MODEL), nếu không
+  // điểm". Mốc quy đổi lấy đúng model ghi trên thẻ (REFERENCE_MODEL), nếu không
   // số hiển thị sẽ không khớp với dòng chú thích bên dưới.
   const cheapestOf = (list: ModelOption[]) =>
     list.reduce<ModelOption | null>(
@@ -219,8 +219,8 @@ export const TopUpPage: React.FC = () => {
 
           <section>
             <div className="flex items-baseline justify-between gap-4 mb-3">
-              <h2 className="text-lg font-bold text-gray-100">Mua thêm token</h2>
-              <span className="text-xs text-gray-500">Token mua thêm không hết hạn theo tháng</span>
+              <h2 className="text-lg font-bold text-gray-100">Mua thêm điểm</h2>
+              <span className="text-xs text-gray-500">Điểm mua thêm không hết hạn theo tháng</span>
             </div>
 
             {isSubscribed ? (
@@ -233,7 +233,7 @@ export const TopUpPage: React.FC = () => {
             ) : (
               <Card className="p-6">
                 <p className="text-sm text-gray-400">
-                  Cần có gói dịch vụ đang hoạt động mới mua thêm token được. Hãy chọn một gói ở phần trên.
+                  Cần có gói dịch vụ đang hoạt động mới mua thêm điểm được. Hãy chọn một gói ở phần trên.
                 </p>
               </Card>
             )}
@@ -304,7 +304,7 @@ const SubscriptionStatus: React.FC = () => {
         Hạn mức được cấp lại vào {formatDateTime(user.monthlyPeriodEnd)}.{' '}
         <strong className="text-gray-400">Không cộng dồn</strong> — phần chưa dùng của tháng này sẽ mất khi sang chu kỳ mới.
         {user.purchasedTokens > 0 && (
-          <> Ngoài ra bạn còn {formatNumber(user.purchasedTokens)} token mua thêm, phần này không hết hạn.</>
+          <> Ngoài ra bạn còn {formatNumber(user.purchasedTokens)} điểm mua thêm, phần này không hết hạn.</>
         )}
       </p>
     </Card>
@@ -360,7 +360,7 @@ const PlanGrid: React.FC<{
               {plan.months > 1 ? `${formatVnd(plan.pricePerMonthVnd)}/tháng` : 'thanh toán hàng tháng'}
             </p> */}
             <p className="text-[11px] text-gray-600 mt-1">
-              {formatNumber(plan.monthlyTokenAllowance)} token/tháng
+              {formatNumber(plan.monthlyTokenAllowance)} điểm/tháng
             </p>
 
             <div className="mt-3 pt-3 border-t border-dark-800 flex-1">
@@ -382,7 +382,7 @@ const PlanGrid: React.FC<{
                   );
                 })()
               ) : (
-                <p className="text-brand-500 font-bold">{formatNumber(plan.monthlyTokenAllowance)} token/tháng</p>
+                <p className="text-brand-500 font-bold">{formatNumber(plan.monthlyTokenAllowance)} điểm/tháng</p>
               )}
             </div>
 
@@ -419,11 +419,11 @@ const PlanGrid: React.FC<{
 
       {referenceModel && (
         <p className="text-[11px] text-gray-600 mt-3">
-          {/* Số token lấy từ bảng giá, không gõ tay — gõ tay là sớm muộn cũng
+          {/* Số điểm lấy từ bảng giá, không gõ tay — gõ tay là sớm muộn cũng
               lệch với con số thật khi bảng giá đổi. */}
           Số ảnh tính theo <strong className="text-gray-500">{modelShortName}</strong> (
-          {formatNumber(referenceModel.tokenCost)} token/ảnh). Chọn ảnh 1K sẽ được nhiều ảnh hơn, chọn 4K thì ít hơn;
-          xem bảng token tiêu hao bên dưới. Hạn mức tính theo từng tháng và không cộng dồn.
+          {formatNumber(referenceModel.tokenCost)} điểm/ảnh). Chọn ảnh 1K sẽ được nhiều ảnh hơn, chọn 4K thì ít hơn;
+          xem bảng điểm tiêu hao bên dưới. Hạn mức tính theo từng tháng và không cộng dồn.
         </p>
       )}
     </>
@@ -474,7 +474,7 @@ const UpgradeDialog: React.FC<{
 
       <Alert tone="info">
         Sau khi thanh toán thành công, gói {option.months} tháng bắt đầu tính từ thời điểm đó và hạn mức được cấp lại{' '}
-        {formatNumber(option.monthlyTokenAllowance)} token/tháng. Hạn mức chưa dùng của gói cũ đã được quy thành tiền
+        {formatNumber(option.monthlyTokenAllowance)} điểm/tháng. Hạn mức chưa dùng của gói cũ đã được quy thành tiền
         trừ vào đơn này.
       </Alert>
 
@@ -512,7 +512,7 @@ const PackageGrid: React.FC<{
             )}
           </div>
 
-          <p className="text-brand-500 font-bold text-lg mt-2">{formatNumber(pkg.totalTokens)} token</p>
+          <p className="text-brand-500 font-bold text-lg mt-2">{formatNumber(pkg.totalTokens)} điểm</p>
           <p className="text-[11px] text-gray-500 mt-1 flex-1">{pkg.description}</p>
 
           <Button
@@ -540,7 +540,7 @@ const PaidPanel: React.FC<{ order: Order; onContinue: () => void }> = ({ order, 
     ) : (
       <p className="text-sm text-gray-300 mt-2">
         Đơn <strong>{order.code}</strong> đã cộng{' '}
-        <strong className="text-gray-100">{formatNumber(order.totalTokens)} token</strong> vào tài khoản.
+        <strong className="text-gray-100">{formatNumber(order.totalTokens)} điểm</strong> vào tài khoản.
       </p>
     )}
     <div className="flex gap-3 mt-5">
@@ -610,7 +610,7 @@ const PaymentPanel: React.FC<{
           <p className="text-sm text-gray-500 mt-1">
             {order.orderType === 'subscription'
               ? `${order.packageName} · ${order.subscriptionMonths} tháng`
-              : `${order.packageName} · nhận ${formatNumber(order.totalTokens)} token`}
+              : `${order.packageName} · nhận ${formatNumber(order.totalTokens)} điểm`}
           </p>
         </div>
         <button onClick={onBack} className="text-xs text-gray-500 hover:text-gray-100 whitespace-nowrap">
@@ -685,14 +685,14 @@ const PaymentPanel: React.FC<{
   );
 };
 
-/** Bảng token tiêu hao mỗi ảnh, để khách ước lượng hạn mức dùng được bao nhiêu ảnh. */
+/** Bảng điểm tiêu hao mỗi ảnh, để khách ước lượng hạn mức dùng được bao nhiêu ảnh. */
 const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
   // Các gói có thể có hạn mức khác nhau, nên phải nói rõ bảng đang tính theo gói nào.
   const basePlan = catalog.plans[0] ?? null;
   const allowance = basePlan?.monthlyTokenAllowance ?? 0;
 
   /**
-   * Đơn giá token để quy ảnh ra tiền, lấy từ chính các gói token lẻ đang bán.
+   * Đơn giá điểm để quy ảnh ra tiền, lấy từ chính các gói điểm lẻ đang bán.
    *
    * Dùng đơn giá RẺ NHẤT trong các gói: đây là mức thấp nhất khách có thể mua
    * được, nên con số quy đổi là mức tối thiểu chứ không thổi phồng giá trị gói.
@@ -714,7 +714,7 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
             <tr className="text-[11px] uppercase tracking-wider text-gray-500 border-b border-dark-800">
               <th className="text-left font-bold py-2">Model</th>
               <th className="text-left font-bold py-2">Chất lượng</th>
-              <th className="text-right font-bold py-2">Token / ảnh</th>
+              <th className="text-right font-bold py-2">Điểm / ảnh</th>
               {pricePerToken > 0 && <th className="text-right font-bold py-2">Quy đổi theo mệnh giá</th>}
               <th className="text-right font-bold py-2">Số ảnh trong hạn mức tháng</th>
             </tr>
@@ -738,15 +738,15 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
           </tbody>
         </TableWrap>
         <p className="text-[11px] text-gray-600 mt-3">
-          Cột cuối tính trên hạn mức {formatNumber(allowance)} token/tháng
+          Cột cuối tính trên hạn mức {formatNumber(allowance)} điểm/tháng
           {basePlan && ` của ${basePlan.name}`}, nếu chỉ dùng một loại ảnh duy nhất. Gói có hạn mức cao hơn thì số ảnh
           tăng tương ứng.
           {pricePerToken > 0 && (
             <>
               {' '}
               Cột <strong className="text-gray-500">tiền tương đương</strong> là số tiền bạn phải bỏ ra cho mỗi ảnh nếu
-              mua token lẻ, tính theo đơn giá tốt nhất trong các gói token đang bán (
-              {pricePerToken.toLocaleString('vi-VN', { maximumFractionDigits: 2 })}đ/token). Token trong gói dịch vụ đã
+              mua điểm lẻ, tính theo đơn giá tốt nhất trong các gói điểm đang bán (
+              {pricePerToken.toLocaleString('vi-VN', { maximumFractionDigits: 2 })}đ/điểm). Điểm trong gói dịch vụ đã
               bao gồm sẵn, không phải trả thêm.
             </>
           )}
@@ -781,7 +781,7 @@ const OrderHistory: React.FC<{ orders: Order[]; onResume: (order: Order) => void
                 <td className="py-2.5 font-mono text-xs text-gray-300">{order.code}</td>
                 <td className="py-2.5">
                   <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">
-                    {order.orderType === 'subscription' ? 'Gói tháng' : 'Token lẻ'}
+                    {order.orderType === 'subscription' ? 'Gói tháng' : 'Điểm lẻ'}
                   </span>
                 </td>
                 <td className="py-2.5 text-gray-300 text-xs">

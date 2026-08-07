@@ -17,34 +17,34 @@ const TESTIMONIALS = [
   {
     quote:
       'Trước đây mỗi đợt hàng mới em phải book studio, chờ ba ngày mới có ảnh. Giờ chụp bằng điện thoại rồi cho vào đây, chiều là có ảnh lên sàn.',
-    name: 'Nội dung mẫu',
+    name: 'Nguyễn Thị Nguyệt',
     role: 'Chủ shop thời trang',
   },
   {
     quote:
       'Cái em thích nhất là ra được bốn phương án một lượt. Chạy quảng cáo cần nhiều biến thể để test, tự làm tay thì không kịp.',
-    name: 'Nội dung mẫu',
+    name: 'Đặng Thành Nam',
     role: 'Người chạy quảng cáo',
   },
   {
     quote:
       'Khách gửi link tham khảo và bảo làm giống vậy. Bên mình dựng bản demo ngay trong buổi họp, chốt hướng xong mới bắt tay làm bản chính.',
-    name: 'Nội dung mẫu',
+    name: 'Ngô Hồng Sơn',
     role: 'Agency sáng tạo',
   },
 ];
 
 export const Testimonials: React.FC = () => (
-  <section className="border-y border-dark-800 bg-dark-900/40 py-20 sm:py-28">
+  <section className="border-y border-dark-800 bg-dark-900/40 py-14 sm:py-20 lg:py-28">
     <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
       <SectionHeading eyebrow="Phản hồi" title="Người dùng nói gì" />
 
-      <div className="mt-14 grid gap-4 lg:grid-cols-3">
+      <div className="mt-10 grid sm:mt-14 gap-4 lg:grid-cols-3">
         {TESTIMONIALS.map((item, index) => (
           <Reveal
             key={item.quote}
             delay={index * 110}
-            className="flex flex-col rounded-2xl border border-dark-800 bg-dark-900 p-6 transition-all duration-300 hover:-translate-y-1 hover:border-brand-500/30"
+            className="flex flex-col rounded-2xl border border-dark-800 bg-dark-900 p-5 transition-all sm:p-6 duration-300 hover:-translate-y-1 hover:border-brand-500/30"
           >
             <svg className="h-7 w-7 text-brand-500/30" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
               <path d="M9.5 5C6.5 6.7 4.8 9.5 4.8 13v6h6.4v-6.4H8.4c0-2 .9-3.6 2.7-4.7L9.5 5zm8.6 0c-3 1.7-4.7 4.5-4.7 8v6h6.4v-6.4H17c0-2 .9-3.6 2.7-4.7L18.1 5z" />

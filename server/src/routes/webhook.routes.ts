@@ -62,7 +62,7 @@ async function handleTransactions(provider: string, transactions: BankTransactio
         const message =
           outcome.order.order_type === 'subscription'
             ? `Đã kích hoạt ${outcome.order.package_name} cho đơn ${orderCode}, hiệu lực tới ${outcome.subscriptionExpiresAt?.toLocaleDateString('vi-VN')}.`
-            : `Đã cộng ${outcome.tokensCredited.toLocaleString('vi-VN')} token cho đơn ${orderCode}.`;
+            : `Đã cộng ${outcome.tokensCredited.toLocaleString('vi-VN')} điểm cho đơn ${orderCode}.`;
         await execute('UPDATE payment_events SET status = ?, message = ?, order_id = ? WHERE id = ?', [
           'matched',
           message,

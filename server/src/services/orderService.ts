@@ -143,7 +143,7 @@ export async function createSubscriptionOrder(userId: number, planId: number): P
     itemName: plan.name,
     amountVnd: plan.price_vnd,
     subscriptionMonths: plan.months,
-    // Thuê bao không cộng token ngay; hạn mức được cấp khi kích hoạt.
+    // Thuê bao không cộng điểm ngay; hạn mức được cấp khi kích hoạt.
     baseTokens: 0,
     bonusTokens: 0,
   });
@@ -245,11 +245,11 @@ export type MarkPaidOutcome =
   | { ok: false; reason: 'already_paid' | 'not_pending' | 'amount_mismatch'; order: OrderRow; message: string };
 
 /**
- * Xác nhận đơn đã thanh toán và cộng token.
+ * Xác nhận đơn đã thanh toán và cộng điểm.
  *
  * An toàn khi gọi lại nhiều lần: dòng đơn bị khoá FOR UPDATE và chỉ đơn ở trạng
- * thái `pending` mới được cộng token, nên webhook bắn trùng hay admin bấm duyệt
- * hai lần cũng không cộng token hai lần.
+ * thái `pending` mới được cộng điểm, nên webhook bắn trùng hay admin bấm duyệt
+ * hai lần cũng không cộng điểm hai lần.
  */
 export async function markOrderPaid(orderCode: string, input: MarkPaidInput): Promise<MarkPaidOutcome> {
   return withTransaction(async (conn: PoolConnection) => {
@@ -260,7 +260,7 @@ export async function markOrderPaid(orderCode: string, input: MarkPaidInput): Pr
     if (order.status === 'paid') {
       return { ok: false, reason: 'already_paid', order, message: `Đơn ${orderCode} đã được thanh toán trước đó.` };
     }
-    // Đơn hết hạn vẫn được cộng token: khách chuyển tiền muộn thì tiền vẫn về tài khoản,
+    // Đơn hết hạn vẫn được cộng điểm: khách chuyển tiền muộn thì tiền vẫn về tài khoản,
     // từ chối ở đây sẽ thành thu tiền mà không giao hàng. Chỉ đơn bị huỷ mới bị chặn.
     if (order.status !== 'pending' && order.status !== 'expired') {
       return {
@@ -271,7 +271,7 @@ export async function markOrderPaid(orderCode: string, input: MarkPaidInput): Pr
       };
     }
 
-    // Chuyển thiếu tiền thì không tự cộng token — để admin xử lý tay.
+    // Chuyển thiếu tiền thì không tự cộng điểm — để admin xử lý tay.
     const paidAmount = input.paidAmountVnd ?? order.amount_vnd;
     if (input.source !== 'manual' && paidAmount < order.amount_vnd) {
       return {
@@ -298,7 +298,7 @@ export async function markOrderPaid(orderCode: string, input: MarkPaidInput): Pr
 }
 
 /**
- * "Giao hàng" cho một đơn đã thanh toán: kích hoạt gói tháng hoặc cộng token lẻ.
+ * "Giao hàng" cho một đơn đã thanh toán: kích hoạt gói tháng hoặc cộng điểm lẻ.
  *
  * Tách riêng khỏi `markOrderPaid` để cả hai đường vào đều dùng chung một bản
  * nghiệp vụ: đường trong ứng dụng (webhook, admin duyệt) và đường đối soát cho
@@ -314,7 +314,7 @@ async function fulfillOrder(
   let subscriptionExpiresAt: Date | null = null;
 
   if (order.order_type === 'subscription') {
-    // Gói tháng không cộng token vào ví; hạn mức được cấp theo chu kỳ tháng.
+    // Gói tháng không cộng điểm vào ví; hạn mức được cấp theo chu kỳ tháng.
     const [planRows] = await conn.query<PlanRow[]>('SELECT * FROM subscription_plans WHERE id = ?', [order.plan_id]);
     const plan = planRows[0];
     const activated = await activateSubscription(
@@ -352,7 +352,7 @@ async function fulfillOrder(
       type: 'topup',
       refType: 'order',
       refId: order.id,
-      description: `Mua thêm token · gói ${order.package_name} · đơn ${order.code}`,
+      description: `Mua thêm điểm · gói ${order.package_name} · đơn ${order.code}`,
       createdBy: approvedBy,
     });
   }
@@ -376,12 +376,12 @@ let reconciling = false;
  *
  *     UPDATE orders SET status = 'paid' WHERE code = 'NAPXXXXXX';
  *
- * là xong. Server sẽ tự phát hiện, kích hoạt gói hoặc cộng token, ghi sổ cái và
- * đánh dấu `fulfilled_at`. Không cần workflow biết gì về nghiệp vụ token.
+ * là xong. Server sẽ tự phát hiện, kích hoạt gói hoặc cộng điểm, ghi sổ cái và
+ * đánh dấu `fulfilled_at`. Không cần workflow biết gì về nghiệp vụ điểm.
  *
  * An toàn tuyệt đối với việc gọi trùng: mỗi đơn được khoá FOR UPDATE và chỉ xử lý
  * khi `fulfilled_at` vẫn còn NULL, nên chạy song song hay chạy lại đều không cộng
- * token hai lần.
+ * điểm hai lần.
  */
 export async function fulfillPaidOrders(): Promise<number> {
   if (reconciling) return 0;
@@ -468,7 +468,7 @@ export function serializeOrder(order: OrderRow) {
     expiresAt: order.expires_at,
     createdAt: order.created_at,
     note: order.note,
-    // Đơn quá hạn vẫn giữ mã QR: khách chuyển muộn thì webhook vẫn cộng token được.
+    // Đơn quá hạn vẫn giữ mã QR: khách chuyển muộn thì webhook vẫn cộng điểm được.
     qrUrl: order.status === 'pending' || order.status === 'expired' ? buildVietQrUrl(order) : null,
     transferContent: order.code,
   };

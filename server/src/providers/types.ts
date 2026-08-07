@@ -50,8 +50,8 @@ export interface ImageProvider {
   /** Kiểm tra adapter đã đủ cấu hình (API key...) chưa */
   isConfigured(): boolean;
   /**
-   * Kiểm tra tổ hợp tham số trước khi trừ token. Trả về thông báo lỗi cho người
-   * dùng, hoặc null nếu hợp lệ. Nhờ bước này khách không bị trừ rồi hoàn token
+   * Kiểm tra tổ hợp tham số trước khi trừ điểm. Trả về thông báo lỗi cho người
+   * dùng, hoặc null nếu hợp lệ. Nhờ bước này khách không bị trừ rồi hoàn điểm
    * cho những lỗi biết trước là chắc chắn xảy ra.
    */
   validate?(input: ValidateInput): string | null;

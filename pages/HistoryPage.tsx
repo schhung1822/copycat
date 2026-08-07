@@ -101,7 +101,7 @@ export const HistoryPage: React.FC = () => {
                   {item.modelLabel}
                 </p>
                 <p className="text-[10px] text-gray-600 mt-0.5">
-                  {formatDateTime(item.createdAt)} · {item.tokenCost} token
+                  {formatDateTime(item.createdAt)} · {item.tokenCost} điểm
                 </p>
               </div>
             </Card>

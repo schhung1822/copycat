@@ -39,7 +39,7 @@ catalogRouter.get(
         baseTokens: pkg.base_tokens,
         bonusTokens: pkg.bonus_tokens,
         totalTokens: pkg.base_tokens + pkg.bonus_tokens,
-        // Giá thực tế mỗi token, dùng để khách so sánh các gói.
+        // Giá thực tế mỗi điểm, dùng để khách so sánh các gói.
         pricePerToken: Math.round((pkg.price_vnd / (pkg.base_tokens + pkg.bonus_tokens)) * 10) / 10,
         bonusPercent: pkg.base_tokens > 0 ? Math.round((pkg.bonus_tokens / pkg.base_tokens) * 1000) / 10 : 0,
         description: pkg.description,

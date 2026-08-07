@@ -7,7 +7,7 @@ import { SectionHeading } from './SectionHeading';
 /**
  * Mô tả bán hàng cho từng dòng model.
  *
- * Chỉ giữ phần chữ ở đây; số token luôn lấy từ bảng giá thật (`models`) để trang
+ * Chỉ giữ phần chữ ở đây; số điểm luôn lấy từ bảng giá thật (`models`) để trang
  * giới thiệu không bao giờ báo giá lệch với trang tạo ảnh sau khi admin chỉnh giá.
  *
  * Thứ tự trong mảng là thứ tự hiện trên trang: đặt bản mạnh nhất trước.
@@ -63,20 +63,20 @@ export const Models: React.FC<{ models?: ModelOption[] }> = ({ models }) => {
   }).filter((card) => card.tiers.length > 0);
 
   return (
-    <section id="model" className="scroll-mt-20 py-20 sm:py-28">
+    <section id="model" className="scroll-mt-20 py-14 sm:py-20 lg:py-28">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
         <SectionHeading
           eyebrow="Model AI"
           title="Chọn model theo việc, không phải theo lời quảng cáo"
-          description="Token trừ theo đúng model và độ phân giải bạn chọn, hiện rõ trước khi bấm tạo. Cột bên phải là số ảnh ước tính nếu dùng trọn hạn mức 500.000 token một tháng."
+          description="Điểm trừ theo đúng model và độ phân giải bạn chọn, hiện rõ trước khi bấm tạo. Cột bên phải là số ảnh ước tính nếu dùng trọn hạn mức 500.000 điểm một tháng."
         />
 
-        <div className="mt-14 grid gap-5 lg:grid-cols-3">
+        <div className="mt-10 grid sm:mt-14 gap-5 lg:grid-cols-3">
           {cards.map((card, index) => (
             <Reveal
               key={card.family}
               delay={index * 110}
-              className={`group relative flex flex-col rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-1 ${
+              className={`group relative flex flex-col rounded-2xl border p-5 transition-all sm:p-6 duration-300 hover:-translate-y-1 ${
                 card.highlight
                   ? 'border-brand-500/40 bg-dark-900 shadow-xl shadow-brand-500/5'
                   : 'border-dark-800 bg-dark-900 hover:border-dark-700'
@@ -99,7 +99,7 @@ export const Models: React.FC<{ models?: ModelOption[] }> = ({ models }) => {
                   >
                     <span className="font-semibold text-gray-200">{tier.resolution}</span>
                     <span className="text-xs text-gray-500">
-                      <span className="font-semibold text-gray-300">{formatNumber(tier.tokenCost)}</span> token
+                      <span className="font-semibold text-gray-300">{formatNumber(tier.tokenCost)}</span> điểm
                       <span className="mx-1.5 text-gray-600">·</span>~
                       {formatNumber(Math.floor(MONTHLY_ALLOWANCE / Math.max(tier.tokenCost, 1)))} ảnh
                     </span>
@@ -115,12 +115,12 @@ export const Models: React.FC<{ models?: ModelOption[] }> = ({ models }) => {
           ))}
         </div>
 
-        <Reveal delay={140}>
+        {/* <Reveal delay={140}>
           <p className="mx-auto mt-8 max-w-2xl text-center text-xs leading-relaxed text-gray-500">
-            Quy ước token rất đơn giản: <span className="font-semibold text-gray-400">1 token = 1đ giá vốn</span> trả cho
+            Quy ước điểm rất đơn giản: <span className="font-semibold text-gray-400">1 điểm = 1đ giá vốn</span> trả cho
             nhà cung cấp mô hình. Bạn luôn thấy đúng chi phí thật của mỗi tấm ảnh.
           </p>
-        </Reveal>
+        </Reveal> */}
       </div>
     </section>
   );

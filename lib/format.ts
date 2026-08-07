@@ -4,7 +4,7 @@ export const formatVnd = (value: number | null | undefined): string => `${vnd.fo
 
 export const formatNumber = (value: number | null | undefined): string => vnd.format(Number(value) || 0);
 
-export const formatTokens = (value: number | null | undefined): string => `${vnd.format(Number(value) || 0)} token`;
+export const formatTokens = (value: number | null | undefined): string => `${vnd.format(Number(value) || 0)} điểm`;
 
 export function formatDateTime(value: string | Date | null | undefined): string {
   if (!value) return '—';
@@ -43,7 +43,7 @@ export const STATUS_LABEL: Record<string, string> = {
   processing: 'Đang vẽ',
   success: 'Hoàn tất',
   failed: 'Lỗi',
-  refunded: 'Lỗi · đã hoàn token',
+  refunded: 'Lỗi · đã hoàn điểm',
   pending: 'Chờ thanh toán',
   paid: 'Đã thanh toán',
   cancelled: 'Đã huỷ',
@@ -54,13 +54,13 @@ export const STATUS_LABEL: Record<string, string> = {
 
 export const BUCKET_LABEL: Record<string, string> = {
   monthly: 'Hạn mức tháng',
-  purchased: 'Token mua thêm',
+  purchased: 'Điểm mua thêm',
 };
 
 export const TX_TYPE_LABEL: Record<string, string> = {
-  topup: 'Nạp token',
+  topup: 'Nạp điểm',
   spend: 'Tạo ảnh',
-  refund: 'Hoàn token',
+  refund: 'Hoàn điểm',
   adjust: 'Điều chỉnh',
   grant: 'Cấp hạn mức tháng',
   expire: 'Hết hạn mức tháng',

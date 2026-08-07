@@ -6,16 +6,16 @@ import { hashPassword } from './lib/auth.js';
  * Dữ liệu khởi tạo.
  *
  * `api_cost_usd`  = giá vốn mỗi ảnh theo bảng giá Kie.ai.
- * `token_cost`    = số token trừ của khách mỗi ảnh.
+ * `token_cost`    = số điểm trừ của khách mỗi ảnh.
  *
- * QUY ƯỚC ĐƠN VỊ: **1 token = 1đ giá vốn nhà cung cấp**, nên
+ * QUY ƯỚC ĐƠN VỊ: **1 điểm = 1đ giá vốn nhà cung cấp**, nên
  *
  *     token_cost = api_cost_usd × USD_TO_VND
  *
- * Nhờ vậy hạn mức "500.000đ tiền token theo giá gốc" quy thẳng thành 500.000 token,
- * và gói lẻ bán gấp đôi giá vốn chỉ đơn giản là 2đ cho mỗi token.
+ * Nhờ vậy hạn mức "500.000đ tiền điểm theo giá gốc" quy thẳng thành 500.000 điểm,
+ * và gói lẻ bán gấp đôi giá vốn chỉ đơn giản là 2đ cho mỗi điểm.
  *
- *   Model                    Giá vốn   Token/ảnh   Số ảnh trong hạn mức 1 tháng
+ *   Model                    Giá vốn   Điểm/ảnh   Số ảnh trong hạn mức 1 tháng
  *   GPT Image 2 – 1K         $0.03       840        ~595
  *   GPT Image 2 – 2K         $0.05     1.400        ~357
  *   GPT Image 2 – 4K         $0.08     2.240        ~223
@@ -144,7 +144,7 @@ const MODEL_PRICING = [
   },
   {
     // Kie.ai không công bố giá của bản Lite ở tài liệu công khai, nên model này
-    // được tạo sẵn nhưng TẮT BÁN. Điền giá vốn và số token thật rồi mới bật.
+    // được tạo sẵn nhưng TẮT BÁN. Điền giá vốn và số điểm thật rồi mới bật.
     code: 'nano-banana-2-lite',
     provider: 'kie',
     provider_model: 'nano-banana-2-lite',
@@ -155,7 +155,7 @@ const MODEL_PRICING = [
     token_cost: 700,
     sort_order: 40,
     is_active: 0,
-    notes: 'CHƯA BÁN: cần điền giá vốn và số token thật từ bảng giá Kie.ai trước khi bật. Model này không có tuỳ chọn 2K/4K.',
+    notes: 'CHƯA BÁN: cần điền giá vốn và số điểm thật từ bảng giá Kie.ai trước khi bật. Model này không có tuỳ chọn 2K/4K.',
   },
 ] as const;
 
@@ -163,7 +163,7 @@ const MODEL_PRICING = [
  * GÓI THUÊ BAO THÁNG — khách bắt buộc mua trước khi tạo ảnh.
  *
  * Giá gốc 1.500.000đ/tháng, đã bao gồm chi phí duy trì, nhân sự và hạn mức
- * 500.000 token/tháng (tương đương 500.000đ tiền token theo giá vốn nhà cung cấp).
+ * 500.000 điểm/tháng (tương đương 500.000đ tiền điểm theo giá vốn nhà cung cấp).
  * Chu kỳ dài hơn được chiết khấu để khuyến khích trả trước.
  *
  *   Chu kỳ    Giá niêm yết   Thực trả       Quy ra mỗi tháng   Chiết khấu
@@ -172,7 +172,7 @@ const MODEL_PRICING = [
  *   6 tháng   9.000.000đ     8.100.000đ     1.350.000đ         10%
  *   12 tháng  18.000.000đ    15.300.000đ    1.275.000đ         15%
  *
- * Hạn mức 500.000 token được cấp lại MỖI THÁNG kể cả khi mua chu kỳ dài, và
+ * Hạn mức 500.000 điểm được cấp lại MỖI THÁNG kể cả khi mua chu kỳ dài, và
  * KHÔNG cộng dồn nếu tháng đó dùng không hết.
  */
 const MONTHLY_TOKEN_ALLOWANCE = 500_000;
@@ -219,21 +219,21 @@ const SUBSCRIPTION_PLANS = [
 /**
  * GÓI TOKEN LẺ — mua thêm khi đã dùng hết hạn mức tháng.
  *
- * Quy tắc: khách chỉ nhận được **một nửa** lượng token so với số tiền bỏ ra tính
- * theo giá vốn (tức bán gấp đôi giá vốn). Vì 1 token = 1đ giá vốn, gói X đồng cho
- * khoảng X/2 token.
+ * Quy tắc: khách chỉ nhận được **một nửa** lượng điểm so với số tiền bỏ ra tính
+ * theo giá vốn (tức bán gấp đôi giá vốn). Vì 1 điểm = 1đ giá vốn, gói X đồng cho
+ * khoảng X/2 điểm.
  *
- * Số token của mỗi gói được neo theo hạn mức tháng cho dễ hình dung, còn giá bán
+ * Số điểm của mỗi gói được neo theo hạn mức tháng cho dễ hình dung, còn giá bán
  * làm tròn xuống mốc x99.000đ:
  *
- *   Gói          Token nhận              So với hạn mức tháng   Đơn giá
- *   99.000đ      50.000                  1/10                   1,98đ/token
- *   199.000đ     100.000                 1/5                    1,99đ/token
- *   499.000đ     250.000                 1/2                    2,00đ/token
- *   999.000đ     500.000                 bằng đúng              2,00đ/token
- *   1.999.000đ   1.000.000               gấp đôi                2,00đ/token
+ *   Gói          Điểm nhận              So với hạn mức tháng   Đơn giá
+ *   99.000đ      50.000                  1/10                   1,98đ/điểm
+ *   199.000đ     100.000                 1/5                    1,99đ/điểm
+ *   499.000đ     250.000                 1/2                    2,00đ/điểm
+ *   999.000đ     500.000                 bằng đúng              2,00đ/điểm
+ *   1.999.000đ   1.000.000               gấp đôi                2,00đ/điểm
  *
- * Token mua thêm KHÔNG hết hạn theo chu kỳ tháng.
+ * Điểm mua thêm KHÔNG hết hạn theo chu kỳ tháng.
  */
 const TOKEN_PACKAGES = [
   {
@@ -290,7 +290,7 @@ const TOKEN_PACKAGES = [
 
 const DEFAULT_SETTINGS: Record<string, string> = {
   site_name: 'Design Copycat AI',
-  topup_note: 'Chuyển khoản đúng số tiền và ghi đúng nội dung để hệ thống cộng token tự động.',
+  topup_note: 'Chuyển khoản đúng số tiền và ghi đúng nội dung để hệ thống cộng điểm tự động.',
   free_tokens_on_signup: '0',
 };
 
@@ -369,9 +369,9 @@ export async function seed(): Promise<void> {
 }
 
 /**
- * Chuyển dữ liệu cũ sang đơn vị token mới (1 token = 1đ giá vốn).
+ * Chuyển dữ liệu cũ sang đơn vị điểm mới (1 điểm = 1đ giá vốn).
  *
- * Trước đây 1 token ≈ 100đ giá bán, giờ neo vào giá vốn nên mọi con số lệch nhau
+ * Trước đây 1 điểm ≈ 100đ giá bán, giờ neo vào giá vốn nên mọi con số lệch nhau
  * khoảng 28 lần. Chỉ sửa những dòng vẫn giữ đúng giá trị seed cũ — dòng nào admin
  * đã tự chỉnh thì để nguyên, tránh ghi đè quyết định của người vận hành.
  */
@@ -399,10 +399,10 @@ async function migratePricingToCostUnits(): Promise<void> {
     converted += result.affectedRows;
   }
   if (converted > 0) {
-    console.log(`[seed] Đã quy đổi ${converted} dòng bảng giá sang đơn vị token mới (1 token = 1đ giá vốn).`);
+    console.log(`[seed] Đã quy đổi ${converted} dòng bảng giá sang đơn vị điểm mới (1 điểm = 1đ giá vốn).`);
   }
 
-  // Gói token lẻ đời cũ tính theo 100đ/token — sai đơn vị hoàn toàn, ngừng bán.
+  // Gói điểm lẻ đời cũ tính theo 100đ/điểm — sai đơn vị hoàn toàn, ngừng bán.
   // EXTRA_200K/500K/1M/2M là bộ giá tạm ở bản trước, nay thay bằng bộ neo theo
   // hạn mức tháng (EXTRA_199/499/999/1999).
   const retired = await execute(
@@ -412,11 +412,11 @@ async function migratePricingToCostUnits(): Promise<void> {
         AND is_active = 1`,
   );
   if (retired.affectedRows > 0) {
-    console.log(`[seed] Đã ngừng bán ${retired.affectedRows} gói token đời cũ.`);
+    console.log(`[seed] Đã ngừng bán ${retired.affectedRows} gói điểm đời cũ.`);
   }
 
   // Nano Banana 2 Lite từng bị chèn vào DB khi câu INSERT chưa có cột is_active,
-  // nên nó mặc định bật bán với giá vốn 0 và số token đặt tạm — bán như vậy là
+  // nên nó mặc định bật bán với giá vốn 0 và số điểm đặt tạm — bán như vậy là
   // bán mù, không biết lãi lỗ. Chỉ tắt khi dòng vẫn giữ nguyên giá trị đặt tạm;
   // nếu admin đã điền giá thật thì tôn trọng quyết định đó.
   const liteOff = await execute(

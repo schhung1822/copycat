@@ -447,7 +447,7 @@ export const kieProvider: ImageProvider = {
   isConfigured: () => Boolean(env.kie.apiKey),
 
   /**
-   * Kiểm tra tổ hợp tham số TRƯỚC khi trừ token, để khách không bị trừ rồi hoàn
+   * Kiểm tra tổ hợp tham số TRƯỚC khi trừ điểm, để khách không bị trừ rồi hoàn
    * cho một lỗi mà ta biết chắc từ đầu là sẽ xảy ra.
    */
   validate({ providerModel, resolution, aspectRatio, imageCount }: ValidateInput): string | null {

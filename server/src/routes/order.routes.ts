@@ -46,9 +46,9 @@ orderRouter.get(
 );
 
 /**
- * Tạo đơn mua thêm token lẻ.
+ * Tạo đơn mua thêm điểm lẻ.
  *
- * Chỉ dành cho khách đã có gói dịch vụ — token lẻ là phần mua thêm khi dùng hết
+ * Chỉ dành cho khách đã có gói dịch vụ — điểm lẻ là phần mua thêm khi dùng hết
  * hạn mức tháng, không phải đường vòng để dùng dịch vụ mà không đăng ký gói.
  */
 orderRouter.post(
@@ -57,7 +57,7 @@ orderRouter.post(
     const state = await readAccountState(req.user!.id);
     requireSubscription(state);
 
-    const packageId = requireInt(req.body, 'packageId', { min: 1, label: 'Gói token' });
+    const packageId = requireInt(req.body, 'packageId', { min: 1, label: 'Gói điểm' });
     const order = await createOrder(req.user!.id, packageId);
     res.status(201).json({ order: serializeOrder(order), bank: bankInfo() });
   }),
@@ -117,7 +117,7 @@ orderRouter.post(
   }),
 );
 
-/** Xem chi tiết một đơn — client gọi lặp lại để biết webhook đã cộng token chưa. */
+/** Xem chi tiết một đơn — client gọi lặp lại để biết webhook đã cộng điểm chưa. */
 orderRouter.get(
   '/:code',
   asyncHandler(async (req, res) => {

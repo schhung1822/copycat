@@ -64,7 +64,7 @@ export const UsersTab: React.FC = () => {
     setAdjustTarget(null);
     setMessage({ tone: 'success', text });
     // Admin hay thao tác lên chính tài khoản mình để kiểm thử; đọc lại phiên hiện
-    // tại để huy hiệu token trên thanh điều hướng khớp ngay, không phải tải lại trang.
+    // tại để huy hiệu điểm trên thanh điều hướng khớp ngay, không phải tải lại trang.
     await Promise.all([load(), refreshUser()]);
   };
 
@@ -164,7 +164,7 @@ export const UsersTab: React.FC = () => {
                         onClick={() => setAdjustTarget(user)}
                         className="text-xs text-gray-400 hover:text-gray-100 px-2 transition-colors"
                       >
-                        Token
+                        Điểm
                       </button>
                       <button
                         onClick={() => toggleBan(user)}
@@ -312,15 +312,15 @@ const EditUserModal: React.FC<{
               <Field label="Gói hết hạn lúc" hint="Để trống nghĩa là chưa có gói. Đẩy về tương lai để gia hạn tay.">
                 <input className={inputClass} type="datetime-local" {...field('subscriptionExpiresAt')} />
               </Field>
-              <Field label="Hạn mức mỗi tháng" hint="Số token được cấp lại đầu mỗi chu kỳ tháng.">
+              <Field label="Hạn mức mỗi tháng" hint="Số điểm được cấp lại đầu mỗi chu kỳ tháng.">
                 <input className={inputClass} inputMode="numeric" {...field('monthlyAllowance')} />
               </Field>
-              <Field label="Cấp lại hạn mức lúc" hint="Qua mốc này hạn mức tự đầy lại. Để trống sẽ cấp lại ở lần thao tác token kế tiếp.">
+              <Field label="Cấp lại hạn mức lúc" hint="Qua mốc này hạn mức tự đầy lại. Để trống sẽ cấp lại ở lần thao tác điểm kế tiếp.">
                 <input className={inputClass} type="datetime-local" {...field('monthlyPeriodEnd')} />
               </Field>
               <div className="text-[11px] text-gray-600 self-end pb-2">
                 Hạn mức còn lại hiện tại: <strong className="text-gray-400">{formatNumber(user.monthlyTokens)}</strong>{' '}
-                token. Cộng/trừ số này ở nút <strong className="text-gray-400">Token</strong> để có dòng ghi trong sổ cái.
+                điểm. Cộng/trừ số này ở nút <strong className="text-gray-400">Điểm</strong> để có dòng ghi trong sổ cái.
                 Hạ hạn mức tháng xuống thấp hơn số còn lại sẽ kéo số còn lại xuống theo.
               </div>
             </div>
@@ -373,7 +373,7 @@ const AdjustTokenModal: React.FC<{
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     const value = Number(amount);
-    if (!Number.isInteger(value) || value === 0) return setError('Nhập số nguyên khác 0 (số âm để trừ token).');
+    if (!Number.isInteger(value) || value === 0) return setError('Nhập số nguyên khác 0 (số âm để trừ điểm).');
     if (!reason.trim()) return setError('Vui lòng nhập lý do — lý do sẽ hiện trong sao kê của khách.');
 
     setError(null);
@@ -385,8 +385,8 @@ const AdjustTokenModal: React.FC<{
         bucket,
       });
       await onDone(
-        `Đã ${value > 0 ? 'cộng' : 'trừ'} ${formatNumber(Math.abs(value))} token ` +
-          `(${isMonthly ? 'hạn mức tháng' : 'token mua thêm'}) cho ${user.email}. ` +
+        `Đã ${value > 0 ? 'cộng' : 'trừ'} ${formatNumber(Math.abs(value))} điểm ` +
+          `(${isMonthly ? 'hạn mức tháng' : 'điểm mua thêm'}) cho ${user.email}. ` +
           `Còn lại: ${formatNumber(data.balanceAfter)}.`,
       );
     } catch (err) {
@@ -399,18 +399,18 @@ const AdjustTokenModal: React.FC<{
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <Card className="w-full max-w-md p-6">
-        <h3 className="text-lg font-bold text-gray-100">Điều chỉnh token</h3>
+        <h3 className="text-lg font-bold text-gray-100">Điều chỉnh điểm</h3>
         <p className="text-sm text-gray-500 mt-1 mb-5">{user.email}</p>
 
         <form onSubmit={submit} className="space-y-4">
           {error && <Alert tone="error">{error}</Alert>}
 
           <Field
-            label="Nguồn token"
+            label="Nguồn điểm"
             hint={
               isMonthly
-                ? `Hạn mức tháng bị xoá khi sang chu kỳ mới. Không cộng vượt quá ${formatNumber(user.monthlyAllowance)} token của gói.`
-                : 'Token mua thêm không hết hạn. Dùng cho đền bù, khuyến mãi.'
+                ? `Hạn mức tháng bị xoá khi sang chu kỳ mới. Không cộng vượt quá ${formatNumber(user.monthlyAllowance)} điểm của gói.`
+                : 'Điểm mua thêm không hết hạn. Dùng cho đền bù, khuyến mãi.'
             }
           >
             <select
@@ -418,12 +418,12 @@ const AdjustTokenModal: React.FC<{
               value={bucket}
               onChange={(e) => setBucket(e.target.value as 'purchased' | 'monthly')}
             >
-              <option value="purchased">Token mua thêm — không hết hạn</option>
+              <option value="purchased">Điểm mua thêm — không hết hạn</option>
               <option value="monthly">Hạn mức tháng — reset mỗi chu kỳ</option>
             </select>
           </Field>
 
-          <Field label="Số token" hint={`Đang có ${formatNumber(currentBalance)}. Số dương để cộng, số âm để trừ.`}>
+          <Field label="Số điểm" hint={`Đang có ${formatNumber(currentBalance)}. Số dương để cộng, số âm để trừ.`}>
             <input
               className={inputClass}
               value={amount}
@@ -434,7 +434,7 @@ const AdjustTokenModal: React.FC<{
             />
           </Field>
 
-          <Field label="Lý do" hint="Sẽ hiển thị trong sao kê token của khách.">
+          <Field label="Lý do" hint="Sẽ hiển thị trong sao kê điểm của khách.">
             <input
               className={inputClass}
               value={reason}

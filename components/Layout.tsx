@@ -7,7 +7,7 @@ import { ThemeToggle } from './ThemeToggle';
 const navItems = [
   { to: '/', label: 'Tạo ảnh', end: true },
   { to: '/lich-su', label: 'Lịch sử' },
-  { to: '/vi-token', label: 'Ví token' },
+  { to: '/vi-diem', label: 'Ví điểm' },
   { to: '/nap-tien', label: 'Gói dịch vụ' },
 ];
 
@@ -65,12 +65,12 @@ export const Layout: React.FC = () => {
               to="/nap-tien"
               className="flex items-center gap-2 bg-dark-850 hover:bg-dark-800 border border-dark-700 rounded-full pl-3 pr-2 py-1.5 transition-colors group"
               title={
-                `Hạn mức tháng: ${formatNumber(user.monthlyTokens)} token\n` +
-                `Đã mua thêm: ${formatNumber(user.purchasedTokens)} token`
+                `Hạn mức tháng: ${formatNumber(user.monthlyTokens)} điểm\n` +
+                `Đã mua thêm: ${formatNumber(user.purchasedTokens)} điểm`
               }
             >
               <span className="text-sm font-bold text-brand-500">{formatNumber(user.tokenBalance)}</span>
-              <span className="text-[10px] uppercase text-gray-500 tracking-wider hidden sm:inline">token</span>
+              <span className="text-[10px] uppercase text-gray-500 tracking-wider hidden sm:inline">điểm</span>
               <span className="w-5 h-5 rounded-full bg-brand-500/15 text-brand-500 flex items-center justify-center text-sm leading-none group-hover:bg-brand-500 group-hover:text-white transition-colors">
                 +
               </span>
@@ -99,8 +99,8 @@ export const Layout: React.FC = () => {
                 <Link to="/tai-khoan" className="block px-4 py-2 text-sm text-gray-300 hover:bg-dark-800">
                   Thông tin tài khoản
                 </Link>
-                <Link to="/vi-token" className="block px-4 py-2 text-sm text-gray-300 hover:bg-dark-800">
-                  Sao kê token
+                <Link to="/vi-diem" className="block px-4 py-2 text-sm text-gray-300 hover:bg-dark-800">
+                  Sao kê điểm
                 </Link>
                 <button
                   onClick={handleLogout}

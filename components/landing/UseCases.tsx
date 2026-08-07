@@ -32,7 +32,7 @@ const CASES = [
  * qua tình huống đang gặp nhanh hơn nhiều so với qua cái nhãn nghề nghiệp.
  */
 export const UseCases: React.FC = () => (
-  <section className="border-y border-dark-800 bg-dark-900/40 py-20 sm:py-28">
+  <section className="border-y border-dark-800 bg-dark-900/40 py-14 sm:py-20 lg:py-28">
     <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
       <SectionHeading
         eyebrow="Dành cho ai"
@@ -40,12 +40,12 @@ export const UseCases: React.FC = () => (
         description="Hệ thống được dựng cho người bán hàng ở Việt Nam: nhanh, rẻ hơn thuê chụp, và không đòi hỏi kỹ năng đồ hoạ."
       />
 
-      <div className="mt-14 grid gap-4 sm:grid-cols-2">
+      <div className="mt-10 grid sm:mt-14 gap-4 sm:grid-cols-2">
         {CASES.map((item, index) => (
           <Reveal
             key={item.who}
             delay={(index % 2) * 100}
-            className="group rounded-2xl border border-dark-800 bg-dark-900 p-6 transition-all duration-300 hover:-translate-y-1 hover:border-brand-500/30 hover:shadow-xl hover:shadow-black/10"
+            className="group rounded-2xl border border-dark-800 bg-dark-900 p-5 transition-all sm:p-6 duration-300 hover:-translate-y-1 hover:border-brand-500/30 hover:shadow-xl hover:shadow-black/10"
           >
             <h3 className="text-base font-bold text-gray-100">{item.who}</h3>
 

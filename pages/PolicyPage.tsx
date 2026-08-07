@@ -30,9 +30,9 @@ const SECTIONS = [
   { id: 'dich-vu', label: 'Về dịch vụ' },
   { id: 'tai-khoan', label: 'Tài khoản' },
   { id: 'goi-cuoc', label: 'Gói dịch vụ & hạn mức' },
-  { id: 'token-le', label: 'Token mua thêm' },
+  { id: 'diem-le', label: 'Điểm mua thêm' },
   { id: 'thanh-toan', label: 'Thanh toán' },
-  { id: 'hoan-tra', label: 'Hoàn token & hoàn tiền' },
+  { id: 'hoan-tra', label: 'Hoàn điểm & hoàn tiền' },
   { id: 'noi-dung', label: 'Nội dung & bản quyền' },
   { id: 'cam', label: 'Hành vi bị cấm' },
   { id: 'du-lieu', label: 'Dữ liệu & bảo mật' },
@@ -183,16 +183,16 @@ export const PolicyPage: React.FC = () => {
             </p>
           </Section>
 
-          <Section id="goi-cuoc" title="3. Gói dịch vụ & hạn mức token">
+          <Section id="goi-cuoc" title="3. Gói dịch vụ & hạn mức điểm">
             <p>
               Bạn cần mua gói dịch vụ theo tháng trước khi sử dụng chức năng tạo ảnh. Các chu kỳ hiện có:{' '}
               <strong className="text-gray-300">{cycles} tháng</strong>. Chu kỳ dài hơn có đơn giá mỗi tháng thấp hơn.
             </p>
             <p>
               Mỗi tháng trong thời hạn gói, tài khoản được cấp hạn mức{' '}
-              <strong className="text-gray-300">Tương ứng với gói đăng ký</strong> để tạo ảnh. Số token tiêu hao
+              <strong className="text-gray-300">Tương ứng với gói đăng ký</strong> để tạo ảnh. Số điểm tiêu hao
               cho mỗi ảnh phụ thuộc mô hình và độ phân giải bạn chọn
-              {cheapest && ` (thấp nhất là ${formatNumber(cheapest.tokenCost)} token/ảnh với ${cheapest.label})`}.
+              {cheapest && ` (thấp nhất là ${formatNumber(cheapest.tokenCost)} điểm/ảnh với ${cheapest.label})`}.
             </p>
             <p className="text-gray-300">
               <strong>Hạn mức tháng không được cộng dồn.</strong> Phần hạn mức chưa dùng hết trong một chu kỳ tháng sẽ
@@ -207,9 +207,9 @@ export const PolicyPage: React.FC = () => {
             </p>
           </Section>
 
-          <Section id="token-le" title="4. Token mua thêm">
+          <Section id="diem-le" title="4. Điểm mua thêm">
             <p>
-              Khi đã dùng hết hạn mức của tháng, bạn có thể mua thêm token lẻ.
+              Khi đã dùng hết hạn mức của tháng, bạn có thể mua thêm điểm lẻ.
               {packages.length > 0 && (
                 <>
                   {' '}
@@ -220,14 +220,14 @@ export const PolicyPage: React.FC = () => {
               )}
             </p>
             <p>
-              Token mua thêm <strong className="text-gray-300">không hết hạn theo chu kỳ tháng</strong> và được giữ lại
+              Điểm mua thêm <strong className="text-gray-300">không hết hạn theo chu kỳ tháng</strong> và được giữ lại
               kể cả khi gói dịch vụ hết hạn.
             </p>
             <p>
-              Khi tạo ảnh, hệ thống trừ hạn mức tháng trước, hết mới dùng tới token đã mua thêm — để phần sắp hết hạn
+              Khi tạo ảnh, hệ thống trừ hạn mức tháng trước, hết mới dùng tới điểm đã mua thêm — để phần sắp hết hạn
               được tiêu trước.
             </p>
-            <p>Việc mua token lẻ yêu cầu tài khoản đang có gói dịch vụ còn hiệu lực.</p>
+            <p>Việc mua điểm lẻ yêu cầu tài khoản đang có gói dịch vụ còn hiệu lực.</p>
           </Section>
 
           <Section id="thanh-toan" title="5. Thanh toán">
@@ -247,18 +247,18 @@ export const PolicyPage: React.FC = () => {
             <p>Giá niêm yết là giá cuối cùng. Phí chuyển khoản (nếu có) do ngân hàng của bạn thu.</p>
           </Section>
 
-          <Section id="hoan-tra" title="6. Hoàn token & hoàn tiền">
+          <Section id="hoan-tra" title="6. Hoàn điểm & hoàn tiền">
             <p>
-              <strong className="text-gray-300">Ảnh tạo thất bại được hoàn token tự động</strong>, trả về đúng nguồn đã
-              trừ. Bạn không bị mất token vì lỗi hệ thống hay lỗi từ nhà cung cấp AI.
+              <strong className="text-gray-300">Ảnh tạo thất bại được hoàn điểm tự động</strong>, trả về đúng nguồn đã
+              trừ. Bạn không bị mất điểm vì lỗi hệ thống hay lỗi từ nhà cung cấp AI.
             </p>
             <p>
-              Ảnh đã tạo thành công nhưng không đúng ý muốn thì không được hoàn token, vì chi phí gọi mô hình AI đã
+              Ảnh đã tạo thành công nhưng không đúng ý muốn thì không được hoàn điểm, vì chi phí gọi mô hình AI đã
               phát sinh thực tế.
             </p>
             <p>
-              Gói dịch vụ và token đã mua không quy đổi thành tiền mặt và không hoàn lại sau khi đã kích hoạt. Trường
-              hợp bị trừ tiền mà không nhận được gói hoặc token, vui lòng liên hệ theo mục 12 để được đối soát và xử lý.
+              Gói dịch vụ và điểm đã mua không quy đổi thành tiền mặt và không hoàn lại sau khi đã kích hoạt. Trường
+              hợp bị trừ tiền mà không nhận được gói hoặc điểm, vui lòng liên hệ theo mục 12 để được đối soát và xử lý.
             </p>
           </Section>
 
@@ -287,12 +287,12 @@ export const PolicyPage: React.FC = () => {
               <li>Nội dung nhằm lừa đảo hoặc giả mạo giấy tờ, hoá đơn, chứng từ.</li>
             </ul>
             <p>Ngoài ra bạn cũng phải tuân thủ điều khoản của nhà cung cấp mô hình AI mà hệ thống sử dụng.</p>
-            <p>Tài khoản vi phạm sẽ bị khoá và không được hoàn lại token hay tiền đã thanh toán.</p>
+            <p>Tài khoản vi phạm sẽ bị khoá và không được hoàn lại điểm hay tiền đã thanh toán.</p>
           </Section>
 
           <Section id="du-lieu" title="9. Dữ liệu & bảo mật">
             <p>
-              Chúng tôi lưu: thông tin tài khoản (email, tên, số điện thoại), lịch sử đơn hàng, sổ ghi biến động token,
+              Chúng tôi lưu: thông tin tài khoản (email, tên, số điện thoại), lịch sử đơn hàng, sổ ghi biến động điểm,
               ảnh đầu vào và ảnh kết quả.
             </p>
             <p>Mật khẩu được lưu ở dạng đã băm, chúng tôi không đọc được mật khẩu của bạn.</p>
@@ -317,7 +317,7 @@ export const PolicyPage: React.FC = () => {
 
           <Section id="thay-doi" title="11. Thay đổi điều khoản">
             <p>
-              Chúng tôi có thể điều chỉnh giá gói, số token tiêu hao mỗi ảnh, danh sách mô hình và các điều khoản này
+              Chúng tôi có thể điều chỉnh giá gói, số điểm tiêu hao mỗi ảnh, danh sách mô hình và các điều khoản này
               khi chi phí từ nhà cung cấp thay đổi.
             </p>
             <p>

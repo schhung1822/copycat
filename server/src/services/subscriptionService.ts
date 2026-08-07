@@ -38,7 +38,7 @@ export interface AccountState {
   monthlyTokens: number;
   monthlyPeriodEnd: Date | null;
   purchasedTokens: number;
-  /** Tổng token dùng được ngay = hạn mức tháng còn lại + token đã mua thêm */
+  /** Tổng điểm dùng được ngay = hạn mức tháng còn lại + điểm đã mua thêm */
   availableTokens: number;
 }
 
@@ -153,9 +153,9 @@ export async function listUpgradeOptions(userId: number): Promise<UpgradeQuote[]
  * Cấp lại hạn mức tháng nếu đã sang chu kỳ mới.
  *
  * Chạy theo kiểu "kiểm tra khi dùng" (lazy) nên không cần cron: mỗi lần đụng tới
- * token, nếu đã qua mốc `monthly_period_end` thì hạn mức được cấp lại.
+ * điểm, nếu đã qua mốc `monthly_period_end` thì hạn mức được cấp lại.
  *
- * Token thừa của tháng cũ BỊ XOÁ, không cộng dồn. Phần bị xoá vẫn được ghi vào sổ
+ * Điểm thừa của tháng cũ BỊ XOÁ, không cộng dồn. Phần bị xoá vẫn được ghi vào sổ
  * cái (type = 'expire') để đối soát được.
  *
  * Bắt buộc gọi trong transaction đã khoá dòng users bằng SELECT ... FOR UPDATE.
@@ -164,7 +164,7 @@ async function refreshMonthlyAllowance(conn: PoolConnection, userId: number, sta
   const now = Date.now();
   const expiresAt = state.subscription_expires_at ? new Date(state.subscription_expires_at).getTime() : 0;
 
-  // Hết hạn thuê bao: thu hồi hạn mức còn lại, giữ nguyên token đã mua thêm.
+  // Hết hạn thuê bao: thu hồi hạn mức còn lại, giữ nguyên điểm đã mua thêm.
   if (!expiresAt || expiresAt <= now) {
     if (state.monthly_tokens > 0) {
       await writeLedger(conn, userId, 'expire', 'monthly', -state.monthly_tokens, 0, 'Hết hạn gói dịch vụ — thu hồi hạn mức tháng');
@@ -186,7 +186,7 @@ async function refreshMonthlyAllowance(conn: PoolConnection, userId: number, sta
       'monthly',
       -state.monthly_tokens,
       0,
-      `Sang chu kỳ mới — ${state.monthly_tokens.toLocaleString('vi-VN')} token hạn mức cũ không được cộng dồn`,
+      `Sang chu kỳ mới — ${state.monthly_tokens.toLocaleString('vi-VN')} điểm hạn mức cũ không được cộng dồn`,
     );
   }
 
@@ -194,8 +194,8 @@ async function refreshMonthlyAllowance(conn: PoolConnection, userId: number, sta
    * Cộng mốc bằng SQL để tự xử lý đúng các tháng thiếu ngày (31/1 + 1 tháng = 28/2).
    *
    * COALESCE là bắt buộc: DATE_ADD(NULL, ...) trả về NULL, nên nếu mốc đang NULL
-   * thì nó sẽ NULL vĩnh viễn và mỗi lần chạm vào token lại được cấp hạn mức mới —
-   * token vô hạn nếu allowance > 0, hoặc bị xoá sạch mỗi lần nếu allowance = 0.
+   * thì nó sẽ NULL vĩnh viễn và mỗi lần chạm vào điểm lại được cấp hạn mức mới —
+   * điểm vô hạn nếu allowance > 0, hoặc bị xoá sạch mỗi lần nếu allowance = 0.
    */
   await conn.query(
     `UPDATE users
@@ -225,7 +225,7 @@ async function refreshMonthlyAllowance(conn: PoolConnection, userId: number, sta
     'monthly',
     updated.monthly_allowance,
     updated.monthly_tokens,
-    'Cấp hạn mức token cho chu kỳ tháng mới',
+    'Cấp hạn mức điểm cho chu kỳ tháng mới',
   );
 
   return updated;
@@ -249,7 +249,7 @@ async function writeLedger(
 
 /**
  * Khoá dòng tài khoản, cấp lại hạn mức nếu cần, rồi trả về trạng thái hiện tại.
- * Mọi thao tác đụng tới token đều phải đi qua đây.
+ * Mọi thao tác đụng tới điểm đều phải đi qua đây.
  */
 export async function lockAccountState(conn: PoolConnection, userId: number): Promise<AccountState> {
   const [rows] = await conn.query<UserStateRow[]>(
@@ -273,7 +273,7 @@ export async function lockAccountState(conn: PoolConnection, userId: number): Pr
   };
 }
 
-/** Đọc trạng thái tài khoản ngoài transaction (chỉ để hiển thị, không dùng để trừ token). */
+/** Đọc trạng thái tài khoản ngoài transaction (chỉ để hiển thị, không dùng để trừ điểm). */
 export async function readAccountState(userId: number): Promise<AccountState> {
   const row = await queryOne<UserStateRow>(
     `SELECT token_balance, subscription_expires_at, monthly_allowance, monthly_tokens, monthly_period_end
@@ -405,7 +405,7 @@ export async function activateSubscription(
       'monthly',
       plan.allowance,
       plan.allowance,
-      `${options.restart ? 'Nâng lên' : 'Kích hoạt'} ${plan.name} — hạn mức ${plan.allowance.toLocaleString('vi-VN')} token/tháng`,
+      `${options.restart ? 'Nâng lên' : 'Kích hoạt'} ${plan.name} — hạn mức ${plan.allowance.toLocaleString('vi-VN')} điểm/tháng`,
     );
   }
 

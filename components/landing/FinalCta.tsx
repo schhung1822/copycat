@@ -4,10 +4,10 @@ import { Reveal } from './Reveal';
 
 /** Lời mời cuối trang — chốt lại cho người đã đọc hết. */
 export const FinalCta: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => (
-  <section className="px-4 py-20 sm:px-6 sm:py-28">
+  <section className="px-4 py-14 sm:px-6 sm:py-20 lg:py-28">
     <Reveal anim="zoom" className="mx-auto max-w-4xl">
       <div className="lp-gradient-border overflow-hidden rounded-3xl p-px shadow-2xl shadow-brand-500/10">
-        <div className="relative overflow-hidden rounded-[23px] bg-dark-900 px-6 py-14 text-center sm:px-14">
+        <div className="relative overflow-hidden rounded-[23px] bg-dark-900 px-5 py-12 text-center sm:px-14 sm:py-14">
           {/* Vệt màu trôi phía sau, chỉ trang trí */}
           <div className="pointer-events-none absolute inset-0 -z-0" aria-hidden>
             <div className="lp-blob absolute -left-16 -top-16 h-56 w-56 rounded-full bg-brand-500/20 blur-3xl" />
@@ -22,7 +22,7 @@ export const FinalCta: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => (
               Ảnh mẫu bạn thích đang mở sẵn trong tab kia rồi.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-gray-400">
-              Tạo tài khoản, chọn gói và dựng tấm ảnh đầu tiên ngay hôm nay. Chuyển khoản qua QR, hệ thống kích hoạt tự
+              Tạo tài khoản, chọn gói và dựng tấm ảnh đầu tiên ngay hôm nay. Thanh toán trực tuyến và hệ thống kích hoạt tự
               động trong vài phút.
             </p>
 

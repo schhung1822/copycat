@@ -17,8 +17,8 @@ adminRouter.use(requireAdmin);
 const num = (value: unknown): number => Number(value ?? 0) || 0;
 
 /**
- * Giá bán mỗi token ở gói lẻ. Quy ước 1 token = 1đ giá vốn nhà cung cấp và gói lẻ
- * bán gấp đôi giá vốn, nên mỗi token thu về 2đ.
+ * Giá bán mỗi điểm ở gói lẻ. Quy ước 1 điểm = 1đ giá vốn nhà cung cấp và gói lẻ
+ * bán gấp đôi giá vốn, nên mỗi điểm thu về 2đ.
  */
 const TOKEN_SELL_PRICE_VND = 2;
 
@@ -107,8 +107,8 @@ adminRouter.get(
         total: num(users?.total),
         newToday: num(users?.new_today),
         new30Days: num(users?.new_30d),
-        // Token khách đã BỎ TIỀN MUA nhưng chưa dùng — nghĩa vụ phải phục vụ.
-        // 1 token = 1đ giá vốn, bán ra gấp đôi nên quy tiền là ×2.
+        // Điểm khách đã BỎ TIỀN MUA nhưng chưa dùng — nghĩa vụ phải phục vụ.
+        // 1 điểm = 1đ giá vốn, bán ra gấp đôi nên quy tiền là ×2.
         outstandingTokens: num(users?.outstanding_tokens),
         outstandingLiabilityVnd: Math.round(num(users?.outstanding_tokens) * 2),
       },
@@ -222,7 +222,7 @@ adminRouter.get(
 
     res.json({
       models: rows.map((row) => {
-        // 1 token = 1đ giá vốn, bán gấp đôi → doanh thu quy đổi = số token × 2.
+        // 1 điểm = 1đ giá vốn, bán gấp đôi → doanh thu quy đổi = số điểm × 2.
         const tokenValueVnd = num(row.tokens) * TOKEN_SELL_PRICE_VND;
         const costVnd = num(row.cost_usd) * env.usdToVnd;
         return {
@@ -431,7 +431,7 @@ adminRouter.patch(
       await adjustMonthlyTokens(conn, {
         userId,
         amount: -excess,
-        description: `[Admin] Hạ hạn mức tháng xuống ${allowance.toLocaleString('vi-VN')} token, thu hồi phần vượt trần`,
+        description: `[Admin] Hạ hạn mức tháng xuống ${allowance.toLocaleString('vi-VN')} điểm, thu hồi phần vượt trần`,
         createdBy: req.user!.id,
       });
     });
@@ -461,20 +461,20 @@ adminRouter.post(
 );
 
 /**
- * Cộng / trừ token thủ công (đền bù, khuyến mãi, thu hồi).
+ * Cộng / trừ điểm thủ công (đền bù, khuyến mãi, thu hồi).
  *
  * `bucket` mặc định là `purchased` để các lần gọi cũ giữ nguyên hành vi.
  */
 adminRouter.post(
   '/users/:id/tokens',
   asyncHandler(async (req, res) => {
-    const amount = requireInt(req.body, 'amount', { label: 'Số token' });
-    if (amount === 0) throw badRequest('Số token phải khác 0.');
+    const amount = requireInt(req.body, 'amount', { label: 'Số điểm' });
+    if (amount === 0) throw badRequest('Số điểm phải khác 0.');
     const reason = requireString(req.body, 'reason', { label: 'Lý do', max: 200 });
 
     const bucket = optionalString(req.body, 'bucket') ?? 'purchased';
     if (!['monthly', 'purchased'].includes(bucket)) {
-      throw badRequest('Nguồn token chỉ nhận "monthly" (hạn mức tháng) hoặc "purchased" (token mua thêm).');
+      throw badRequest('Nguồn điểm chỉ nhận "monthly" (hạn mức tháng) hoặc "purchased" (điểm mua thêm).');
     }
 
     const userId = Number(req.params.id);
@@ -572,7 +572,7 @@ adminRouter.post(
   }),
 );
 
-/** Nhật ký webhook ngân hàng — tra khi khách báo đã chuyển mà chưa nhận token. */
+/** Nhật ký webhook ngân hàng — tra khi khách báo đã chuyển mà chưa nhận điểm. */
 adminRouter.get(
   '/payment-events',
   asyncHandler(async (req, res) => {
@@ -620,7 +620,7 @@ adminRouter.get(
         apiCostUsd: Number(row.api_cost_usd),
         apiCostVnd: Math.round(Number(row.api_cost_usd) * env.usdToVnd),
         tokenCost: row.token_cost,
-        // Giá bán khi khách dùng token mua thêm = số token × 2đ.
+        // Giá bán khi khách dùng điểm mua thêm = số điểm × 2đ.
         sellPriceVnd: row.token_cost * TOKEN_SELL_PRICE_VND,
         marginPercent: (() => {
           const sell = row.token_cost * TOKEN_SELL_PRICE_VND;
@@ -652,7 +652,7 @@ adminRouter.post(
         requireString(req.body, 'family', { label: 'Nhóm model', max: 80 }),
         requireString(req.body, 'resolution', { label: 'Độ phân giải', max: 16 }),
         Number(req.body.apiCostUsd) || 0,
-        requireInt(req.body, 'tokenCost', { min: 1, label: 'Số token' }),
+        requireInt(req.body, 'tokenCost', { min: 1, label: 'Số điểm' }),
         Number(req.body.sortOrder) || 0,
         optionalString(req.body, 'notes', 255),
       ],
@@ -759,7 +759,7 @@ adminRouter.post(
         requireString(req.body, 'code', { label: 'Mã gói', max: 50 }).toUpperCase(),
         requireString(req.body, 'name', { label: 'Tên gói', max: 120 }),
         requireInt(req.body, 'priceVnd', { min: 1000, label: 'Giá nạp' }),
-        requireInt(req.body, 'baseTokens', { min: 1, label: 'Token cơ bản' }),
+        requireInt(req.body, 'baseTokens', { min: 1, label: 'Điểm cơ bản' }),
         Number(req.body.bonusTokens) || 0,
         optionalString(req.body, 'description', 255),
         Number(req.body.sortOrder) || 0,
@@ -786,7 +786,7 @@ adminRouter.get(
         priceVnd: row.price_vnd,
         pricePerMonthVnd: Math.round(row.price_vnd / row.months),
         monthlyTokenAllowance: row.monthly_token_allowance,
-        // Hạn mức quy ra tiền vốn: 1 token = 1đ giá vốn
+        // Hạn mức quy ra tiền vốn: 1 điểm = 1đ giá vốn
         allowanceCostVnd: row.monthly_token_allowance,
         description: row.description,
         isPopular: Boolean(row.is_popular),

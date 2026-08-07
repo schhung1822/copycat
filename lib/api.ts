@@ -38,7 +38,7 @@ export class ApiError extends Error {
     this.details = details;
   }
 
-  /** Hết token — dùng để hiện nút "Nạp thêm" thay vì báo lỗi chung chung. */
+  /** Hết điểm — dùng để hiện nút "Nạp thêm" thay vì báo lỗi chung chung. */
   get isInsufficientTokens(): boolean {
     return this.code === 'insufficient_tokens';
   }

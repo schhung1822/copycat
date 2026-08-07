@@ -111,11 +111,11 @@ export const StatsStrip: React.FC = () => (
       <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-dark-900 to-transparent" />
     </div>
 
-    <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 py-10 sm:px-6 lg:grid-cols-4">
-      <Stat value={500000} label="Token trong hạn mức mỗi tháng, cấp lại đều đặn" />
-      <Stat value={595} prefix="~" suffix=" ảnh" label="Số ảnh GPT Image 2 – 1K tạo được trong một tháng" />
-      <Stat value={3} suffix=" model" label="Nano Banana Pro, Nano Banana 2, GPT Image 2" />
-      <Stat value={11} suffix=" tỉ lệ" label="Từ 1:1 tới 21:9, hoặc để AI tự chọn theo ảnh mẫu" />
+    <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-4 gap-y-7 px-4 py-8 sm:gap-6 sm:py-10 sm:px-6 lg:grid-cols-4">
+      <Stat value={500000} label="Điểm trong hạn mức mỗi tháng, cấp lại đều đặn" />
+      <Stat value={300} prefix="~" suffix=" ảnh" label="Số ảnh Nano Banana 2 – 2K tạo được trong một tháng" />
+      <Stat value={3} suffix=" model" label="Tạo ảnh được ưu chuộng nhiều nhất từ GPT và Gemini" />
+      <Stat value={11} suffix=" tỉ lệ" label="Phù hợp cho các kênh social và các sàn TMDT" />
     </div>
   </section>
 );

@@ -121,8 +121,8 @@ export const PricingTab: React.FC = () => {
           <h2 className="font-bold text-gray-100">Gói dịch vụ theo tháng</h2>
           <p className="text-xs text-gray-500 mt-1">
             Khách bắt buộc mua gói này trước khi tạo ảnh. <strong>Hạn mức</strong> được cấp lại mỗi tháng và không cộng
-            dồn, kể cả khi mua chu kỳ dài. 1 token = 1đ giá vốn, nên hạn mức 500.000 token đúng bằng 500.000đ tiền
-            token theo giá gốc.
+            dồn, kể cả khi mua chu kỳ dài. 1 điểm = 1đ giá vốn, nên hạn mức 500.000 điểm đúng bằng 500.000đ tiền
+            điểm theo giá gốc.
           </p>
         </div>
 
@@ -200,7 +200,7 @@ export const PricingTab: React.FC = () => {
           <h2 className="font-bold text-gray-100">Bảng giá model</h2>
           <p className="text-xs text-gray-500 mt-1">
             <strong>Giá vốn</strong> là giá nhà cung cấp thu mỗi ảnh (theo bảng giá Kie.ai).{' '}
-            <strong>Token thu</strong> là số token trừ của khách. Sửa trực tiếp trong ô rồi bấm ra ngoài để lưu.
+            <strong>Điểm thu</strong> là số điểm trừ của khách. Sửa trực tiếp trong ô rồi bấm ra ngoài để lưu.
           </p>
         </div>
 
@@ -212,7 +212,7 @@ export const PricingTab: React.FC = () => {
               <th className="text-left font-bold py-2">Độ phân giải</th>
               <th className="text-right font-bold py-2">Giá vốn (USD)</th>
               <th className="text-right font-bold py-2">≈ VNĐ</th>
-              <th className="text-right font-bold py-2">Token thu</th>
+              <th className="text-right font-bold py-2">Điểm thu</th>
               <th className="text-right font-bold py-2">Giá bán</th>
               <th className="text-right font-bold py-2">Biên</th>
               <th className="text-center font-bold py-2">Bán</th>
@@ -269,16 +269,16 @@ export const PricingTab: React.FC = () => {
 
         <p className="text-[11px] text-gray-600 mt-3">
           Tỉ giá quy đổi hiện tại: 1 USD = {formatVnd(usdToVnd)} (sửa bằng <code>USD_TO_VND</code> trong <code>.env</code>).
-          Giá bán = số token × 100đ.
+          Giá bán = số điểm × 100đ.
         </p>
       </Card>
 
       <Card className="p-5">
         <div className="mb-4">
-          <h2 className="font-bold text-gray-100">Gói token lẻ</h2>
+          <h2 className="font-bold text-gray-100">Gói điểm lẻ</h2>
           <p className="text-xs text-gray-500 mt-1">
             Dành cho khách đã dùng hết hạn mức tháng. Quy tắc định giá: bán <strong>gấp đôi giá vốn</strong>, tức số
-            token nhận được bằng nửa số tiền nạp. Token mua thêm không hết hạn theo chu kỳ tháng.
+            điểm nhận được bằng nửa số tiền nạp. Điểm mua thêm không hết hạn theo chu kỳ tháng.
           </p>
         </div>
 
@@ -288,10 +288,10 @@ export const PricingTab: React.FC = () => {
               <th className="text-left font-bold py-2">Mã</th>
               <th className="text-left font-bold py-2">Tên gói</th>
               <th className="text-right font-bold py-2">Giá nạp</th>
-              <th className="text-right font-bold py-2">Token cơ bản</th>
-              <th className="text-right font-bold py-2">Token thưởng</th>
+              <th className="text-right font-bold py-2">Điểm cơ bản</th>
+              <th className="text-right font-bold py-2">Điểm thưởng</th>
               <th className="text-right font-bold py-2">Tổng nhận</th>
-              <th className="text-right font-bold py-2">Giá/token</th>
+              <th className="text-right font-bold py-2">Giá/điểm</th>
               <th className="text-center font-bold py-2">Nổi bật</th>
               <th className="text-center font-bold py-2">Bán</th>
             </tr>

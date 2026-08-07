@@ -30,19 +30,13 @@ const FEATURES = [
     icon: 'M8 4h11a1 1 0 011 1v11M5 8h11a1 1 0 011 1v10a1 1 0 01-1 1H5a1 1 0 01-1-1V9a1 1 0 011-1z',
   },
   {
-    title: 'Ảnh 4K, in ấn được',
-    body: 'Ba mức 1K / 2K / 4K. Thử ý tưởng ở 1K cho tiết kiệm, chốt bản cuối ở 4K để đưa nhà in.',
+    title: 'Làm nét & Tái tạo sản phẩm',
+    body: 'Tăng cường độ sắc nét cho ảnh mờ nhòe, hoặc yêu cầu hệ thống vẽ lại sản phẩm sang một định dạng hoàn toàn mới theo nhu cầu.',
     icon: 'M4 8V5a1 1 0 011-1h3m8 0h3a1 1 0 011 1v3m0 8v3a1 1 0 01-1 1h-3m-8 0H5a1 1 0 01-1-1v-3',
   },
   {
-    title: 'Ví token minh bạch từng lượt',
-    body: 'Mỗi lần tạo ảnh đều có dòng sao kê riêng: model nào, hết bao nhiêu token, trừ từ hạn mức tháng hay token mua thêm.',
-    icon: 'M3 8a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm13 4h2',
-    span: 'lg:col-span-2',
-  },
-  {
-    title: 'Ảnh lỗi tự hoàn token',
-    body: 'Nhà cung cấp trả về lỗi thì hệ thống hoàn lại đúng số token đã trừ, không cần nhắn tin khiếu nại.',
+    title: 'Ảnh lỗi tự hoàn điểm',
+    body: 'Nhà cung cấp trả về lỗi thì hệ thống hoàn lại đúng số điểm đã trừ, không cần nhắn tin khiếu nại.',
     icon: 'M4 4v6h6M20 20v-6h-6M4.6 15a8 8 0 0014-3M19.4 9A8 8 0 005 12',
   },
   {
@@ -51,9 +45,10 @@ const FEATURES = [
     icon: 'M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z',
   },
   {
-    title: 'Chế độ sáng và tối',
-    body: 'Bảng màu được kiểm tra độ tương phản ở cả hai chế độ, làm khuya cũng không mỏi mắt.',
-    icon: 'M12 3v2m0 14v2M5.6 5.6l1.4 1.4m10 10l1.4 1.4M3 12h2m14 0h2M5.6 18.4l1.4-1.4m10-10l1.4-1.4M16 12a4 4 0 11-8 0 4 4 0 018 0z',
+    title: 'Ví điểm minh bạch từng lượt',
+    body: 'Mỗi lần tạo ảnh đều có dòng sao kê riêng: model nào, hết bao nhiêu điểm, trừ từ hạn mức tháng hay điểm mua thêm.',
+    icon: 'M3 8a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm13 4h2',
+    span: 'lg:col-span-2',
   },
 ];
 
@@ -62,7 +57,7 @@ const FEATURES = [
  * tám ô đều tăm tắp. Ô rộng dành cho hai tính năng bán hàng mạnh nhất.
  */
 export const Features: React.FC = () => (
-  <section id="tinh-nang" className="scroll-mt-20 border-y border-dark-800 bg-dark-900/40 py-20 sm:py-28">
+  <section id="tinh-nang" className="scroll-mt-20 border-y border-dark-800 bg-dark-900/40 py-14 sm:py-20 lg:py-28">
     <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
       <SectionHeading
         eyebrow="Tính năng"
@@ -70,12 +65,12 @@ export const Features: React.FC = () => (
         description="Không phải một hộp chat chung chung. Từng chức năng ở đây sinh ra cho đúng một việc: ra ảnh sản phẩm dùng được."
       />
 
-      <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-10 grid sm:mt-14 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map((feature, index) => (
           <Reveal
             key={feature.title}
             delay={(index % 3) * 90}
-            className={`group relative overflow-hidden rounded-2xl border border-dark-800 bg-dark-900 p-6 transition-all duration-300 hover:-translate-y-1 hover:border-brand-500/30 hover:shadow-2xl hover:shadow-black/15 ${
+            className={`group relative overflow-hidden rounded-2xl border border-dark-800 bg-dark-900 p-5 transition-all sm:p-6 duration-300 hover:-translate-y-1 hover:border-brand-500/30 hover:shadow-2xl hover:shadow-black/15 ${
               feature.span ?? ''
             }`}
           >

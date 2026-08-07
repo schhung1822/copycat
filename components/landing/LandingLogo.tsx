@@ -24,6 +24,13 @@ export const LandingLogo: React.FC<{ className?: string }> = ({ className = '' }
         />
       </svg>
     </span>
-    <span className="text-[15px] font-bold tracking-tight text-gray-100">Design Copycat AI</span>
+    {/*
+      Ẩn tên dưới 380px: ở bề ngang đó, giữ cả tên lẫn nút kêu gọi thì một trong
+      hai bị tràn ra ngoài. Biểu tượng đã đủ để nhận ra thương hiệu và vẫn bấm về
+      đầu trang được.
+    */}
+    <span className="hidden text-[15px] font-bold tracking-tight text-gray-100 min-[380px]:block">
+      Design Copycat AI
+    </span>
   </Link>
 );

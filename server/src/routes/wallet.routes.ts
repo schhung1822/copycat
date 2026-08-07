@@ -10,7 +10,7 @@ export const walletRouter = Router();
 
 walletRouter.use(requireAuth);
 
-/** Số dư + thống kê nhanh của ví token. */
+/** Số dư + thống kê nhanh của ví điểm. */
 walletRouter.get(
   '/',
   asyncHandler(async (req, res) => {
@@ -32,7 +32,7 @@ walletRouter.get(
     );
 
     res.json({
-      // Tổng dùng được ngay = hạn mức tháng còn lại + token đã mua thêm
+      // Tổng dùng được ngay = hạn mức tháng còn lại + điểm đã mua thêm
       tokenBalance: state.availableTokens,
       monthlyTokens: state.monthlyTokens,
       monthlyAllowance: state.monthlyAllowance,
@@ -50,7 +50,7 @@ walletRouter.get(
   }),
 );
 
-/** Sao kê biến động token. */
+/** Sao kê biến động điểm. */
 walletRouter.get(
   '/transactions',
   asyncHandler(async (req, res) => {

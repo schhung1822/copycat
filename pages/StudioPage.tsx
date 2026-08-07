@@ -12,7 +12,7 @@ import type { Catalog, Generation, ImageState, ModelOption } from '../types';
 /**
  * `auto` để model tự chọn tỉ lệ hợp lý theo ảnh mẫu — đây là lựa chọn mặc định vì
  * giữ được bố cục gốc của ảnh mẫu tốt nhất. Không phải model nào cũng nhận hết
- * danh sách này; server sẽ báo lỗi rõ ràng trước khi trừ token nếu không hợp lệ.
+ * danh sách này; server sẽ báo lỗi rõ ràng trước khi trừ điểm nếu không hợp lệ.
  */
 const ASPECT_RATIOS: { value: string; label: string }[] = [
   { value: 'auto', label: 'Tự động (theo ảnh mẫu)' },
@@ -31,9 +31,9 @@ const POLL_INTERVAL_MS = 3000;
 const SETTINGS_KEY = 'copycat-studio-settings-v3';
 
 /**
- * Mô tả ngắn giúp khách chọn model, thay cho việc hiện số token.
+ * Mô tả ngắn giúp khách chọn model, thay cho việc hiện số điểm.
  *
- * Cố ý KHÔNG nói về giá hay token: khách đã trả tiền theo gói tháng, việc của họ
+ * Cố ý KHÔNG nói về giá hay điểm: khách đã trả tiền theo gói tháng, việc của họ
  * ở màn này là chọn model hợp nhu cầu chứ không phải tính tiền.
  *
  * Khoá theo `family` trong bảng giá. Model mới chưa có mô tả thì chỉ hiện tên,
@@ -113,7 +113,7 @@ export const StudioPage: React.FC = () => {
          * áo hiện luôn ảnh giày đang chạy ở tab bên cạnh.
          *
          * Đọc lại số dư cùng lúc vì đây là trang duy nhất chặn thao tác dựa trên
-         * số token, không được phép dùng giá trị đã cũ trong bộ nhớ.
+         * số điểm, không được phép dùng giá trị đã cũ trong bộ nhớ.
          */
         const [catalogData, runningData, walletData] = await Promise.all([
           api.get<Catalog>('/catalog'),
@@ -193,7 +193,7 @@ export const StudioPage: React.FC = () => {
   /**
    * Hạn mức còn lại quy ra số ảnh ở mức chất lượng đang chọn.
    *
-   * Màn này không nói chuyện token, nhưng vẫn phải cho khách biết còn tạo được
+   * Màn này không nói chuyện điểm, nhưng vẫn phải cho khách biết còn tạo được
    * bao nhiêu — nếu không, việc bị chặn ở nút "Tạo" sẽ đến rất bất ngờ.
    */
   const remainingImages =
@@ -475,8 +475,8 @@ export const StudioPage: React.FC = () => {
         <div className="p-5 border-t border-dark-800 bg-dark-900 space-y-3">
           {error && (
             <Alert tone="error">
-              {/* Lỗi hết hạn mức từ server có kèm số token; ở màn này không nói
-                  chuyện token nên thay bằng câu ngắn gọn của giao diện. */}
+              {/* Lỗi hết hạn mức từ server có kèm số điểm; ở màn này không nói
+                  chuyện điểm nên thay bằng câu ngắn gọn của giao diện. */}
               {error instanceof ApiError && error.isInsufficientTokens
                 ? 'Hạn mức tháng của bạn không còn đủ cho số ảnh này.'
                 : error.message}

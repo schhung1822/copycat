@@ -27,27 +27,27 @@ const SAMPLES: Sample[] = [
     },
   },
   {
-    label: 'Mỹ phẩm',
+    label: 'Nữ',
     reference: { src: '/img/mau2.webp', alt: 'Ảnh mẫu ngành mỹ phẩm' },
     product: { src: '/img/ao2.webp', alt: 'Ảnh sản phẩm mỹ phẩm' },
     result: { src: '/img/kq2.webp', alt: 'Ảnh kết quả ngành mỹ phẩm' },
     post: {
-      page: 'Tên shop của bạn',
-      caption: 'Viết nội dung bài đăng mẫu của ngành hàng này vào đây.',
-      domain: 'tenshop.com',
-      headline: 'Tên sản phẩm — dòng mô tả ngắn',
+      page: 'Thời trang nữ',
+      caption: 'Outfit này mặc đi làm, đi cà phê hay dạo phố đều rất hợp cho các bạn nữ.',
+      domain: 'thoitrangnu.com',
+      headline: 'Set đồ nữ đẹp',
     },
   },
   {
-    label: 'Đồ gia dụng',
+    label: 'Poster',
     reference: { src: '/img/kq3.webp', alt: 'Ảnh mẫu ngành đồ gia dụng' },
     product: { src: '/img/ao.webp', alt: 'Ảnh sản phẩm đồ gia dụng' },
     result: { src: '/img/mau3.webp', alt: 'Ảnh kết quả ngành đồ gia dụng' },
     post: {
-      page: 'Tên shop của bạn',
-      caption: 'Viết nội dung bài đăng mẫu của ngành hàng này vào đây.',
-      domain: 'tenshop.com',
-      headline: 'Tên sản phẩm — dòng mô tả ngắn',
+      page: 'Thời trang thể thao',
+      caption: '🏸 Bộ sưu tập Tennis: Áo nhẹ bay, đánh thật hay.',
+      domain: 'dothethao.com',
+      headline: 'Set đồ thể thao Tennis',
     },
   },
 ];
@@ -212,7 +212,12 @@ const AiConnector: React.FC = () => (
 /** Một mẫu: hai ảnh đầu vào → cầu nối AI → bài đăng chứa ảnh kết quả. */
 const SampleSlide: React.FC<{ sample: Sample }> = ({ sample }) => (
   <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-3">
-    <div className="flex w-full gap-3 sm:w-[8.25rem] sm:flex-col md:w-[9rem]">
+    {/*
+      Trên mobile hai ảnh đầu vào nằm ngang và bị khoá cùng bề rộng với thẻ bài
+      đăng bên dưới. Không khoá thì chúng chiếm trọn bề ngang màn hình, to hơn
+      hẳn kết quả — đúng ngược với thứ tự quan trọng mà hình này muốn kể.
+    */}
+    <div className="mx-auto flex w-full max-w-[17rem] gap-2.5 sm:mx-0 sm:w-[8.25rem] sm:max-w-none sm:flex-col sm:gap-3 md:w-[9rem]">
       <InputCard step={1} label="Ảnh mẫu" image={sample.reference} />
       <InputCard step={2} label="Sản phẩm" image={sample.product} />
     </div>

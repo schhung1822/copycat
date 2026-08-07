@@ -50,7 +50,7 @@ async function writeLedger(conn: PoolConnection, entry: LedgerEntry): Promise<nu
   return result.insertId;
 }
 
-/** Số token đã lấy từ mỗi nguồn cho một lần chi. */
+/** Số điểm đã lấy từ mỗi nguồn cho một lần chi. */
 export interface TokenSplit {
   monthly: number;
   purchased: number;
@@ -62,10 +62,10 @@ export interface SpendResult {
 }
 
 /**
- * Trừ token cho một lần tạo ảnh.
+ * Trừ điểm cho một lần tạo ảnh.
  *
- * Thứ tự: **tiêu hạn mức tháng trước, token mua thêm sau**. Hạn mức tháng bị xoá
- * khi sang chu kỳ mới nên tiêu trước là có lợi cho khách; token mua thêm không hết
+ * Thứ tự: **tiêu hạn mức tháng trước, điểm mua thêm sau**. Hạn mức tháng bị xoá
+ * khi sang chu kỳ mới nên tiêu trước là có lợi cho khách; điểm mua thêm không hết
  * hạn nên để dành.
  *
  * Bắt buộc gọi trong transaction. `lockAccountState` đã khoá dòng users và cấp lại
@@ -78,7 +78,7 @@ export async function spendTokens(
   description: string,
   refId: number | null = null,
 ): Promise<SpendResult> {
-  if (!Number.isInteger(amount) || amount <= 0) throw badRequest('Số token không hợp lệ.');
+  if (!Number.isInteger(amount) || amount <= 0) throw badRequest('Số điểm không hợp lệ.');
 
   const state = await lockAccountState(conn, userId);
   requireSubscription(state);
@@ -86,7 +86,7 @@ export async function spendTokens(
   if (state.availableTokens < amount) {
     throw new AppError(
       402,
-      `Không đủ token. Cần ${amount.toLocaleString('vi-VN')}, hiện có ${state.availableTokens.toLocaleString('vi-VN')} ` +
+      `Không đủ điểm. Cần ${amount.toLocaleString('vi-VN')}, hiện có ${state.availableTokens.toLocaleString('vi-VN')} ` +
         `(hạn mức tháng ${state.monthlyTokens.toLocaleString('vi-VN')} + đã mua thêm ${state.purchasedTokens.toLocaleString('vi-VN')}).`,
       'insufficient_tokens',
       {
@@ -140,11 +140,11 @@ export async function spendTokens(
 }
 
 /**
- * Hoàn token khi tạo ảnh thất bại, trả về đúng nguồn đã lấy.
+ * Hoàn điểm khi tạo ảnh thất bại, trả về đúng nguồn đã lấy.
  *
  * Phần hạn mức tháng bị chặn không cho vượt quá hạn mức của gói: nếu ảnh lỗi sau
  * khi đã sang chu kỳ mới thì khách đã được cấp lại hạn mức đầy, hoàn thêm nữa là
- * cấp khống. Phần token mua thêm luôn được hoàn đủ vì đó là tiền thật khách bỏ ra.
+ * cấp khống. Phần điểm mua thêm luôn được hoàn đủ vì đó là tiền thật khách bỏ ra.
  */
 export async function refundTokens(
   conn: PoolConnection,
@@ -196,7 +196,7 @@ export async function refundTokens(
 }
 
 /**
- * Cộng token vào nguồn "mua thêm" — dùng cho đơn mua gói token lẻ và cho thao tác
+ * Cộng điểm vào nguồn "mua thêm" — dùng cho đơn mua gói điểm lẻ và cho thao tác
  * admin điều chỉnh tay. Nguồn này không hết hạn theo chu kỳ tháng.
  */
 export async function creditPurchasedTokens(
@@ -212,7 +212,7 @@ export async function creditPurchasedTokens(
   },
 ): Promise<{ balanceAfter: number; ledgerId: number }> {
   const { userId, amount } = input;
-  if (!Number.isInteger(amount) || amount === 0) throw badRequest('Số token không hợp lệ.');
+  if (!Number.isInteger(amount) || amount === 0) throw badRequest('Số điểm không hợp lệ.');
 
   const [rows] = await conn.query<(RowDataPacket & { token_balance: number })[]>(
     'SELECT token_balance FROM users WHERE id = ? FOR UPDATE',
@@ -224,7 +224,7 @@ export async function creditPurchasedTokens(
   if (balanceAfter < 0) {
     throw new AppError(
       402,
-      `Không đủ token đã mua để trừ. Hiện có ${rows[0].token_balance.toLocaleString('vi-VN')}, cần ${Math.abs(amount).toLocaleString('vi-VN')}.`,
+      `Không đủ điểm đã mua để trừ. Hiện có ${rows[0].token_balance.toLocaleString('vi-VN')}, cần ${Math.abs(amount).toLocaleString('vi-VN')}.`,
       'insufficient_tokens',
     );
   }
@@ -248,14 +248,14 @@ export const creditPurchasedStandalone = (input: Parameters<typeof creditPurchas
  * Cộng / trừ **hạn mức tháng** thủ công (thao tác admin).
  *
  * Tách riêng khỏi `creditPurchasedTokens` vì hai nguồn có ý nghĩa khác hẳn nhau:
- * hạn mức tháng bị xoá khi sang chu kỳ mới, còn token mua thêm là tiền thật khách
+ * hạn mức tháng bị xoá khi sang chu kỳ mới, còn điểm mua thêm là tiền thật khách
  * đã trả. Cộng nhầm nguồn là hoặc cho không khách một khoản không bao giờ mất hạn,
  * hoặc thu hồi mất tiền khách đã mua.
  *
  * Chặn vượt trần `monthly_allowance`: cấp quá hạn mức của gói thì con số trên giao
  * diện khách ("còn 700.000 / 500.000") vô nghĩa, và sang chu kỳ sau phần dư biến mất
  * không dấu vết. Muốn cho khách nhiều hơn thì nâng hạn mức của gói, hoặc cộng vào
- * nguồn token mua thêm.
+ * nguồn điểm mua thêm.
  */
 export async function adjustMonthlyTokens(
   conn: PoolConnection,
@@ -267,7 +267,7 @@ export async function adjustMonthlyTokens(
   },
 ): Promise<{ balanceAfter: number; ledgerId: number }> {
   const { userId, amount } = input;
-  if (!Number.isInteger(amount) || amount === 0) throw badRequest('Số token không hợp lệ.');
+  if (!Number.isInteger(amount) || amount === 0) throw badRequest('Số điểm không hợp lệ.');
 
   const state = await lockAccountState(conn, userId);
   const balanceAfter = state.monthlyTokens + amount;
@@ -282,8 +282,8 @@ export async function adjustMonthlyTokens(
   }
   if (balanceAfter > state.monthlyAllowance) {
     throw badRequest(
-      `Hạn mức tháng không được vượt quá ${state.monthlyAllowance.toLocaleString('vi-VN')} token của gói. ` +
-        'Hãy nâng hạn mức của gói, hoặc cộng vào nguồn token mua thêm.',
+      `Hạn mức tháng không được vượt quá ${state.monthlyAllowance.toLocaleString('vi-VN')} điểm của gói. ` +
+        'Hãy nâng hạn mức của gói, hoặc cộng vào nguồn điểm mua thêm.',
     );
   }
 

@@ -1,7 +1,7 @@
 # Design Copycat AI
 
-Nền tảng tạo ảnh marketing bằng AI theo mô hình **trả trước bằng token**: khách đăng ký tài
-khoản → nạp tiền qua chuyển khoản → nhận token → dùng token để tạo ảnh.
+Nền tảng tạo ảnh marketing bằng AI theo mô hình **trả trước bằng điểm**: khách đăng ký tài
+khoản → nạp tiền qua chuyển khoản → nhận điểm → dùng điểm để tạo ảnh.
 
 Trước đây ứng dụng chỉ có phần web gọi thẳng API Kie.ai bằng key nhúng sẵn trong mã nguồn.
 Bản này bổ sung backend, cơ sở dữ liệu và toàn bộ luồng kinh doanh; API key của nhà cung cấp
@@ -42,7 +42,7 @@ cookie đăng nhập hoạt động bình thường.
 | `ADMIN_EMAILS` | Email được quyền admin, cách nhau bằng dấu phẩy |
 | `KIE_API_KEY` | API key Kie.ai của bạn |
 | `BANK_CODE` `BANK_ACCOUNT_NUMBER` `BANK_ACCOUNT_NAME` | Tài khoản nhận tiền, dùng để sinh mã QR VietQR |
-| `SEPAY_WEBHOOK_API_KEY` *hoặc* `CASSO_WEBHOOK_SECURE_TOKEN` | Để cộng token tự động khi ngân hàng báo có |
+| `SEPAY_WEBHOOK_API_KEY` *hoặc* `CASSO_WEBHOOK_SECURE_TOKEN` | Để cộng điểm tự động khi ngân hàng báo có |
 
 Chưa cấu hình webhook thì hệ thống vẫn chạy được — đơn nạp sẽ chờ admin duyệt tay trong bảng
 điều khiển. Server in cảnh báo cho từng mục còn thiếu khi khởi động.
@@ -243,8 +243,8 @@ Admin vào mục **Quản trị** trên thanh điều hướng, gồm 4 tab:
 |---|---|
 | Tổng quan | Doanh thu, chi phí vốn, lợi nhuận gộp, số khách, tỉ lệ ảnh thành công, biểu đồ theo ngày, hiệu quả từng model, top khách hàng |
 | Đơn nạp | Lọc theo trạng thái, tìm theo mã đơn/email, duyệt tay, huỷ đơn |
-| Khách hàng | Xem và sửa hồ sơ, thời hạn gói, hạn mức, mật khẩu; cộng–trừ token theo từng nguồn |
-| Bảng giá & gói nạp | Sửa trực tiếp giá vốn, số token thu, slug model, giá gói, token thưởng |
+| Khách hàng | Xem và sửa hồ sơ, thời hạn gói, hạn mức, mật khẩu; cộng–trừ điểm theo từng nguồn |
+| Bảng giá & gói nạp | Sửa trực tiếp giá vốn, số điểm thu, slug model, giá gói, điểm thưởng |
 
 ### Sửa thông tin khách hàng
 
@@ -256,10 +256,10 @@ Nút **Sửa** ở tab Khách hàng mở form gồm:
 | Gói &amp; hạn mức | Ngày hết hạn gói, hạn mức mỗi tháng, thời điểm cấp lại hạn mức |
 | Bảo mật | Đặt lại mật khẩu (tối thiểu 8 ký tự) |
 
-Nút **Token** cộng/trừ token và **bắt buộc chọn nguồn**, vì hai nguồn không thay thế cho nhau
-được — hạn mức tháng bị xoá khi sang chu kỳ mới, còn token mua thêm là tiền thật khách đã trả:
+Nút **Điểm** cộng/trừ điểm và **bắt buộc chọn nguồn**, vì hai nguồn không thay thế cho nhau
+được — hạn mức tháng bị xoá khi sang chu kỳ mới, còn điểm mua thêm là tiền thật khách đã trả:
 
-- **Token mua thêm** (mặc định) — không hết hạn. Dùng cho đền bù, khuyến mãi.
+- **Điểm mua thêm** (mặc định) — không hết hạn. Dùng cho đền bù, khuyến mãi.
 - **Hạn mức tháng** — không cộng vượt quá hạn mức của gói, vì phần dư sẽ biến mất không dấu
   vết ở chu kỳ sau và con số "600.000 / 500.000" trên màn hình khách là vô nghĩa.
 
@@ -286,32 +286,32 @@ Ba thứ **không** sửa được từ giao diện, do thiết kế:
 ## 3. Mô hình kinh doanh
 
 Khách **bắt buộc mua gói thuê bao theo tháng** trước khi dùng dịch vụ. Gói tháng đã bao gồm
-chi phí duy trì, nhân sự và một hạn mức token dùng trong tháng. Dùng hết hạn mức thì mua thêm
-gói token lẻ.
+chi phí duy trì, nhân sự và một hạn mức điểm dùng trong tháng. Dùng hết hạn mức thì mua thêm
+gói điểm lẻ.
 
-### Đơn vị token
+### Đơn vị điểm
 
-> **1 token = 1đ giá vốn nhà cung cấp.**
+> **1 điểm = 1đ giá vốn nhà cung cấp.**
 
 Đây là điểm mấu chốt để mọi con số khớp nhau:
 
 | Khái niệm | Cách tính | Kết quả |
 |---|---|---|
-| Hạn mức tháng | 500.000đ tiền token theo giá gốc | **500.000 token** |
-| Token tiêu hao mỗi ảnh | `api_cost_usd × USD_TO_VND` | GPT 1K = 840 · Pro 4K = 3.360 |
-| Gói token lẻ | khách chỉ nhận **một nửa** lượng token so với số tiền bỏ ra tính theo giá vốn | 499.000đ → **250.000 token** |
+| Hạn mức tháng | 500.000đ tiền điểm theo giá gốc | **500.000 điểm** |
+| Điểm tiêu hao mỗi ảnh | `api_cost_usd × USD_TO_VND` | GPT 1K = 840 · Pro 4K = 3.360 |
+| Gói điểm lẻ | khách chỉ nhận **một nửa** lượng điểm so với số tiền bỏ ra tính theo giá vốn | 499.000đ → **250.000 điểm** |
 
-Khách trả 1.500.000đ/tháng nhưng chỉ được cấp 500.000đ tiền token theo giá vốn — phần chênh
+Khách trả 1.500.000đ/tháng nhưng chỉ được cấp 500.000đ tiền điểm theo giá vốn — phần chênh
 lệch là chi phí duy trì, nhân sự và lợi nhuận.
 
-### Hai nguồn token, tiêu theo thứ tự
+### Hai nguồn điểm, tiêu theo thứ tự
 
 | Nguồn | Nguồn gốc | Hết hạn |
 |---|---|---|
 | **Hạn mức tháng** | Kèm theo gói thuê bao, cấp lại đầu mỗi chu kỳ tháng | **Có** — không cộng dồn, sang tháng mới là mất |
-| **Token mua thêm** | Khách bỏ tiền mua gói lẻ | Không |
+| **Điểm mua thêm** | Khách bỏ tiền mua gói lẻ | Không |
 
-Khi tạo ảnh, hệ thống **trừ hạn mức tháng trước**, cạn mới dùng tới token đã mua. Thứ tự này
+Khi tạo ảnh, hệ thống **trừ hạn mức tháng trước**, cạn mới dùng tới điểm đã mua. Thứ tự này
 có lợi cho khách: phần sắp hết hạn được tiêu trước, phần đã trả tiền được để dành.
 
 ### Luồng hoạt động
@@ -328,20 +328,20 @@ Mua gói tháng (1 / 3 / 6 / 12 tháng) ──► Tạo đơn (mã NAPxxxxxx) �
         │                                              │
         │                              khớp mã đơn ────┤
         │                                              ▼
-        │                          Kích hoạt gói + cấp 500.000 token hạn mức
+        │                          Kích hoạt gói + cấp 500.000 điểm hạn mức
         │                                              │
         │      ┌───────────────────────────────────────┤
         │      ▼                                       ▼
-        │  Hết hạn mức?                    Tạo ảnh ──► Trừ token
+        │  Hết hạn mức?                    Tạo ảnh ──► Trừ điểm
         │      │                                       │  (hạn mức tháng trước,
-        │      ▼                                       │   token mua thêm sau)
-        └─ Mua gói token lẻ ──► Cộng token             ▼
+        │      ▼                                       │   điểm mua thêm sau)
+        └─ Mua gói điểm lẻ ──► Cộng điểm             ▼
            (không hết hạn)              ┌──────────────┴──────────────┐
                                      thành công                     lỗi
                                         │                            │
                           Tải ảnh về server              Hoàn đúng nguồn đã trừ
 
-        Đầu chu kỳ tháng mới ──► Xoá hạn mức thừa ──► Cấp lại 500.000 token
+        Đầu chu kỳ tháng mới ──► Xoá hạn mức thừa ──► Cấp lại 500.000 điểm
 ```
 
 ### Bảng giá gói thuê bao
@@ -353,7 +353,7 @@ Mua gói tháng (1 / 3 / 6 / 12 tháng) ──► Tạo đơn (mã NAPxxxxxx) �
 | 6 tháng | 9.000.000đ | **8.100.000đ** | 1.350.000đ | 10% |
 | 12 tháng | 18.000.000đ | **15.300.000đ** | 1.275.000đ | 15% |
 
-Mua chu kỳ dài **không** cấp nhiều hạn mức hơn một lần: hạn mức vẫn là 500.000 token và vẫn
+Mua chu kỳ dài **không** cấp nhiều hạn mức hơn một lần: hạn mức vẫn là 500.000 điểm và vẫn
 được cấp lại theo từng tháng. Chu kỳ dài chỉ rẻ hơn và khỏi phải gia hạn thường xuyên.
 
 ### Nâng lên gói cao hơn
@@ -399,48 +399,48 @@ Lưu ý "Gia hạn thêm N tháng": khi đã có gói, bấm một thẻ **khôn
 đắt hơn nó thì server **nối thêm đúng số tháng của thẻ đó** vào ngày hết hạn hiện tại, giữ
 nguyên hạn mức của gói đang dùng — chứ không chuyển sang gói rẻ hơn.
 
-> Lưu ý về vận hành: khấu trừ tính theo **ngày**, không theo token đã dùng. Khách tiêu hết
+> Lưu ý về vận hành: khấu trừ tính theo **ngày**, không theo điểm đã dùng. Khách tiêu hết
 > hạn mức tháng rồi nâng gói ngay vẫn được khấu trừ gần như trọn vẹn và nhận thêm một hạn mức
-> mới. Với gói 1 tháng, mức thiệt tối đa khoảng 500.000đ tiền token theo giá vốn. Nếu muốn
+> mới. Với gói 1 tháng, mức thiệt tối đa khoảng 500.000đ tiền điểm theo giá vốn. Nếu muốn
 > chặn, sửa `computeUpgradeQuote` trong
 > [subscriptionService.ts](server/src/services/subscriptionService.ts) để lấy tỉ lệ nhỏ hơn
-> giữa "ngày còn lại" và "token còn lại".
+> giữa "ngày còn lại" và "điểm còn lại".
 
-### Bảng giá gói token lẻ
+### Bảng giá gói điểm lẻ
 
-Số token của mỗi gói neo theo hạn mức tháng cho khách dễ hình dung, giá bán làm tròn xuống
-mốc x99.000đ nên đơn giá luôn xấp xỉ 2đ/token (đúng quy tắc bán gấp đôi giá vốn).
+Số điểm của mỗi gói neo theo hạn mức tháng cho khách dễ hình dung, giá bán làm tròn xuống
+mốc x99.000đ nên đơn giá luôn xấp xỉ 2đ/điểm (đúng quy tắc bán gấp đôi giá vốn).
 
-| Gói | Token nhận | So với hạn mức tháng | Đơn giá |
+| Gói | Điểm nhận | So với hạn mức tháng | Đơn giá |
 |---|---|---|---|
-| 99.000đ | 50.000 | 1/10 | 1,98đ/token |
-| 199.000đ | 100.000 | 1/5 | 1,99đ/token |
-| **499.000đ** | **250.000** | **1/2** | 2,00đ/token |
-| 999.000đ | 500.000 | bằng đúng | 2,00đ/token |
-| 1.999.000đ | 1.000.000 | gấp đôi | 2,00đ/token |
+| 99.000đ | 50.000 | 1/10 | 1,98đ/điểm |
+| 199.000đ | 100.000 | 1/5 | 1,99đ/điểm |
+| **499.000đ** | **250.000** | **1/2** | 2,00đ/điểm |
+| 999.000đ | 500.000 | bằng đúng | 2,00đ/điểm |
+| 1.999.000đ | 1.000.000 | gấp đôi | 2,00đ/điểm |
 
-### Điểm quan trọng về tiền và token
+### Điểm quan trọng về tiền và điểm
 
-- **Chưa có gói thuê bao thì không tạo ảnh được, cũng không mua token lẻ được.** Token lẻ là
+- **Chưa có gói thuê bao thì không tạo ảnh được, cũng không mua điểm lẻ được.** Điểm lẻ là
   phần mua thêm cho khách đang dùng dịch vụ, không phải đường vòng để né gói tháng.
 - **Hạn mức tháng được cấp lại ngay lúc khách dùng tới** (lazy), không cần cron. Nhờ vậy số
   liệu luôn đúng kể cả khi server vừa khởi động lại hay dừng vài ngày.
 - **Gia hạn khi gói cũ còn hạn thì nối tiếp vào ngày hết hạn cũ**, khách không mất những ngày
   còn lại, và hạn mức đang dùng dở không bị reset.
-- **Hết hạn thuê bao: hạn mức tháng bị thu hồi, token đã mua thêm vẫn còn nguyên** — đó là tiền
+- **Hết hạn thuê bao: hạn mức tháng bị thu hồi, điểm đã mua thêm vẫn còn nguyên** — đó là tiền
   thật khách đã bỏ ra.
-- **Hoàn token khi ảnh lỗi trả về đúng nguồn đã trừ.** Phần hạn mức tháng bị chặn không cho
-  vượt quá hạn mức của gói, nên ảnh lỗi sau khi đã sang chu kỳ mới không tạo ra token khống.
+- **Hoàn điểm khi ảnh lỗi trả về đúng nguồn đã trừ.** Phần hạn mức tháng bị chặn không cho
+  vượt quá hạn mức của gói, nên ảnh lỗi sau khi đã sang chu kỳ mới không tạo ra điểm khống.
 
-- **Mọi biến động token đều được ghi vào bảng `token_transactions`** kèm số dư sau giao dịch.
+- **Mọi biến động điểm đều được ghi vào bảng `token_transactions`** kèm số dư sau giao dịch.
   Không có đường nào sửa `users.token_balance` mà không ghi sổ.
-- **Trừ token và cộng token chạy trong transaction có khoá dòng** (`SELECT ... FOR UPDATE`),
+- **Trừ điểm và cộng điểm chạy trong transaction có khoá dòng** (`SELECT ... FOR UPDATE`),
   nên hai request tạo ảnh song song không thể cùng đọc một số dư cũ rồi trừ đè lên nhau.
-- **Ảnh lỗi được hoàn token tự động.** Server khởi động lại giữa chừng cũng hoàn token cho các
+- **Ảnh lỗi được hoàn điểm tự động.** Server khởi động lại giữa chừng cũng hoàn điểm cho các
   ảnh đang dở dang, khách không bị treo tiền.
 - **Webhook chống cộng trùng** bằng khoá duy nhất `(provider, external_id)` trong bảng
-  `payment_events`, cộng với việc chỉ đơn ở trạng thái `pending` mới được cộng token. Cổng
-  thanh toán bắn lại giao dịch hay admin bấm duyệt hai lần đều không cộng token hai lần.
+  `payment_events`, cộng với việc chỉ đơn ở trạng thái `pending` mới được cộng điểm. Cổng
+  thanh toán bắn lại giao dịch hay admin bấm duyệt hai lần đều không cộng điểm hai lần.
 - **Chuyển khoản thiếu tiền không được cộng tự động** — đơn giữ nguyên `pending` để admin xử lý.
 
 ---
@@ -452,14 +452,14 @@ khởi động (`DB_AUTO_MIGRATE=true`).
 
 | Bảng | Vai trò |
 |---|---|
-| `users` | Khách hàng, hạn mức tháng, token đã mua, ngày hết hạn thuê bao |
+| `users` | Khách hàng, hạn mức tháng, điểm đã mua, ngày hết hạn thuê bao |
 | `subscription_plans` | Bảng giá gói thuê bao 1 / 3 / 6 / 12 tháng |
 | `subscriptions` | Lịch sử thuê bao đã mua, dùng để đối soát và gia hạn |
-| `token_packages` | Các gói token lẻ mua thêm |
-| `model_pricing` | Bảng giá từng model: giá vốn USD ↔ số token thu của khách |
+| `token_packages` | Các gói điểm lẻ mua thêm |
+| `model_pricing` | Bảng giá từng model: giá vốn USD ↔ số điểm thu của khách |
 | `orders` | Đơn nạp tiền, có snapshot thông tin gói tại thời điểm đặt |
-| `token_transactions` | Sổ cái token — mỗi dòng ghi rõ tác động vào nguồn nào (`bucket`) |
-| `generations` | Từng lệnh tạo ảnh, kèm chi phí vốn và token đã trừ từ mỗi nguồn |
+| `token_transactions` | Sổ cái điểm — mỗi dòng ghi rõ tác động vào nguồn nào (`bucket`) |
+| `generations` | Từng lệnh tạo ảnh, kèm chi phí vốn và điểm đã trừ từ mỗi nguồn |
 | `payment_events` | Nhật ký webhook ngân hàng, chống xử lý trùng |
 | `settings` | Cấu hình sửa nóng không cần restart |
 
@@ -490,12 +490,12 @@ giờ nên bỏ qua `timezone: 'Z'`, và `new Date(chuỗi)` lại đọc theo g
 
 ## 5. Bảng giá đã cấu hình sẵn
 
-### Token tiêu hao mỗi ảnh
+### Điểm tiêu hao mỗi ảnh
 
-`token_cost = api_cost_usd × USD_TO_VND` (1 token = 1đ giá vốn). Cột cuối tính trên hạn mức
-500.000 token/tháng nếu chỉ dùng một loại ảnh duy nhất.
+`token_cost = api_cost_usd × USD_TO_VND` (1 điểm = 1đ giá vốn). Cột cuối tính trên hạn mức
+500.000 điểm/tháng nếu chỉ dùng một loại ảnh duy nhất.
 
-| Model | Slug gửi API | Giá vốn (Kie.ai) | Token/ảnh | Số ảnh trong hạn mức tháng |
+| Model | Slug gửi API | Giá vốn (Kie.ai) | Điểm/ảnh | Số ảnh trong hạn mức tháng |
 |---|---|---|---|---|
 | GPT Image 2 — 1K | `gpt-image-2-image-to-image` | $0.03 | 840 | ~595 |
 | GPT Image 2 — 2K | `gpt-image-2-image-to-image` | $0.05 | 1.400 | ~357 |
@@ -509,7 +509,7 @@ giờ nên bỏ qua `timezone: 'Z'`, và `new Date(chuỗi)` lại đọc theo g
 
 **Nano Banana 2 Lite** đã được nối sẵn nhưng để trạng thái tắt: Kie.ai không công bố
 giá bản Lite trong tài liệu công khai. Vào Quản trị → Bảng giá điền `Giá vốn (USD)` và
-`Token thu` theo bảng giá thật rồi tick ô **Bán** để mở bán. Model này không có tuỳ chọn
+`Điểm thu` theo bảng giá thật rồi tick ô **Bán** để mở bán. Model này không có tuỳ chọn
 2K/4K nên giao diện tự ẩn phần chọn chất lượng.
 
 ### Mỗi model có bộ tham số riêng
@@ -531,25 +531,25 @@ tài liệu của model, rồi thêm dòng giá trong trang Quản trị.
 
 GPT Image 2 còn có ràng buộc riêng giữa tỉ lệ và chất lượng (5:4 và 4:5 chỉ chạy 1K; 1:1
 không lên được 4K; tỉ lệ "Tự động" chỉ ra 1K). Hệ thống kiểm tra các ràng buộc này **trước
-khi trừ token** và báo lỗi cụ thể, thay vì trừ rồi hoàn.
+khi trừ điểm** và báo lỗi cụ thể, thay vì trừ rồi hoàn.
 
 Các model Imagen 4 của Google không được đưa vào vì chúng chỉ sinh ảnh từ chữ, không nhận
 ảnh sản phẩm nên không dùng được cho luồng sao chép bố cục của ứng dụng này.
 
-Bảng giá gói thuê bao và gói token lẻ nằm ở [mục 3](#3-mô-hình-kinh-doanh).
+Bảng giá gói thuê bao và gói điểm lẻ nằm ở [mục 3](#3-mô-hình-kinh-doanh).
 
 Dữ liệu này chỉ được nạp **một lần** lúc khởi tạo (`INSERT IGNORE`). Sau đó sửa trong tab
 **Bảng giá & gói nạp** của trang Quản trị; server không ghi đè lại.
 
-> **Nâng cấp từ bản cũ:** phiên bản trước tính 1 token ≈ 100đ giá bán, bản này neo vào giá vốn
+> **Nâng cấp từ bản cũ:** phiên bản trước tính 1 điểm ≈ 100đ giá bán, bản này neo vào giá vốn
 > nên các con số lệch nhau khoảng 28 lần. Khi khởi động, server tự quy đổi `token_cost` của
-> những model còn giữ đúng giá trị mặc định cũ, và ngừng bán 5 gói token đời cũ (Trải nghiệm,
+> những model còn giữ đúng giá trị mặc định cũ, và ngừng bán 5 gói điểm đời cũ (Trải nghiệm,
 > Creator, Creator Plus, Studio, Agency) vì chúng sai đơn vị. Dòng nào bạn đã tự chỉnh trong
 > trang Quản trị thì được giữ nguyên — kiểm tra lại sau khi nâng cấp.
 >
 > Số dư `token_balance` cũ của khách cũng đang ở đơn vị cũ và **không** được tự quy đổi (không
 > có cách quy đổi nào đúng cho mọi trường hợp). Số dư cũ giờ mang giá trị rất nhỏ; nếu có khách
-> thật đang giữ token, hãy dùng Quản trị → Khách hàng → **Sửa token** để cấp bù cho đúng.
+> thật đang giữ điểm, hãy dùng Quản trị → Khách hàng → **Sửa điểm** để cấp bù cho đúng.
 
 Riêng slug model là ngoại lệ: khi khởi động, server tự sửa những slug đã biết chắc là sai
 (xem `repairKnownBadModelSlugs` trong [seed.ts](server/src/seed.ts)). Slug nào bạn tự đặt
@@ -567,7 +567,7 @@ khác đi sẽ được giữ nguyên.
 ### Casso (v2)
 1. Vào Casso → Webhook → thêm endpoint.
 2. URL: `https://tenmien-cua-ban.com/api/webhooks/casso`
-3. Secure Token trùng với `CASSO_WEBHOOK_SECURE_TOKEN` trong `.env`.
+3. Secure Điểm trùng với `CASSO_WEBHOOK_SECURE_TOKEN` trong `.env`.
 
 Webhook phải truy cập được từ Internet. Khi chạy thử ở máy cá nhân, dùng ngrok hoặc Cloudflare
 Tunnel để lấy một URL public.
@@ -588,18 +588,18 @@ UPDATE orders SET status = 'paid' WHERE code = 'NAPXXXXXX';
 ```
 
 Server tự phát hiện trong vòng `ORDER_SYNC_INTERVAL_SECONDS` (mặc định 20 giây) rồi làm nốt
-phần còn lại: kích hoạt gói thuê bao hoặc cộng token, ghi sổ cái, bù `paid_at`/`paid_source`
-cho báo cáo doanh thu. Workflow của bạn **không cần biết gì** về nghiệp vụ token.
+phần còn lại: kích hoạt gói thuê bao hoặc cộng điểm, ghi sổ cái, bù `paid_at`/`paid_source`
+cho báo cáo doanh thu. Workflow của bạn **không cần biết gì** về nghiệp vụ điểm.
 
 Cách này an toàn:
 
 - Cột `fulfilled_at` đánh dấu đơn đã giao hàng. Đơn chỉ được xử lý khi `status='paid'` **và**
   `fulfilled_at IS NULL`, kiểm tra lại bên trong `SELECT ... FOR UPDATE`, nên chạy trùng hay
-  chạy song song đều không cộng token hai lần.
+  chạy song song đều không cộng điểm hai lần.
 - Đơn `cancelled` không bao giờ được giao hàng, dù có ai đó đổi nhầm.
 - Đơn được đánh dấu lúc server đang tắt sẽ được xử lý ngay khi server khởi động lại.
 
-> Đừng tự viết logic cộng token trong workflow. Toàn bộ nghiệp vụ (chu kỳ hạn mức tháng, sổ
+> Đừng tự viết logic cộng điểm trong workflow. Toàn bộ nghiệp vụ (chu kỳ hạn mức tháng, sổ
 > cái, gia hạn nối tiếp) chỉ tồn tại một bản duy nhất trong server; viết thêm bản thứ hai là
 > nguồn gốc của sai lệch số liệu.
 
@@ -630,7 +630,7 @@ Không phải sửa route, không phải sửa giao diện — trang tạo ảnh
 │   ├── seed.ts               dữ liệu khởi tạo + đồng bộ quyền admin
 │   ├── lib/                  auth (JWT, phân quyền), lỗi, kiểm tra dữ liệu vào
 │   ├── providers/            adapter nhà cung cấp AI (kie.ts, …)
-│   ├── services/             nghiệp vụ: token, đơn nạp, tạo ảnh, lưu trữ
+│   ├── services/             nghiệp vụ: điểm, đơn nạp, tạo ảnh, lưu trữ
 │   └── routes/               auth, catalog, orders, wallet, generations, admin, webhooks
 │
 ├── pages/                    các trang React

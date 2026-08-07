@@ -61,7 +61,7 @@ export async function execute(sql: string, params: unknown[] = []): Promise<Resu
 
 /**
  * Chạy một khối lệnh trong transaction. Tự rollback nếu callback ném lỗi.
- * Dùng cho mọi thao tác đụng tới số dư token.
+ * Dùng cho mọi thao tác đụng tới số dư điểm.
  */
 export async function withTransaction<T>(fn: (conn: PoolConnection) => Promise<T>): Promise<T> {
   const conn = await getPool().getConnection();
@@ -115,7 +115,7 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   await ensureColumn(conn, 'users', 'monthly_tokens', 'INT NOT NULL DEFAULT 0');
   await ensureColumn(conn, 'users', 'monthly_period_end', 'DATETIME NULL');
 
-  // Đơn hàng phân loại thuê bao / token lẻ
+  // Đơn hàng phân loại thuê bao / điểm lẻ
   await ensureColumn(
     conn,
     'orders',
@@ -129,20 +129,20 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   await ensureColumn(conn, 'orders', 'credit_vnd', 'BIGINT NOT NULL DEFAULT 0');
   await ensureColumn(conn, 'orders', 'is_upgrade', 'TINYINT(1) NOT NULL DEFAULT 0');
 
-  // Đánh dấu đơn đã được giao hàng (cộng token / kích hoạt gói).
+  // Đánh dấu đơn đã được giao hàng (cộng điểm / kích hoạt gói).
   // Tách khỏi `status` để hệ thống ngoài chỉ cần đổi status = 'paid', phần giao
   // hàng do server tự làm — xem `fulfillPaidOrders`.
   const addedFulfilled = await ensureColumn(conn, 'orders', 'fulfilled_at', 'DATETIME NULL');
   if (addedFulfilled) {
     // Đơn đã thanh toán từ trước đều đã được xử lý bởi phiên bản cũ. Phải đánh
-    // dấu ngay, nếu không bộ đối soát sẽ cộng token cho chúng lần thứ hai.
+    // dấu ngay, nếu không bộ đối soát sẽ cộng điểm cho chúng lần thứ hai.
     const backfilled = await conn.query<ResultSetHeader>(
       `UPDATE orders SET fulfilled_at = COALESCE(paid_at, updated_at, created_at) WHERE status = 'paid'`,
     );
     console.log(`[migrate] Đã đánh dấu ${backfilled[0].affectedRows} đơn cũ là đã xử lý.`);
   }
 
-  // Ảnh ghi rõ token lấy từ nguồn nào, để hoàn đúng nguồn khi lỗi
+  // Ảnh ghi rõ điểm lấy từ nguồn nào, để hoàn đúng nguồn khi lỗi
   await ensureColumn(conn, 'generations', 'monthly_cost', 'INT NOT NULL DEFAULT 0');
   await ensureColumn(conn, 'generations', 'purchased_cost', 'INT NOT NULL DEFAULT 0');
 
@@ -155,7 +155,7 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   // NULL — chúng không thuộc tab nào nên không lọt vào danh sách của tab mới nào.
   await ensureColumn(conn, 'generations', 'client_session', 'VARCHAR(64) NULL');
 
-  // Sổ cái tách hai nguồn token
+  // Sổ cái tách hai nguồn điểm
   await ensureColumn(conn, 'token_transactions', 'bucket', "ENUM('monthly','purchased') NOT NULL DEFAULT 'purchased'");
   // MODIFY chạy lại vô hại, dùng để bổ sung giá trị enum mới.
   await conn.query(

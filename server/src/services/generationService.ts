@@ -95,9 +95,9 @@ export async function getActiveModel(code: string): Promise<ModelPricingRow> {
 /**
  * Tạo một loạt lệnh vẽ ảnh.
  *
- * Token bị trừ NGAY tại đây, trong cùng một transaction với việc ghi các dòng
- * `generations`. Nếu nhà cung cấp lỗi về sau, token sẽ được hoàn lại tự động
- * (xem `finishGeneration`), nên khách không bao giờ mất token vì lỗi hệ thống.
+ * Điểm bị trừ NGAY tại đây, trong cùng một transaction với việc ghi các dòng
+ * `generations`. Nếu nhà cung cấp lỗi về sau, điểm sẽ được hoàn lại tự động
+ * (xem `finishGeneration`), nên khách không bao giờ mất điểm vì lỗi hệ thống.
  */
 export async function createGenerations(
   userId: number,
@@ -121,7 +121,7 @@ export async function createGenerations(
   const jobCount = Math.max(references.length, 1) * quantity;
 
   // Chặn các tổ hợp model / tỉ lệ / chất lượng mà nhà cung cấp chắc chắn từ chối,
-  // trước khi động tới token của khách.
+  // trước khi động tới điểm của khách.
   const rejection = provider.validate?.({
     providerModel: model.provider_model,
     resolution: model.resolution,
@@ -150,14 +150,14 @@ export async function createGenerations(
   const prompt = input.prompt.trim().slice(0, 4000);
 
   const { generationIds, balance } = await withTransaction(async (conn) => {
-    // Kiểm tra đủ token cho CẢ LÔ trước khi tạo dòng nào, để không rơi vào cảnh
-    // vẽ được nửa lô rồi hết token giữa chừng.
+    // Kiểm tra đủ điểm cho CẢ LÔ trước khi tạo dòng nào, để không rơi vào cảnh
+    // vẽ được nửa lô rồi hết điểm giữa chừng.
     const opening = await lockAccountState(conn, userId);
     requireSubscription(opening);
     if (opening.availableTokens < totalCost) {
       throw new AppError(
         402,
-        `Không đủ token cho ${jobCount} ảnh. Cần ${totalCost.toLocaleString('vi-VN')}, ` +
+        `Không đủ điểm cho ${jobCount} ảnh. Cần ${totalCost.toLocaleString('vi-VN')}, ` +
           `hiện có ${opening.availableTokens.toLocaleString('vi-VN')}.`,
         'insufficient_tokens',
         { required: totalCost, available: opening.availableTokens },
@@ -197,8 +197,8 @@ export async function createGenerations(
           ],
         );
 
-        // Trừ token riêng cho từng ảnh: mỗi ảnh biết chính xác đã lấy bao nhiêu
-        // từ hạn mức tháng và bao nhiêu từ token mua thêm, nên hoàn được đúng nguồn.
+        // Trừ điểm riêng cho từng ảnh: mỗi ảnh biết chính xác đã lấy bao nhiêu
+        // từ hạn mức tháng và bao nhiêu từ điểm mua thêm, nên hoàn được đúng nguồn.
         const spend = await spendTokens(
           conn,
           userId,
@@ -378,7 +378,7 @@ async function runGeneration(generationId: number): Promise<void> {
   }
 }
 
-/** Đánh dấu thất bại và hoàn token cho khách. */
+/** Đánh dấu thất bại và hoàn điểm cho khách. */
 async function failAndRefund(row: GenerationRow, message: string, durationMs: number): Promise<void> {
   try {
     await withTransaction(async (conn) => {
@@ -399,16 +399,16 @@ async function failAndRefund(row: GenerationRow, message: string, durationMs: nu
         conn,
         row.user_id,
         // Ảnh tạo trước khi tách hai nguồn thì hai cột này bằng 0 — khi đó hoàn
-        // toàn bộ vào token mua thêm, phần chắc chắn là tiền thật của khách.
+        // toàn bộ vào điểm mua thêm, phần chắc chắn là tiền thật của khách.
         row.monthly_cost + row.purchased_cost > 0
           ? { monthly: row.monthly_cost, purchased: row.purchased_cost }
           : { monthly: 0, purchased: row.token_cost },
         row.id,
-        `Hoàn token do tạo ảnh #${row.id} thất bại`,
+        `Hoàn điểm do tạo ảnh #${row.id} thất bại`,
       );
     });
   } catch (refundError) {
-    console.error(`[generation ${row.id}] hoàn token thất bại`, refundError);
+    console.error(`[generation ${row.id}] hoàn điểm thất bại`, refundError);
     await execute(`UPDATE generations SET status = 'failed', error_message = ?, completed_at = NOW() WHERE id = ?`, [
       message.slice(0, 1000),
       row.id,
@@ -418,17 +418,17 @@ async function failAndRefund(row: GenerationRow, message: string, durationMs: nu
 
 /**
  * Sau khi server restart, các job đang dở dang sẽ không bao giờ chạy tiếp.
- * Hoàn token cho chúng để khách không bị treo tiền.
+ * Hoàn điểm cho chúng để khách không bị treo tiền.
  */
 export async function recoverStaleGenerations(): Promise<void> {
   const stale = await query<GenerationRow>(
     `SELECT * FROM generations WHERE status IN ('queued','processing') ORDER BY id`,
   );
   for (const row of stale) {
-    await failAndRefund(row, 'Máy chủ khởi động lại khi ảnh đang xử lý — token đã được hoàn.', 0);
+    await failAndRefund(row, 'Máy chủ khởi động lại khi ảnh đang xử lý — điểm đã được hoàn.', 0);
   }
   if (stale.length > 0) {
-    console.log(`[khởi động] Đã hoàn token cho ${stale.length} ảnh còn dở dang.`);
+    console.log(`[khởi động] Đã hoàn điểm cho ${stale.length} ảnh còn dở dang.`);
   }
 }
 

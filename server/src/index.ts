@@ -84,7 +84,7 @@ async function start(): Promise<void> {
 
   // Đối soát đơn do hệ thống ngoài đánh dấu đã thanh toán.
   // Đây là đường để workflow bên ngoài chỉ cần UPDATE orders SET status='paid',
-  // server tự kích hoạt gói / cộng token.
+  // server tự kích hoạt gói / cộng điểm.
   const syncTimer = setInterval(() => {
     void fulfillPaidOrders().catch((error) => console.error('[đối soát đơn]', error));
   }, env.orderSyncIntervalSeconds * 1000);
