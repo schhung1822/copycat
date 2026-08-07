@@ -219,6 +219,11 @@ CREATE TABLE IF NOT EXISTS generations (
   prompt           TEXT            NULL,
   -- Ảnh đầu vào đã lưu trên server: {"reference": "...", "products": ["..."]}
   input_images     JSON            NULL,
+  -- Ảnh này là bản thứ mấy trong số mấy bản của cùng một ảnh mẫu, cùng một lần
+  -- bấm nút. Prompt cần biết để dặn bản thứ 2 trở đi "khác đi nhưng vẫn đúng
+  -- sản phẩm" — xem buildPrompt trong providers/kie.ts.
+  variant_index    INT             NOT NULL DEFAULT 1,
+  variant_total    INT             NOT NULL DEFAULT 1,
   token_cost       INT             NOT NULL, -- token đã trừ của khách
   -- Tách rõ token lấy từ nguồn nào, để khi lỗi thì hoàn về đúng nguồn đó
   monthly_cost     INT             NOT NULL DEFAULT 0, -- lấy từ hạn mức tháng

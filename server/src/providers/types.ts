@@ -18,6 +18,15 @@ export interface GenerateRequest {
   productImages: string[];
   aspectRatio: string;
   resolution: string;
+  /**
+   * Ảnh này là bản thứ mấy trong số mấy bản của cùng một lần bấm nút (1-based).
+   *
+   * Cần cho prompt: bản thứ 2 trở đi phải được dặn rõ là "làm khác đi một chút
+   * nhưng vẫn đúng sản phẩm", nếu không model tự do sáng tác và thường trả về
+   * ảnh mặc sai sản phẩm. Mặc định 1/1 khi không truyền.
+   */
+  variantIndex?: number;
+  variantTotal?: number;
   /** Gọi lại ngay khi nhà cung cấp trả về task id, để lưu vào DB phục vụ tra soát */
   onTaskCreated?: (taskId: string) => void | Promise<void>;
 }

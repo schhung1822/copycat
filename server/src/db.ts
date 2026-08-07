@@ -146,6 +146,11 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   await ensureColumn(conn, 'generations', 'monthly_cost', 'INT NOT NULL DEFAULT 0');
   await ensureColumn(conn, 'generations', 'purchased_cost', 'INT NOT NULL DEFAULT 0');
 
+  // Vị trí của ảnh trong lô, để prompt dặn được bản thứ 2 trở đi. Ảnh cũ mặc
+  // định 1/1 — đúng nghĩa "bản duy nhất", nên không cần backfill.
+  await ensureColumn(conn, 'generations', 'variant_index', 'INT NOT NULL DEFAULT 1');
+  await ensureColumn(conn, 'generations', 'variant_total', 'INT NOT NULL DEFAULT 1');
+
   // Sổ cái tách hai nguồn token
   await ensureColumn(conn, 'token_transactions', 'bucket', "ENUM('monthly','purchased') NOT NULL DEFAULT 'purchased'");
   // MODIFY chạy lại vô hại, dùng để bổ sung giá trị enum mới.

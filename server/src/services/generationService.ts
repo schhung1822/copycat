@@ -34,6 +34,9 @@ export interface GenerationRow extends RowDataPacket {
   aspect_ratio: string;
   prompt: string | null;
   input_images: { reference: string | null; products: string[] } | string | null;
+  /** Bản thứ mấy / tổng số bản của cùng một ảnh mẫu trong một lần bấm nút */
+  variant_index: number;
+  variant_total: number;
   token_cost: number;
   monthly_cost: number;
   purchased_cost: number;
@@ -159,8 +162,8 @@ export async function createGenerations(
         const [result] = await conn.query<ResultSetHeader>(
           `INSERT INTO generations
              (user_id, batch_id, model_code, model_label, provider, provider_model, resolution,
-              aspect_ratio, prompt, input_images, token_cost, api_cost_usd, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued')`,
+              aspect_ratio, prompt, input_images, variant_index, variant_total, token_cost, api_cost_usd, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued')`,
           [
             userId,
             batchId,
@@ -172,6 +175,10 @@ export async function createGenerations(
             aspectRatio,
             prompt,
             JSON.stringify({ reference: referencePath, products: productPaths }),
+            // Đánh số theo TỪNG ảnh mẫu chứ không theo cả lô: mỗi ảnh mẫu là một
+            // thiết kế riêng, nên "bản 1/4" phải tính lại từ đầu cho ảnh mẫu sau.
+            i + 1,
+            quantity,
             model.token_cost,
             model.api_cost_usd,
           ],
@@ -326,6 +333,8 @@ async function runGeneration(generationId: number): Promise<void> {
       productImages: await Promise.all(inputImages.products.map((path) => readAsDataUri(path))),
       aspectRatio: row.aspect_ratio,
       resolution: row.resolution,
+      variantIndex: row.variant_index,
+      variantTotal: row.variant_total,
       onTaskCreated: async (taskId) => {
         await execute('UPDATE generations SET provider_task_id = ? WHERE id = ?', [taskId, generationId]);
       },
