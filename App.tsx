@@ -8,6 +8,7 @@ import { AccountPage } from './pages/AccountPage';
 import { AdminPage } from './pages/AdminPage';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
 import { HistoryPage } from './pages/HistoryPage';
+import { LandingPage } from './pages/LandingPage';
 import { PolicyPage } from './pages/PolicyPage';
 import { StudioPage } from './pages/StudioPage';
 import { TopUpPage } from './pages/TopUpPage';
@@ -19,7 +20,18 @@ const RequireAuth: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> 
   const location = useLocation();
 
   if (isLoading) return <PageLoader label="Đang kiểm tra phiên đăng nhập..." />;
-  if (!user) return <Navigate to="/dang-nhap" state={{ from: location.pathname }} replace />;
+
+  if (!user) {
+    /*
+     * Khách vào thẳng trang chủ thì đưa sang trang giới thiệu, không đá vào form
+     * đăng nhập: người chưa biết hệ thống làm gì mà đã bị đòi mật khẩu sẽ đóng
+     * tab. Các trang bên trong vẫn về thẳng form đăng nhập như cũ vì ai gõ đúng
+     * /vi-token thì đã biết mình đang tìm gì.
+     */
+    if (location.pathname === '/') return <Navigate to="/gioi-thieu" replace />;
+    return <Navigate to="/dang-nhap" state={{ from: location.pathname }} replace />;
+  }
+
   if (adminOnly && !isAdmin) return <Navigate to="/" replace />;
 
   return <>{children}</>;
@@ -31,6 +43,8 @@ const AppRoutes: React.FC = () => (
     <Route path="/dang-ky" element={<RegisterPage />} />
     {/* Công khai: khách phải đọc được điều khoản trước khi tạo tài khoản */}
     <Route path="/chinh-sach" element={<PolicyPage />} />
+    {/* Công khai: trang giới thiệu, cũng là nơi khách chưa đăng nhập đáp xuống */}
+    <Route path="/gioi-thieu" element={<LandingPage />} />
 
     <Route
       element={
