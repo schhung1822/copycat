@@ -71,7 +71,7 @@ export const LandingNav: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) =>
               to="/"
               className="rounded-full bg-brand-500 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-600"
             >
-              Vào xưởng ảnh
+              Đăng nhập
             </Link>
           ) : (
             <>

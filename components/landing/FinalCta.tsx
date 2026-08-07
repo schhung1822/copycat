@@ -31,7 +31,7 @@ export const FinalCta: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => (
                 to={isLoggedIn ? '/' : '/dang-ky'}
                 className="group inline-flex items-center justify-center gap-2 rounded-full bg-brand-500 px-8 py-3.5 text-sm font-bold text-white shadow-xl shadow-brand-500/30 transition-all hover:-translate-y-0.5 hover:bg-brand-600 hover:shadow-brand-500/45"
               >
-                {isLoggedIn ? 'Vào xưởng ảnh' : 'Tạo tài khoản miễn phí'}
+                {isLoggedIn ? 'Đăng nhập' : 'Tạo tài khoản miễn phí'}
                 <svg
                   className="h-4 w-4 transition-transform group-hover:translate-x-1"
                   fill="none"

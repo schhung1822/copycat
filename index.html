@@ -183,17 +183,6 @@
         }
       }
 
-      /* Thẻ nổi quanh ảnh minh hoạ ở đầu trang */
-      @keyframes lp-float {
-        0%,
-        100% {
-          transform: translateY(0);
-        }
-        50% {
-          transform: translateY(-14px);
-        }
-      }
-
       /* Vệt màu mờ trôi phía sau nội dung */
       @keyframes lp-blob {
         0%,
@@ -219,16 +208,6 @@
         }
       }
 
-      /* Vệt sáng quét qua khối ảnh "đang xử lý" */
-      @keyframes lp-scan {
-        0% {
-          transform: translateY(-110%);
-        }
-        100% {
-          transform: translateY(310%);
-        }
-      }
-
       /* Vòng sóng lan ra từ chấm trạng thái */
       @keyframes lp-ping-ring {
         0% {
@@ -238,12 +217,6 @@
         100% {
           transform: scale(2.4);
           opacity: 0;
-        }
-      }
-
-      @keyframes lp-spin-slow {
-        to {
-          transform: rotate(360deg);
         }
       }
 
@@ -276,23 +249,14 @@
         animation-name: lp-zoom-in;
       }
 
-      .lp-float {
-        animation: lp-float 6s ease-in-out infinite;
-      }
       .lp-blob {
         animation: lp-blob 18s ease-in-out infinite;
       }
       .lp-marquee {
         animation: lp-marquee 32s linear infinite;
       }
-      .lp-scan {
-        animation: lp-scan 2.6s ease-in-out infinite;
-      }
       .lp-ping-ring {
         animation: lp-ping-ring 2s ease-out infinite;
-      }
-      .lp-spin-slow {
-        animation: lp-spin-slow 22s linear infinite;
       }
       /*
         Nét kẻ nối các bước: đứng yên ở trạng thái chưa vẽ, chỉ chạy khi khối
@@ -352,12 +316,9 @@
           opacity: 1 !important;
           animation: none !important;
         }
-        .lp-float,
         .lp-blob,
         .lp-marquee,
-        .lp-scan,
         .lp-ping-ring,
-        .lp-spin-slow,
         .lp-reveal.is-visible .lp-line {
           animation: none !important;
         }

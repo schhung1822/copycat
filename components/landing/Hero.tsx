@@ -3,6 +3,15 @@ import { Link } from 'react-router-dom';
 import { HeroShowcase } from './HeroShowcase';
 import { Reveal } from './Reveal';
 
+/**
+ * Hai lợi ích chính, đặt ngay dưới tiêu đề.
+ *
+ * Tách khỏi thẻ <h1> chứ không nhồi cả ba dòng vào tiêu đề: một tiêu đề ba dòng
+ * đọc như câu khẩu hiệu bị đứt hơi, và về mặt cấu trúc trang thì <h1> nên nói
+ * đúng MỘT thông điệp. Hai dòng này là lý do mua, nên vẫn để cỡ chữ lớn và đậm.
+ */
+const BENEFITS = ['Tiết kiệm 90% chi phí chụp ảnh', 'Đẩy hàng tồn kho chỉ bằng 1 click chuột'];
+
 /** Ba lời hứa ngắn ngay dưới nút bấm — thứ khách quyết định mua hay không. */
 const PROMISES = [
   'Giữ nguyên bố cục ảnh mẫu',
@@ -29,17 +38,28 @@ export const Hero: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => (
 
         <Reveal delay={90}>
           <h1 className="mt-6 text-4xl font-bold leading-[1.1] tracking-tight text-gray-100 sm:text-5xl lg:text-[3.4rem]">
-            Thấy một thiết kế đẹp?
+            TẠO ẢNH ĐẸP
             <br />
-            <span className="lp-gradient-text">Đưa sản phẩm của bạn vào đó.</span>
+            <span className="lp-gradient-text">CHÂN THỰC 100%</span>
           </h1>
         </Reveal>
 
         <Reveal delay={160}>
-          <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-gray-400 sm:text-lg lg:mx-0">
-            Design Copycat AI học lại bố cục, ánh sáng và phong cách của ảnh mẫu bạn đưa vào, rồi dựng lại y như vậy với
-            chính sản phẩm của bạn. Không cần biết Photoshop, không cần thuê designer cho từng chiến dịch.
-          </p>
+          <ul className="mx-auto mt-6 max-w-xl space-y-2.5 lg:mx-0">
+            {BENEFITS.map((benefit) => (
+              <li
+                key={benefit}
+                className="flex items-center justify-center gap-2.5 text-lg font-bold text-gray-200 sm:text-xl lg:justify-start"
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-500">
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </span>
+                {benefit}
+              </li>
+            ))}
+          </ul>
         </Reveal>
 
         <Reveal delay={230}>
@@ -48,7 +68,7 @@ export const Hero: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => (
               to={isLoggedIn ? '/' : '/dang-ky'}
               className="group inline-flex items-center justify-center gap-2 rounded-full bg-brand-500 px-7 py-3.5 text-sm font-bold text-white shadow-xl shadow-brand-500/30 transition-all hover:-translate-y-0.5 hover:bg-brand-600 hover:shadow-brand-500/45"
             >
-              {isLoggedIn ? 'Vào xưởng ảnh' : 'Tạo ảnh đầu tiên'}
+              {isLoggedIn ? 'Đăng nhập' : 'Tạo ảnh đầu tiên'}
               <svg
                 className="h-4 w-4 transition-transform group-hover:translate-x-1"
                 fill="none"
