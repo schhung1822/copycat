@@ -21,8 +21,10 @@ export interface GenerateRequest {
   /**
    * Ảnh này là bản thứ mấy trong số mấy bản của cùng một ảnh mẫu (1-based).
    *
-   * Bản 1 bám sát ảnh mẫu để khách có ngay một bản dùng được; từ bản 2 trở đi là
-   * các phương án sáng tạo trên cùng sản phẩm đó.
+   * Bản 1 bám sát ảnh mẫu để khách có ngay một bản dùng được; từ bản 2 trở đi
+   * vẫn là ảnh mẫu đó nhưng đổi dáng chụp, góc máy, cách xếp hoặc ánh sáng để
+   * khách có phương án chọn. Chỉ áp dụng khi khách chọn nhiều hơn 1 ảnh mỗi mẫu —
+   * tạo lẻ từng ảnh một thì luôn dùng prompt mặc định.
    *
    * Lưu ý cho người sửa sau: một bản prompt trước đây cũng dùng hai trường này
    * nhưng cho phép bản 2+ đổi cả "dáng sản phẩm", và model đổi luôn chính món
