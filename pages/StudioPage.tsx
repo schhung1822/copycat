@@ -43,8 +43,12 @@ const SETTINGS_KEY = 'copycat-studio-settings-v3';
  * thêm một dòng vào đây là xong.
  */
 const MODEL_HINTS: Record<string, string> = {
-  'nano-banana-pro': 'Bám sát ảnh mẫu nhất, giữ đúng chi tiết và màu sản phẩm. Chọn khi cần ảnh đăng chính thức.',
-  'nano-banana-2': 'Cân bằng giữa độ đẹp và tốc độ. Lựa chọn an toàn cho phần lớn nhu cầu hằng ngày.',
+  'nano-banana-pro':
+    'Dựng lại đúng bố cục ảnh mẫu kể cả khi phải vẽ sản phẩm ở góc khác với ảnh bạn tải lên. ' +
+    'Chọn khi ảnh mẫu có bố cục riêng hoặc chụp từ góc lạ.',
+  'nano-banana-2':
+    'Nhanh và tiết kiệm hơn. Hợp khi ảnh mẫu và ảnh sản phẩm chụp cùng một góc; ' +
+    'ảnh mẫu chụp góc khác hẳn thì hay ra sai bố cục hoặc lẫn sản phẩm của ảnh mẫu.',
   'nano-banana-2-lite': 'Nhanh nhất, hợp để thử nhiều ý tưởng trước khi chạy bản hoàn chỉnh.',
   'gpt-image-2': 'Xử lý chữ và bố cục quảng cáo tốt. Chọn khi thiết kế có nhiều chữ hoặc layout phức tạp.',
 };
