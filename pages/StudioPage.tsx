@@ -44,11 +44,12 @@ const SETTINGS_KEY = 'copycat-studio-settings-v3';
  */
 const MODEL_HINTS: Record<string, string> = {
   'nano-banana-pro':
-    'Dựng lại đúng bố cục ảnh mẫu kể cả khi phải vẽ sản phẩm ở góc khác với ảnh bạn tải lên. ' +
-    'Chọn khi ảnh mẫu có bố cục riêng hoặc chụp từ góc lạ.',
+    'Bám đúng vai trò hai ảnh và dựng lại được bố cục mẫu kể cả khi sản phẩm phải vẽ ở góc khác. ' +
+    'Chọn khi ảnh sản phẩm của bạn cũng là ảnh chụp có bối cảnh, hoặc ảnh mẫu chụp từ góc lạ.',
   'nano-banana-2':
-    'Nhanh và tiết kiệm hơn. Hợp khi ảnh mẫu và ảnh sản phẩm chụp cùng một góc; ' +
-    'ảnh mẫu chụp góc khác hẳn thì hay ra sai bố cục hoặc lẫn sản phẩm của ảnh mẫu.',
+    'Nhanh và tiết kiệm hơn. Hợp khi ảnh sản phẩm chụp nền đơn giản; ' +
+    'nếu ảnh sản phẩm cũng là ảnh chụp trong cửa hàng thì có lúc bị ngược — lấy bối cảnh ảnh sản phẩm ' +
+    'thay vì bối cảnh ảnh mẫu.',
   'nano-banana-2-lite': 'Nhanh nhất, hợp để thử nhiều ý tưởng trước khi chạy bản hoàn chỉnh.',
   'gpt-image-2': 'Xử lý chữ và bố cục quảng cáo tốt. Chọn khi thiết kế có nhiều chữ hoặc layout phức tạp.',
 };
