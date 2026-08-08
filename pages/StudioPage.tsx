@@ -6,6 +6,7 @@ import { Alert, PageLoader, Spinner } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
 import { formatNumber, STATUS_LABEL } from '../lib/format';
+import { LABEL_PRODUCT, LABEL_REFERENCE, withRoleLabel } from '../lib/imageLabel';
 import { getTabSessionId, readTabSettings, writeTabSettings } from '../lib/session';
 import type { Catalog, Generation, ImageState, ModelOption } from '../types';
 
@@ -246,12 +247,23 @@ export const StudioPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
+      /*
+       * Dán nhãn vai trò lên ảnh trước khi gửi. Không có nhãn thì model hay nhầm
+       * ảnh mẫu với ảnh sản phẩm và cho ra ảnh ngược hoàn toàn — xem lib/imageLabel.ts
+       * để biết số đo. Dán ở đây chứ không ở ô tải ảnh, để khách vẫn xem được
+       * ảnh gốc của mình trong lúc chuẩn bị.
+       */
+      const [referenceImages, productImages] = await Promise.all([
+        Promise.all(refImages.map((image) => withRoleLabel(toDataUri(image), LABEL_REFERENCE))),
+        Promise.all(prodImages.map((image) => withRoleLabel(toDataUri(image), LABEL_PRODUCT))),
+      ]);
+
       const data = await api.post<{ generations: Generation[]; tokenBalance: number }>('/generations', {
         modelCode: selectedModel.code,
         aspectRatio,
         prompt,
-        referenceImages: refImages.map(toDataUri),
-        productImages: prodImages.map(toDataUri),
+        referenceImages,
+        productImages,
         quantityPerReference: quantity,
         clientSession: sessionId,
       });

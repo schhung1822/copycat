@@ -289,6 +289,16 @@ function buildPrompt(request: GenerateRequest): string {
     blocks.push(
       'Take the photograph in Image 1 and swap out the product it shows.',
 
+      /*
+       * Nhắc model đọc dải nhãn dán sẵn trên đầu mỗi ảnh (xem lib/imageLabel.ts).
+       * Chính dải nhãn mới là thứ chữa được lỗi đảo vai — đo được 0/15 lần đảo so
+       * với 5/8 khi không dán. Câu này chỉ để model biết mà nhìn vào đó, và biết
+       * rằng dải nhãn không phải một phần của tấm ảnh.
+       */
+      'Each input image carries a coloured label bar across its very top saying what that image is for.\n' +
+        'Those bars are the authority on which image is which — trust them over anything else. They are not\n' +
+        'part of the photographs: never draw a label bar, its colour or its text in your result.',
+
       `Image 1 = the photograph to recreate. ${products} = the replacement product` +
         (productCount > 1 ? ', shown from different angles or as its separate pieces.' : '.'),
 

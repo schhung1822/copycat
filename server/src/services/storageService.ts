@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { env } from '../env.js';
 import { badRequest } from '../lib/errors.js';
+import { stripRoleLabel } from './labelGuard.js';
 
 const MIME_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -62,7 +63,13 @@ export async function saveBase64Image(input: string, fallbackMime = 'image/jpeg'
   return writeFile(datedDir('inputs'), ext, buffer);
 }
 
-/** Tải ảnh kết quả từ nhà cung cấp về server để link không bị hết hạn. */
+/**
+ * Tải ảnh kết quả từ nhà cung cấp về server để link không bị hết hạn.
+ *
+ * Cũng là nơi gỡ dải nhãn vai trò nếu model lỡ chép nó sang ảnh kết quả — đây là
+ * chỗ duy nhất trong luồng có sẵn byte của ảnh. Đặt DOWNLOAD_RESULTS=false thì
+ * bước dọn này không chạy được và khách có thể thấy dải nhãn.
+ */
 export async function downloadResult(url: string): Promise<string> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Không tải được ảnh kết quả (HTTP ${res.status}).`);
@@ -71,7 +78,10 @@ export async function downloadResult(url: string): Promise<string> {
   const extFromUrl = path.extname(new URL(url).pathname).replace('.', '').toLowerCase();
   const ext = MIME_EXT[contentType] ?? (['jpg', 'jpeg', 'png', 'webp'].includes(extFromUrl) ? extFromUrl : 'png');
 
-  const buffer = Buffer.from(await res.arrayBuffer());
+  const downloaded = Buffer.from(await res.arrayBuffer());
+  const { buffer, cropped } = stripRoleLabel(downloaded);
+  if (cropped) console.log('[storage] Đã cắt dải nhãn vai trò khỏi ảnh kết quả.');
+
   return writeFile(datedDir('results'), ext, buffer);
 }
 
