@@ -225,7 +225,13 @@ export async function createGenerations(
   return { batchId, generationIds, tokenCost: totalCost, balance };
 }
 
-/** Vẽ lại một ảnh với prompt mới, dùng lại đúng ảnh đầu vào đã lưu. */
+/**
+ * Vẽ lại một ảnh với prompt mới, dùng lại đúng ảnh đầu vào đã lưu.
+ *
+ * Cố ý KHÔNG ghi `variant_index` / `variant_total` nên chúng nhận mặc định 1/1,
+ * tức ảnh vẽ lại luôn là bản bám sát ảnh mẫu. Khách bấm "Vẽ lại" là đang muốn
+ * một thay đổi cụ thể họ vừa gõ, không phải một phương án sáng tạo ngẫu nhiên.
+ */
 export async function redoGeneration(
   userId: number,
   generationId: number,
@@ -382,6 +388,8 @@ async function runGeneration(generationId: number): Promise<void> {
       productImages: await Promise.all(inputImages.products.map((path) => readAsDataUri(path))),
       aspectRatio: row.aspect_ratio,
       resolution: row.resolution,
+      variantIndex: row.variant_index,
+      variantTotal: row.variant_total,
       onTaskCreated: async (taskId) => {
         await execute('UPDATE generations SET provider_task_id = ? WHERE id = ?', [taskId, generationId]);
       },

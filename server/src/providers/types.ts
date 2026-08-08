@@ -18,15 +18,19 @@ export interface GenerateRequest {
   productImages: string[];
   aspectRatio: string;
   resolution: string;
-  /*
-   * Cố ý KHÔNG có "đây là bản thứ mấy trong lô".
+  /**
+   * Ảnh này là bản thứ mấy trong số mấy bản của cùng một ảnh mẫu (1-based).
    *
-   * Bản trước nhét số thứ tự vào prompt để ép các bản khác nhau; kết quả là ảnh
-   * ra cứng và vẫn hay sai sản phẩm. Nay mọi bản trong một lô dùng chung đúng một
-   * prompt và để chính model tự tạo khác biệt — giống copycat_goc. Cột
-   * `variant_index` / `variant_total` trong DB vẫn được ghi để tra soát, chỉ là
-   * không còn ảnh hưởng tới nội dung gửi lên nhà cung cấp.
+   * Bản 1 bám sát ảnh mẫu để khách có ngay một bản dùng được; từ bản 2 trở đi là
+   * các phương án sáng tạo trên cùng sản phẩm đó.
+   *
+   * Lưu ý cho người sửa sau: một bản prompt trước đây cũng dùng hai trường này
+   * nhưng cho phép bản 2+ đổi cả "dáng sản phẩm", và model đổi luôn chính món
+   * hàng của khách. Phạm vi được sáng tạo chỉ gồm bối cảnh — không bao giờ gồm
+   * sản phẩm. Mặc định 1/1 khi không truyền.
    */
+  variantIndex?: number;
+  variantTotal?: number;
   /** Gọi lại ngay khi nhà cung cấp trả về task id, để lưu vào DB phục vụ tra soát */
   onTaskCreated?: (taskId: string) => void | Promise<void>;
 }

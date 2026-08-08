@@ -249,24 +249,64 @@ async function uploadImage(dataUri: string): Promise<string> {
 const productRange = (count: number, firstIndex: number): string =>
   count > 1 ? `Images ${firstIndex}–${firstIndex + count - 1}` : `Image ${firstIndex}`;
 
+/*
+ * Hướng sáng tạo cho từng bản từ thứ hai trở đi.
+ *
+ * Mỗi ảnh là một lệnh gọi API riêng, model không nhìn thấy các bản còn lại. Bảo
+ * chung chung "hãy làm khác đi" thì bốn bản vẫn ra na ná nhau vì cùng một prompt
+ * dẫn tới cùng một vùng kết quả. Giao cho mỗi bản một HƯỚNG ĐỔI khác nhau thì
+ * chúng tách ra thật sự, mà mỗi bản vẫn có một mục tiêu rõ ràng thay vì tự bịa.
+ *
+ * Xoay vòng khi khách tạo nhiều hơn số hướng có ở đây.
+ */
+const VARIATION_ANGLES = [
+  'move the product to a different setting or surface that suits the same kind of campaign',
+  'keep a similar setting but change the camera angle, the crop and how the items are arranged',
+  'change the lighting mood and the colour palette of the scene',
+  'change the props and styling around the product',
+];
+
 function buildPrompt(request: GenerateRequest): string {
   const userPrompt = request.prompt.trim();
   const productCount = Math.max(request.productImages.length, 1);
+  const index = Math.max(request.variantIndex ?? 1, 1);
+  const total = Math.max(request.variantTotal ?? 1, 1);
+  /*
+   * Bản 1 luôn là bản bám sát ảnh mẫu — khách cần một bản "chuẩn" để dùng ngay.
+   * Chỉ từ bản 2 mới được nới ra thành phương án sáng tạo.
+   */
+  const isVariation = total > 1 && index > 1;
   const blocks: string[] = [];
 
   if (request.referenceImage) {
     const products = productRange(productCount, 2);
 
     blocks.push(
-      'Take the photograph in Image 1 and swap out the product it shows.',
+      isVariation
+        ? 'Create an advertising photograph of the product in the product image(s), using Image 1 as the\n' +
+            'campaign it belongs to.'
+        : 'Take the photograph in Image 1 and swap out the product it shows.',
 
-      `Image 1 = the photograph to recreate. ${products} = the replacement product` +
+      `Image 1 = ${isVariation ? 'the reference campaign photo' : 'the photograph to recreate'}. ` +
+        `${products} = the ${isVariation ? 'product to feature' : 'replacement product'}` +
         (productCount > 1 ? ', shown from different angles or as its separate pieces.' : '.'),
 
-      'Recreate Image 1 as closely as you can — same camera angle, same number of items and how they are\n' +
-        'placed and overlap, same background, same lighting and shadows, same crop and framing — but showing\n' +
-        'the replacement product instead of the product from Image 1.',
+      isVariation
+        ? // Thay hẳn lệnh "chép lại ảnh mẫu" chứ không thêm vào cạnh nó: hai câu
+          // ngược nhau trong cùng một prompt thì model chọn bừa một bên.
+          `This is alternative take ${index} of ${total}. Take 1 already reproduces Image 1 faithfully, so this\n` +
+            'one must not be another copy of it. Keep what makes Image 1 work — the same kind of commercial\n' +
+            'photograph, the same level of polish, the same product in the starring role — then build a\n' +
+            `different concept around it: ${VARIATION_ANGLES[(index - 2) % VARIATION_ANGLES.length]}. Adjust the\n` +
+            'other scene elements to match so the result reads as one deliberate photograph, not a copy with\n' +
+            'one thing swapped.'
+        : 'Recreate Image 1 as closely as you can — same camera angle, same number of items and how they are\n' +
+            'placed and overlap, same background, same lighting and shadows, same crop and framing — but showing\n' +
+            'the replacement product instead of the product from Image 1.',
 
+      // Đoạn này KHÔNG đổi theo bản: sản phẩm nằm ngoài phạm vi được sáng tạo.
+      // Đúng chỗ bản prompt cũ hỏng — nó cho phép bản 2 trở đi đổi cả "dáng sản
+      // phẩm", và thứ model đổi đầu tiên luôn là chính món hàng.
       'The replacement product keeps its own real shape, colours, materials, prints, logos and lettering\n' +
         `exactly as in ${products}. Do not restyle it, and do not give it the colours or the logos of the\n` +
         'product from Image 1.',
@@ -308,6 +348,14 @@ function buildPrompt(request: GenerateRequest): string {
           ? 'Where they ask for something different from Image 1 — scene, background, colours, mood, framing —\n' +
             'follow them instead, and keep Image 1 only for what they did not mention.'
           : 'They define the scene.',
+        // Bản sáng tạo vẫn phải nằm trong khuôn khách đặt: khách bảo "nền gỗ" thì
+        // cả bốn bản đều nền gỗ, chỉ khác nhau ở phần khách bỏ ngỏ.
+        ...(isVariation
+          ? [
+              'They outrank the freedom given above too: your different concept has to stay inside what they\n' +
+                'asked for, and vary only the things they left open.',
+            ]
+          : []),
         'The one thing they can never change is the product itself.',
         '"""',
         userPrompt,
