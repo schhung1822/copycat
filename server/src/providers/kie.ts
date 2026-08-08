@@ -329,6 +329,22 @@ function buildPrompt(request: GenerateRequest): string {
        * Câu khẳng định "giữ đúng như trong ảnh sản phẩm" ở trên hiệu quả hơn hẳn.
        */
       'The product from Image 1 must not appear anywhere in the result.',
+
+      /*
+       * Chặn lỗi ĐẢO VAI.
+       *
+       * Khi ảnh sản phẩm khách tải lên cũng là một tấm ảnh có bối cảnh — người
+       * mẫu mặc đồ, quần áo treo trong shop — chứ không phải ảnh nền trắng, thì
+       * hai đầu vào trông cùng một thể loại và model không còn suy ra được cái
+       * nào là mẫu, cái nào là hàng. Nó đoán, và có lúc đoán ngược: lấy bối cảnh
+       * của ảnh sản phẩm rồi mặc lại đồ của ảnh mẫu. Sai toàn bộ chứ không phải
+       * sai một chi tiết.
+       *
+       * Nói thẳng rằng hai ảnh có thể giống thể loại nhau, và neo vai trò vào
+       * THỨ TỰ chứ không vào nội dung.
+       */
+      'The two images may look like the same kind of photograph. Do not let that confuse you and do not\n' +
+        'swap their roles: the scene always comes from Image 1, the product always comes from Image 2.',
     );
   } else {
     // Không có ảnh mẫu: chỉ còn nhiệm vụ dựng bối cảnh quanh sản phẩm.
@@ -385,8 +401,12 @@ function buildPrompt(request: GenerateRequest): string {
    */
   if (request.referenceImage) {
     blocks.push(
-      'Before you finish, check the result: every item shown must be the replacement product, with none of\n' +
-        'the shape, colours, logos or lettering of the product from Image 1 anywhere on it.',
+      // Soát cả HAI chiều. Câu cũ chỉ soát "sản phẩm có đúng không", nên lúc model
+      // đảo vai thì nó tự soát trên cặp đã đảo và thấy mọi thứ khớp.
+      'Before you finish, check two things. First: the scene, background and setting are the ones from\n' +
+        'Image 1. Second: the product shown in it is the one from Image 2, with none of the shape, colours,\n' +
+        'logos or lettering of the product from Image 1 anywhere on it. If it came out the other way round —\n' +
+        "Image 2's scene showing Image 1's product — you have swapped them; redo it.",
     );
   }
 
