@@ -123,8 +123,28 @@ export const env = {
     : path.join(ROOT_DIR, str('STORAGE_DIR', 'server/storage')),
   downloadResults: bool('DOWNLOAD_RESULTS', true),
 
-  maxConcurrentJobs: num('MAX_CONCURRENT_JOBS', 4),
-  maxQueuePerUser: num('MAX_QUEUE_PER_USER', 12),
+  /*
+   * Trần chung của cả máy chủ. Đặt cao hơn hẳn trần từng khách để vài khách bấm
+   * nút cùng lúc vẫn chạy song song được.
+   *
+   * Sàn 1 cho cả ba con số dưới đây: đặt nhầm thành 0 thì hàng đợi đứng im vĩnh
+   * viễn mà không báo lỗi gì — kiểu hỏng rất khó lần ra.
+   */
+  maxConcurrentJobs: Math.max(num('MAX_CONCURRENT_JOBS', 24), 1),
+  /**
+   * Số ảnh của MỘT khách được gọi lên nhà cung cấp cùng lúc.
+   *
+   * 8 = hai ảnh mẫu × bốn bản, tức lô cỡ vừa chạy trọn một đợt. Nâng lên thì lô
+   * lớn xong nhanh hơn nhưng dễ chạm rate-limit của Kie.ai.
+   */
+  maxConcurrentJobsPerUser: Math.max(num('MAX_CONCURRENT_JOBS_PER_USER', 8), 1),
+  /*
+   * Trần số ảnh đang chờ + đang chạy của một khách.
+   *
+   * Phải >= số job tối đa của MỘT lần bấm nút (8 ảnh mẫu × 4 bản = 32), nếu không
+   * giao diện cho khách chọn một tổ hợp mà máy chủ chắc chắn từ chối.
+   */
+  maxQueuePerUser: Math.max(num('MAX_QUEUE_PER_USER', 32), 1),
 };
 
 /** Cảnh báo các cấu hình còn thiếu / không an toàn khi khởi động. */

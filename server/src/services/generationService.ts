@@ -220,7 +220,7 @@ export async function createGenerations(
     return { generationIds: ids, balance: latest.availableTokens };
   });
 
-  for (const id of generationIds) enqueue(id);
+  for (const id of generationIds) enqueue(id, userId);
 
   return { batchId, generationIds, tokenCost: totalCost, balance };
 }
@@ -292,7 +292,7 @@ export async function redoGeneration(
     return { newId: result.insertId, balance: spend.state.availableTokens };
   });
 
-  enqueue(newId);
+  enqueue(newId, userId);
   return { generationId: newId, tokenCost: model.token_cost, balance };
 }
 
@@ -302,28 +302,61 @@ export async function redoGeneration(
 //  Khi cần mở rộng nhiều máy chủ, thay khối này bằng BullMQ/Redis là đủ.
 // ---------------------------------------------------------------------------
 
-const pending: number[] = [];
+/**
+ * Hai mức trần, cố ý tách riêng:
+ *
+ *   - `maxConcurrentJobsPerUser` — một khách bấm "tạo 8 ảnh" thì cả 8 chạy cùng
+ *     lúc, xong gần như đồng thời thay vì nhỏ giọt theo từng đợt.
+ *   - `maxConcurrentJobs` — trần chung của cả máy chủ, để một khách tạo lô lớn
+ *     không nuốt hết kết nối tới nhà cung cấp.
+ *
+ * Trước đây chỉ có trần chung (4), nghĩa là hai khách cùng bấm nút là giẫm chân
+ * nhau: lô của người này phải chờ lô của người kia vẽ xong.
+ */
+interface QueuedJob {
+  generationId: number;
+  userId: number;
+}
+
+const pending: QueuedJob[] = [];
+const runningPerUser = new Map<number, number>();
 let running = 0;
 
-function enqueue(generationId: number): void {
-  pending.push(generationId);
+function enqueue(generationId: number, userId: number): void {
+  pending.push({ generationId, userId });
   drain();
 }
 
 function drain(): void {
-  while (running < env.maxConcurrentJobs && pending.length > 0) {
-    const id = pending.shift()!;
+  while (running < env.maxConcurrentJobs) {
+    /*
+     * Bỏ qua job của khách đã chạm trần riêng và xét tiếp job phía sau, thay vì
+     * dừng ở đầu hàng. Không có bước này thì một lô 32 ảnh của khách A nằm chắn
+     * ngay đầu hàng đợi và khách B xếp sau không bao giờ được chạy dù máy chủ
+     * còn thừa chỗ.
+     */
+    const index = pending.findIndex(
+      (job) => (runningPerUser.get(job.userId) ?? 0) < env.maxConcurrentJobsPerUser,
+    );
+    if (index === -1) return;
+
+    const [job] = pending.splice(index, 1);
     running += 1;
-    void runGeneration(id)
-      .catch((error) => console.error(`[generation ${id}] lỗi ngoài dự kiến`, error))
+    runningPerUser.set(job.userId, (runningPerUser.get(job.userId) ?? 0) + 1);
+
+    void runGeneration(job.generationId)
+      .catch((error) => console.error(`[generation ${job.generationId}] lỗi ngoài dự kiến`, error))
       .finally(() => {
         running -= 1;
+        const left = (runningPerUser.get(job.userId) ?? 1) - 1;
+        if (left > 0) runningPerUser.set(job.userId, left);
+        else runningPerUser.delete(job.userId);
         drain();
       });
   }
 }
 
-export const queueStatus = () => ({ pending: pending.length, running });
+export const queueStatus = () => ({ pending: pending.length, running, users: runningPerUser.size });
 
 function parseInputImages(row: GenerationRow): { reference: string | null; products: string[] } {
   const raw = row.input_images;
@@ -349,8 +382,6 @@ async function runGeneration(generationId: number): Promise<void> {
       productImages: await Promise.all(inputImages.products.map((path) => readAsDataUri(path))),
       aspectRatio: row.aspect_ratio,
       resolution: row.resolution,
-      variantIndex: row.variant_index,
-      variantTotal: row.variant_total,
       onTaskCreated: async (taskId) => {
         await execute('UPDATE generations SET provider_task_id = ? WHERE id = ?', [taskId, generationId]);
       },

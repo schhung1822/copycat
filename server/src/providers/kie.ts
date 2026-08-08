@@ -90,9 +90,6 @@ const MODEL_SPECS: Record<string, KieModelSpec> = {
       if (resolution === '4K' && aspectRatio === '1:1') {
         return 'GPT Image 2 không xuất được ảnh 4K ở tỉ lệ 1:1. Hãy chọn 2K hoặc đổi tỉ lệ khác.';
       }
-      if (resolution !== '1K' && aspectRatio === 'auto') {
-        return 'GPT Image 2 với tỉ lệ "Tự động" chỉ tạo được ảnh 1K. Hãy chọn một tỉ lệ cụ thể để dùng 2K/4K.';
-      }
       return null;
     },
   },
@@ -111,6 +108,23 @@ const DEFAULT_SPEC: KieModelSpec = {
 const specFor = (providerModel: string): KieModelSpec => MODEL_SPECS[providerModel] ?? DEFAULT_SPEC;
 
 export const KNOWN_KIE_MODELS = Object.keys(MODEL_SPECS);
+
+/**
+ * Tỉ lệ dùng khi khách chọn "Tự động".
+ *
+ * "auto" là một lựa chọn của GIAO DIỆN chứ không phải giá trị gửi lên Kie.ai:
+ * gửi thẳng "auto" thì model tự đoán khung hình và hay cho ra ảnh vuông hoặc
+ * ngang, trong khi ảnh quảng cáo gần như luôn là ảnh dọc. Quy về 3:4 — đúng như
+ * bản chạy ổn định trong copycat_goc — cho ra khung hình đoán trước được.
+ */
+const DEFAULT_RATIO = '3:4';
+
+/** Tỉ lệ thật sự đặt vào payload: bỏ "auto", và lùi về 3:4 nếu model không nhận. */
+function resolveAspectRatio(spec: KieModelSpec, requested: string): string {
+  const concrete = spec.aspectRatios.filter((ratio) => ratio !== 'auto');
+  if (requested !== 'auto' && concrete.includes(requested)) return requested;
+  return concrete.includes(DEFAULT_RATIO) ? DEFAULT_RATIO : concrete[0] ?? DEFAULT_RATIO;
+}
 
 // ---------------------------------------------------------------------------
 
@@ -201,225 +215,55 @@ async function uploadImage(dataUri: string): Promise<string> {
  *  PROMPT GỬI LÊN MODEL
  * =============================================================================
  *
+ * Bản này bám đúng prompt của copycat_goc — bản đã chạy ổn định và cho ra ảnh
+ * ưng ý nhất trong thực tế.
+ *
  * Viết bằng tiếng Anh vì các model ảnh đều được huấn luyện chủ yếu trên tiếng
  * Anh và bám chỉ dẫn tiếng Anh chặt hơn hẳn. Riêng phần khách nhập được giữ
  * NGUYÊN VĂN (thường là tiếng Việt) — dịch máy dễ làm sai ý khách, và các model
  * này đều đọc được tiếng Việt khi đã có khung tiếng Anh dẫn dắt.
  *
- * Cấu trúc prompt sinh ra để chữa đúng ba lỗi hay gặp:
+ * CỐ Ý GIỮ NGẮN. Bản trước liệt kê STEP 1–4, HARD RULES, VARIATION và FINAL
+ * CHECK dài hơn bốn mươi dòng; càng nhiều ràng buộc thì model càng bám chữ và
+ * ảnh ra càng cứng, mà vẫn không chắc giữ đúng sản phẩm. Ba khối
+ * INPUTS / TASK / DETAILS là đủ để model hiểu ảnh nào là mẫu, ảnh nào là hàng.
  *
- *   1. Ảnh ra vẫn mặc sản phẩm của ẢNH MẪU.
- *      → Phải nói thẳng "xoá sản phẩm trong ảnh mẫu đi", chứ chỉ nói "dùng sản
- *        phẩm này" thì model coi ảnh mẫu là gợi ý và giữ nguyên đồ cũ. Thêm một
- *        bước tự kiểm ở cuối để model soát lại trước khi trả ảnh.
- *
- *   2. Tạo nhiều ảnh một lượt thì ảnh thứ 2 trở đi lệch sản phẩm.
- *      → Mỗi ảnh là một lệnh gọi API độc lập, model không biết nó đang làm bản
- *        thứ mấy nên tự do "sáng tác cho khác đi", và thứ nó đổi đầu tiên lại là
- *        sản phẩm. Vì vậy phải nói rõ đây là bản thứ k/n VÀ liệt kê đích danh
- *        những thứ ĐƯỢC phép đổi — sản phẩm không nằm trong danh sách đó.
- *
- *   3. Khách nhập mô tả thêm rồi model bỏ luôn ràng buộc gốc.
- *      → Ghi rõ thứ tự ưu tiên: nhận diện sản phẩm > mô tả của khách > bám ảnh
- *        mẫu. Nhờ vậy khách đổi được bối cảnh, tư thế, màu nền... nhưng không
- *        bao giờ đổi được chính món hàng.
- *
- * Các bước được đánh số và tách khối vì model bám theo danh sách có thứ tự tốt
- * hơn nhiều so với một đoạn văn xuôi dài.
+ * Muốn siết thêm ràng buộc thì viết vào ô "Mô tả thêm" ở giao diện, đừng nhét
+ * vào đây: ở đó khách sửa được ngay cho từng bộ ảnh, còn sửa ở đây là ép cứng
+ * cho mọi ảnh của mọi khách.
  */
-
-/** "Image 2" hoặc "Images 2–4", tuỳ số ảnh sản phẩm khách gửi. */
-const productImageRange = (productCount: number, firstIndex: number): string =>
-  productCount > 1 ? `Images ${firstIndex}–${firstIndex + productCount - 1}` : `Image ${firstIndex}`;
-
-/**
- * Dặn riêng cho từng bản trong lô.
- *
- * Mức tự do phụ thuộc vào việc khách có nhập mô tả hay không:
- *
- *   - KHÔNG có mô tả: khách chỉ muốn đúng thiết kế của ảnh mẫu với hàng của
- *     mình, nên các bản chỉ được khác nhau ở chi tiết phụ. Danh sách được liệt
- *     kê ĐÍCH DANH và đóng — an toàn hơn hẳn câu chung chung kiểu "hãy làm khác
- *     đi", vốn là thứ khiến model tự ý đổi luôn sản phẩm.
- *
- *   - CÓ mô tả: khách đang đặt hàng một hướng riêng, nên bản thứ hai trở đi được
- *     đổi cả thiết kế, dáng sản phẩm và bối cảnh miễn là vẫn đúng mô tả. Nhờ vậy
- *     một lượt bốn ảnh cho ra bốn phương án thật sự khác nhau chứ không phải bốn
- *     bản gần như trùng khít.
- *
- * Dù ở mức tự do nào, nhận diện sản phẩm vẫn nằm ngoài phạm vi được đổi.
- */
-function variantBlock(index: number, total: number, hasUserPrompt: boolean): string {
-  if (total <= 1) return '';
-
-  if (index <= 1) {
-    return hasUserPrompt
-      ? `VARIATION 1 of ${total} — the most direct, straightforward reading of the user instructions below.`
-      : `VARIATION 1 of ${total} — stay as close to the reference design as possible.`;
-  }
-
-  const allowedToVary = hasUserPrompt
-    ? [
-        'you may also change the design itself: composition and arrangement of the graphic blocks, the pose and',
-        'camera angle of the product, the setting and environment, background scenery, lighting mood and accent',
-        'colours — as long as the result still satisfies the user instructions below and still reads as the same',
-        'campaign. Treat the reference as a style guide here, not a template to copy.',
-      ]
-    : [
-        'you may vary ONLY these secondary details: camera angle and pose of the product within the same style,',
-        'arrangement of the product pieces, background scenery detail and texture, position and accent colour of',
-        'the decorative graphic blocks, minor typography layout shifts. The reference layout itself stays intact.',
-      ];
-
-  return [
-    `VARIATION ${index} of ${total} — this image must look noticeably different from the other variations:`,
-    ...allowedToVary,
-    'STEP 4 and the HARD RULES never loosen: same physical item, same colours, same graphics, same logos.',
-    'Never vary the product itself.',
-  ].join(' ');
-}
-
-/** Khối mô tả của khách, kèm ranh giới rõ ràng về thứ được phép ghi đè. */
-function userBlock(userPrompt: string, hasReference: boolean): string {
-  if (!userPrompt) {
-    return hasReference
-      ? 'USER INSTRUCTIONS: none. Follow the steps above exactly.'
-      : 'USER INSTRUCTIONS: none. Place the product in a clean, well-lit commercial studio scene.';
-  }
-
-  return [
-    'USER INSTRUCTIONS — written by the customer, usually in Vietnamese. Follow them whatever the language.',
-    'This is the primary brief. Give it precedence over the reference design.',
-    hasReference
-      ? 'Wherever they ask for something different — scene, setting, model pose, background, colours, text, mood —' +
-        ' follow them and let the design depart from Image 1. Keep the reference only for what they did not mention.'
-      : 'They define the scene.',
-    'The one thing they MAY NOT override is product identity: the product must stay the exact item from the',
-    'product image(s), unchanged in shape, colour and graphics.',
-    '"""',
-    userPrompt,
-    '"""',
-  ].join('\n');
-}
-
-/**
- * Ghép các khối lại, bỏ khối rỗng và ngăn cách bằng một dòng trắng.
- *
- * Dòng trắng giữa các khối không phải để cho đẹp: nó là ranh giới giúp model
- * hiểu "HARD RULES" là một cụm tách bạch chứ không phải phần đuôi của STEP 4.
- * Trong một khối thì các dòng nối liền nhau nên câu vẫn liền mạch.
- */
-const joinBlocks = (blocks: (string | string[])[]): string =>
-  blocks
-    .map((block) => (Array.isArray(block) ? block.join('\n') : block))
-    .filter((block) => block.trim() !== '')
-    .join('\n\n');
-
 function buildPrompt(request: GenerateRequest): string {
   const userPrompt = request.prompt.trim();
-  const hasUserPrompt = userPrompt !== '';
-  const productCount = Math.max(request.productImages.length, 1);
-  const index = Math.max(request.variantIndex ?? 1, 1);
-  const total = Math.max(request.variantTotal ?? 1, 1);
 
-  // Không có ảnh mẫu: chỉ còn nhiệm vụ giữ đúng sản phẩm và dựng bối cảnh.
+  // Không có ảnh mẫu: chỉ còn nhiệm vụ dựng bối cảnh quanh sản phẩm.
   if (!request.referenceImage) {
-    const products = productImageRange(productCount, 1);
-
-    return joinBlocks([
-      'TASK: create one finished, professional advertising image of the product shown in the input image(s).',
-      [
-        `PRODUCT: ${products}${productCount > 1 ? ' show the same product set from different angles, or its separate pieces.' : '.'}`,
-        'The product in your output must be the exact same physical item: identical silhouette and cut,',
-        'identical colours and where each colour sits, identical material and texture, identical prints,',
-        'graphics, logos, lettering, trims and proportions. Do not redesign, recolour, simplify or replace it.',
-      ],
-      variantBlock(index, total, hasUserPrompt),
-      userBlock(userPrompt, false),
-      'Output a single finished image — no collage, no side-by-side comparison, no before/after panel.',
-    ]);
+    return [
+      'Generate a high-quality professional marketing image.',
+      '',
+      'INPUTS:',
+      '- The images provided are the PRODUCTS to be featured.',
+      '',
+      'TASK:',
+      'Create a new image that features the provided PRODUCT(S) in a clean, well-lit commercial scene.',
+      '',
+      'DETAILS:',
+      userPrompt || 'Place the products naturally in a professional studio setting.',
+    ].join('\n');
   }
 
-  const products = productImageRange(productCount, 2);
-
-  return joinBlocks([
-    'TASK: rebuild the reference advertisement design, but selling a different product.',
-
-    [
-      'INPUT IMAGES, in the order given:',
-      '• Image 1 — REFERENCE DESIGN. Use it for layout and styling only, never for the product.',
-      `• ${products} — TARGET PRODUCT. The only product allowed to appear in your output.` +
-        (productCount > 1 ? ' They show the same product set from different angles, or its separate pieces.' : ''),
-    ],
-
-    [
-      'STEP 1 · IDENTIFY',
-      'Find the hero product being advertised in Image 1 — the object the whole design is built around.',
-      `Then study the product in ${products}: its exact type, cut, colours, material, prints, logos and proportions.`,
-    ],
-
-    [
-      'STEP 2 · REPLACE',
-      'Remove the hero product of Image 1 from the scene completely and put the TARGET PRODUCT in its place.',
-      'Match the reference product’s position, scale, rotation, camera angle, perspective, cropping and lighting',
-      'direction so the swap looks native to the design. If the target product’s real shape does not fit that',
-      'silhouette, keep the target product’s real shape and adapt the layout around it — never distort the product',
-      'to fit the reference outline.',
-    ],
-
-    [
-      'STEP 3 · KEEP THE DESIGN',
-      'Everything that is not the product stays as in Image 1: canvas layout and grid, background and scenery,',
-      'colour grading, lighting mood, typography style, text blocks, logos, badges, decorative shapes, borders,',
-      'margins and overall composition.',
-      // Có mô tả nghĩa là khách đang đặt hàng một hướng riêng — bám cứng ảnh mẫu
-      // lúc này là làm sai ý khách, nên phải nới ngay tại chỗ chứ không chỉ ghi ở
-      // mục thứ tự ưu tiên cuối prompt.
-      ...(hasUserPrompt
-        ? [
-            'EXCEPTION: the USER INSTRUCTIONS below outrank this step. Wherever they ask for a different scene,',
-            'setting, pose, background, mood or styling, follow them and let the design depart from Image 1.',
-            'Keep the reference only for what the user did not mention.',
-          ]
-        : []),
-    ],
-
-    [
-      'STEP 4 · KEEP THE PRODUCT EXACT — highest priority',
-      `The product in your output must be recognisably the SAME physical item as in ${products}:`,
-      'identical silhouette and cut, identical colours and where each colour sits, identical fabric or material',
-      'and texture, identical prints, graphics, logos, lettering, stripes, trims, stitching, buttons, zips and',
-      'proportions. Do not restyle it, recolour it, simplify it, "improve" it, or blend it with the product from',
-      'Image 1.',
-    ],
-
-    [
-      'HARD RULES',
-      '1. The product from Image 1 must not appear anywhere in the output — not partially, not in the background,',
-      '   not as a second item next to the target product.',
-      `2. Never invent a product that is not in ${products}.`,
-      '3. Reproduce reference text exactly and legibly. If a text block cannot be reproduced accurately, render it',
-      '   as a clean typographic block rather than fake or garbled letters.',
-      '4. Output a single finished advertising image — no collage, no side-by-side comparison, no before/after',
-      '   panel, no visible thumbnail of the input images.',
-    ],
-
-    variantBlock(index, total, hasUserPrompt),
-    userBlock(userPrompt, true),
-
-    [
-      'PRIORITY when instructions conflict: (1) product identity in STEP 4, (2) the user instructions,',
-      '(3) fidelity to the reference design.',
-      ...(hasUserPrompt
-        ? ['Because the user gave instructions, the reference is a style guide here, not a strict template.']
-        : []),
-    ],
-
-    [
-      `FINAL CHECK before you output: is the product in your image the one from ${products}, with the same colours,`,
-      'same cut and same graphics? Is the product from Image 1 fully gone? If not, redo the swap.',
-    ],
-  ]);
+  return [
+    'Generate a high-quality professional marketing image.',
+    '',
+    'INPUTS:',
+    '- The FIRST image provided is the REFERENCE STYLE (composition, lighting, vibe).',
+    '- The SUBSEQUENT images are the PRODUCTS to be featured.',
+    '',
+    'TASK:',
+    'Create a new image that features the provided PRODUCT(S) but seamlessly mimics the style and layout of the REFERENCE image.',
+    '',
+    'DETAILS:',
+    userPrompt || 'Integrate the products naturally into the scene defined by the reference style.',
+  ].join('\n');
 }
 
 /** Bóc URL ảnh ra khỏi các kiểu response khác nhau mà Kie.ai từng trả về. */
@@ -466,7 +310,9 @@ export const kieProvider: ImageProvider = {
       return `Model này không hỗ trợ chất lượng ${resolution}. Chỉ nhận: ${spec.resolutions.join(', ')}.`;
     }
 
-    return spec.restrict?.(resolution, aspectRatio) ?? null;
+    // Ràng buộc riêng phải xét trên tỉ lệ THẬT SỰ được gửi đi, không phải trên
+    // "auto" — nếu không, tổ hợp hợp lệ sau khi quy về 3:4 vẫn bị chặn oan.
+    return spec.restrict?.(resolution, resolveAspectRatio(spec, aspectRatio)) ?? null;
   },
 
   async generate(request: GenerateRequest): Promise<GenerateResult> {
@@ -485,15 +331,9 @@ export const kieProvider: ImageProvider = {
     for (const source of sources) imageUrls.push(await uploadImage(source));
 
     // 2. Dựng payload đúng theo đặc tả của model
-    const aspectRatio = spec.aspectRatios.includes(request.aspectRatio)
-      ? request.aspectRatio
-      : spec.aspectRatios.includes('auto')
-        ? 'auto'
-        : '1:1';
-
     const input: Record<string, unknown> = {
       prompt: buildPrompt(request),
-      aspect_ratio: aspectRatio,
+      aspect_ratio: resolveAspectRatio(spec, request.aspectRatio),
     };
     if (imageUrls.length > 0) input[spec.imageParam] = imageUrls;
     if (spec.resolutions) input.resolution = request.resolution;

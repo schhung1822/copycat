@@ -237,7 +237,8 @@ export interface AdminOverview {
     usdToVnd: number;
   };
   system: {
-    queue: { pending: number; running: number };
+    /** `users` = số khách đang có ảnh chạy, để biết trần chung có bị một người chiếm hết không */
+    queue: { pending: number; running: number; users: number };
     providers: { name: string; configured: boolean }[];
     adminEmails: string[];
     downloadResults: boolean;

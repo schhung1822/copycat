@@ -30,3 +30,6 @@ server/storage/
 *.njsproj
 *.sln
 *.sw?
+
+# Ban tham chieu, khong phai ma nguon cua du an. Chua API key hardcode nen tuyet doi khong commit.
+copycat_goc/

@@ -10,12 +10,15 @@ import { getTabSessionId, readTabSettings, writeTabSettings } from '../lib/sessi
 import type { Catalog, Generation, ImageState, ModelOption } from '../types';
 
 /**
- * `auto` để model tự chọn tỉ lệ hợp lý theo ảnh mẫu — đây là lựa chọn mặc định vì
- * giữ được bố cục gốc của ảnh mẫu tốt nhất. Không phải model nào cũng nhận hết
- * danh sách này; server sẽ báo lỗi rõ ràng trước khi trừ điểm nếu không hợp lệ.
+ * `auto` là lựa chọn mặc định và được máy chủ quy về 3:4 — khung dọc chuẩn của
+ * ảnh quảng cáo. Cố ý không để model tự đoán khung hình: gửi "auto" thẳng lên nhà
+ * cung cấp thì ảnh ra lúc vuông lúc ngang, rất khó dùng.
+ *
+ * Không phải model nào cũng nhận hết danh sách này; server sẽ báo lỗi rõ ràng
+ * trước khi trừ điểm nếu không hợp lệ.
  */
 const ASPECT_RATIOS: { value: string; label: string }[] = [
-  { value: 'auto', label: 'Tự động (theo ảnh mẫu)' },
+  { value: 'auto', label: 'Tự động (3:4 - dọc)' },
   { value: '1:1', label: '1:1 - Vuông' },
   { value: '3:4', label: '3:4 - Dọc' },
   { value: '4:3', label: '4:3 - Ngang' },

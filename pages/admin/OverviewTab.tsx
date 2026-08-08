@@ -122,7 +122,10 @@ export const OverviewTab: React.FC = () => {
         <StatCard
           label="Hàng đợi"
           value={`${overview.system.queue.running} / ${overview.system.queue.running + overview.system.queue.pending}`}
-          sub={`Thời gian vẽ trung bình ${overview.generations.avgDurationSec}s`}
+          sub={
+            `Đang vẽ cho ${overview.system.queue.users} khách · ` +
+            `trung bình ${overview.generations.avgDurationSec}s mỗi ảnh`
+          }
         />
       </div>
 
