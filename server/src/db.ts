@@ -155,6 +155,10 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   // NULL — chúng không thuộc tab nào nên không lọt vào danh sách của tab mới nào.
   await ensureColumn(conn, 'generations', 'client_session', 'VARCHAR(64) NULL');
 
+  // Khách tự ẩn ảnh khỏi trang Lịch sử. Xoá mềm để không phá báo cáo kế toán —
+  // xem chú thích ở schema.sql. Ảnh cũ để NULL nghĩa là chưa ai xoá.
+  await ensureColumn(conn, 'generations', 'deleted_at', 'DATETIME NULL');
+
   // Sổ cái tách hai nguồn điểm
   await ensureColumn(conn, 'token_transactions', 'bucket', "ENUM('monthly','purchased') NOT NULL DEFAULT 'purchased'");
   // MODIFY chạy lại vô hại, dùng để bổ sung giá trị enum mới.

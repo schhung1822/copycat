@@ -247,6 +247,10 @@ CREATE TABLE IF NOT EXISTS generations (
   duration_ms      INT             NULL,
   created_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   completed_at     DATETIME        NULL,
+  -- Khách đã ẩn ảnh này khỏi trang Lịch sử của họ. Cố ý XOÁ MỀM: dòng này là
+  -- chứng từ kế toán (điểm đã trừ, giá vốn đã trả cho nhà cung cấp), xoá cứng
+  -- thì báo cáo doanh thu và biên lợi nhuận trong trang Quản trị sai âm thầm.
+  deleted_at       DATETIME        NULL,
   PRIMARY KEY (id),
   KEY idx_gen_user (user_id, created_at),
   KEY idx_gen_status (status, created_at),

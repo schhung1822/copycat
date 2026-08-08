@@ -44,6 +44,8 @@ export interface GenerationRow extends RowDataPacket {
   purchased_cost: number;
   api_cost_usd: number;
   status: 'queued' | 'processing' | 'success' | 'failed' | 'refunded';
+  /** Khách đã ẩn ảnh khỏi trang Lịch sử; dòng vẫn còn để tính báo cáo. */
+  deleted_at: Date | null;
   provider_task_id: string | null;
   result_url: string | null;
   result_path: string | null;
@@ -300,6 +302,38 @@ export async function redoGeneration(
 
   enqueue(newId, userId);
   return { generationId: newId, tokenCost: model.token_cost, balance };
+}
+
+/**
+ * Khách xoá một ảnh khỏi trang Lịch sử của mình.
+ *
+ * XOÁ MỀM, cố ý. Dòng `generations` vừa là ảnh của khách vừa là chứng từ kế
+ * toán: nó ghi số điểm đã trừ và giá vốn đã trả cho nhà cung cấp. Trang Quản trị
+ * cộng thẳng từ bảng này ra doanh thu, chi phí và biên lợi nhuận theo model, nên
+ * xoá cứng sẽ làm mọi báo cáo tụt xuống mà không ai biết vì sao.
+ *
+ * File ảnh trên ổ đĩa cũng được GIỮ LẠI. Khách đã trả tiền cho ảnh đó; bấm nhầm
+ * một nút mà mất vĩnh viễn là quá đắt. Muốn thu hồi dung lượng thì viết một tác
+ * vụ quét định kỳ xoá file của các dòng đã `deleted_at` quá lâu — có chỗ để làm
+ * việc đó chính là cột này.
+ */
+export async function deleteGeneration(userId: number, generationId: number): Promise<void> {
+  const row = await queryOne<GenerationRow>(
+    'SELECT id, status, deleted_at FROM generations WHERE id = ? AND user_id = ?',
+    [generationId, userId],
+  );
+  if (!row) throw notFound('Không tìm thấy ảnh cần xoá.');
+
+  // Ảnh đang vẽ vẫn chạy tiếp trong hàng đợi và vẫn ghi kết quả vào dòng này.
+  // Cho xoá lúc đó thì ảnh biến mất rồi hiện lại khi vẽ xong — khách tưởng hỏng.
+  if (row.status === 'queued' || row.status === 'processing') {
+    throw badRequest('Ảnh đang được tạo, vui lòng đợi xong rồi mới xoá.', 'generation_running');
+  }
+
+  // Xoá lại lần nữa không phải lỗi: khách bấm hai lần, hoặc hai tab cùng xoá.
+  if (row.deleted_at) return;
+
+  await execute('UPDATE generations SET deleted_at = NOW() WHERE id = ? AND user_id = ?', [generationId, userId]);
 }
 
 // ---------------------------------------------------------------------------

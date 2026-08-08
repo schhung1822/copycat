@@ -6,6 +6,7 @@ import { asyncHandler, notFound } from '../lib/errors.js';
 import { optionalString, parsePaging, requireInt, requireString, requireStringArray } from '../lib/validate.js';
 import {
   createGenerations,
+  deleteGeneration,
   redoGeneration,
   serializeGeneration,
   type GenerationRow,
@@ -63,7 +64,9 @@ generationRouter.get(
       .map((value) => value.trim())
       .filter((value) => allowed.includes(value));
 
-    const filters = ['user_id = ?'];
+    // Ảnh khách đã xoá chỉ bị ẩn khỏi giao diện, dòng vẫn nằm trong DB để trang
+    // Quản trị tính đúng doanh thu và giá vốn.
+    const filters = ['user_id = ?', 'deleted_at IS NULL'];
     const params: unknown[] = [req.user!.id];
     if (statuses.length > 0) {
       filters.push(`status IN (${statuses.map(() => '?').join(',')})`);
@@ -128,7 +131,8 @@ generationRouter.get(
     }
 
     const rows = await query<GenerationRow>(
-      `SELECT * FROM generations WHERE user_id = ? AND id IN (${ids.map(() => '?').join(',')})`,
+      `SELECT * FROM generations
+        WHERE user_id = ? AND deleted_at IS NULL AND id IN (${ids.map(() => '?').join(',')})`,
       [req.user!.id, ...ids],
     );
     const state = await readAccountState(req.user!.id);
@@ -140,12 +144,26 @@ generationRouter.get(
 generationRouter.get(
   '/:id',
   asyncHandler(async (req, res) => {
-    const row = await queryOne<GenerationRow>('SELECT * FROM generations WHERE id = ? AND user_id = ?', [
-      Number(req.params.id),
-      req.user!.id,
-    ]);
+    const row = await queryOne<GenerationRow>(
+      'SELECT * FROM generations WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+      [Number(req.params.id), req.user!.id],
+    );
     if (!row) throw notFound('Không tìm thấy ảnh.');
     res.json({ generation: serializeGeneration(row) });
+  }),
+);
+
+/**
+ * Xoá một ảnh khỏi trang Lịch sử.
+ *
+ * Xoá mềm — xem `deleteGeneration`. Không hoàn điểm: ảnh đã vẽ xong là dịch vụ
+ * đã cung cấp, khách dọn màn hình của mình chứ không phải huỷ đơn.
+ */
+generationRouter.delete(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    await deleteGeneration(req.user!.id, Number(req.params.id));
+    res.status(204).end();
   }),
 );
 

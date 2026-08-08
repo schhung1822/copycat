@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Badge, Card, EmptyState, PageLoader } from '../components/ui';
+import { Alert, Badge, Card, EmptyState, PageLoader, Spinner } from '../components/ui';
 import { api, qs } from '../lib/api';
 import { formatDateTime, STATUS_LABEL } from '../lib/format';
 import type { Generation } from '../types';
@@ -20,6 +20,8 @@ export const HistoryPage: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +42,34 @@ export const HistoryPage: React.FC = () => {
   }, [status, page]);
 
   const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
+
+  /**
+   * Xoá một ảnh khỏi lịch sử.
+   *
+   * Bỏ ảnh khỏi lưới ngay thay vì tải lại cả trang: xoá là thao tác lẻ, nháy một
+   * cái loading cho mỗi lần bấm thì rất khó chịu. Trang có thể còn 23 ảnh cho tới
+   * lần chuyển trang sau — chấp nhận được, đổi lại thao tác mượt.
+   *
+   * Xoá hết ảnh của trang đang xem thì lùi về trang trước, nếu không khách nhìn
+   * thấy một trang trống trong khi vẫn còn ảnh ở các trang trước đó.
+   */
+  const handleDelete = async (item: Generation) => {
+    if (!confirm('Xoá ảnh này khỏi lịch sử? Điểm đã dùng để tạo ảnh sẽ không được hoàn lại.')) return;
+
+    setDeletingId(item.id);
+    setError(null);
+    try {
+      await api.del(`/generations/${item.id}`);
+      const remaining = generations.filter((row) => row.id !== item.id);
+      setGenerations(remaining);
+      setTotal((current) => Math.max(current - 1, 0));
+      if (remaining.length === 0 && page > 1) setPage(page - 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không xoá được ảnh.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
@@ -67,6 +97,8 @@ export const HistoryPage: React.FC = () => {
         </div>
       </div>
 
+      {error && <Alert tone="error">{error}</Alert>}
+
       {isLoading ? (
         <PageLoader />
       ) : generations.length === 0 ? (
@@ -76,7 +108,7 @@ export const HistoryPage: React.FC = () => {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
           {generations.map((item) => (
-            <Card key={item.id} className="overflow-hidden flex flex-col">
+            <Card key={item.id} className="group overflow-hidden flex flex-col">
               <div className="aspect-[3/4] bg-dark-850 relative">
                 {item.imageUrl && item.status === 'success' ? (
                   <img
@@ -95,6 +127,39 @@ export const HistoryPage: React.FC = () => {
                 <div className="absolute top-2 right-2">
                   <Badge status={item.status}>{STATUS_LABEL[item.status]}</Badge>
                 </div>
+
+                {/*
+                  Ảnh đang vẽ thì máy chủ từ chối xoá (kết quả vẫn sắp ghi vào
+                  dòng đó), nên ẩn luôn nút cho khỏi bấm rồi ăn báo lỗi.
+
+                  Nút luôn hiện trên màn cảm ứng — `opacity-100 md:opacity-0`:
+                  điện thoại không có trạng thái hover nên nút ẩn theo hover là
+                  nút không bao giờ bấm được.
+                */}
+                {item.status !== 'queued' && item.status !== 'processing' && (
+                  <button
+                    onClick={() => void handleDelete(item)}
+                    disabled={deletingId === item.id}
+                    title="Xoá khỏi lịch sử"
+                    aria-label="Xoá khỏi lịch sử"
+                    className="absolute top-2 left-2 p-1.5 rounded-lg bg-black/60 text-gray-300 backdrop-blur-sm
+                               opacity-100 md:opacity-0 group-hover:opacity-100 focus-visible:opacity-100
+                               hover:bg-red-600 hover:text-white disabled:opacity-40 transition-all"
+                  >
+                    {deletingId === item.id ? (
+                      <Spinner className="h-3.5 w-3.5" />
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                )}
               </div>
               <div className="p-2.5 border-t border-dark-800">
                 <p className="text-[11px] text-gray-400 truncate" title={item.modelLabel}>
