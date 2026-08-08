@@ -215,55 +215,124 @@ async function uploadImage(dataUri: string): Promise<string> {
  *  PROMPT GỬI LÊN MODEL
  * =============================================================================
  *
- * Bản này bám đúng prompt của copycat_goc — bản đã chạy ổn định và cho ra ảnh
- * ưng ý nhất trong thực tế.
- *
  * Viết bằng tiếng Anh vì các model ảnh đều được huấn luyện chủ yếu trên tiếng
  * Anh và bám chỉ dẫn tiếng Anh chặt hơn hẳn. Riêng phần khách nhập được giữ
  * NGUYÊN VĂN (thường là tiếng Việt) — dịch máy dễ làm sai ý khách, và các model
  * này đều đọc được tiếng Việt khi đã có khung tiếng Anh dẫn dắt.
  *
- * CỐ Ý GIỮ NGẮN. Bản trước liệt kê STEP 1–4, HARD RULES, VARIATION và FINAL
- * CHECK dài hơn bốn mươi dòng; càng nhiều ràng buộc thì model càng bám chữ và
- * ảnh ra càng cứng, mà vẫn không chắc giữ đúng sản phẩm. Ba khối
- * INPUTS / TASK / DETAILS là đủ để model hiểu ảnh nào là mẫu, ảnh nào là hàng.
+ * Prompt này ra đời sau khi thử ba cách trên cùng một cặp ảnh thật (mẫu: đôi
+ * Nike Dunk xanh chụp từ trên xuống; sản phẩm: đôi sneaker trắng xám FASHION
+ * SPORT), chạy trên Nano Banana 2:
  *
- * Muốn siết thêm ràng buộc thì viết vào ô "Mô tả thêm" ở giao diện, đừng nhét
- * vào đây: ở đó khách sửa được ngay cho từng bộ ảnh, còn sửa ở đây là ép cứng
- * cho mọi ảnh của mọi khách.
+ *   - Tả vai trò trừu tượng ("Image 1 là REFERENCE STYLE — composition, lighting,
+ *     vibe") thì model hiểu "style" bao gồm cả ĐẶC ĐIỂM SẢN PHẨM của ảnh mẫu, và
+ *     dập luôn logo Nike lên giày của khách. Bố cục đúng nhưng sản phẩm sai —
+ *     kiểu hỏng tệ nhất vì nhìn thoáng qua vẫn thấy "đẹp".
+ *   - Nói thêm "Image 2 là TARGET PRODUCT, đừng để sản phẩm ảnh mẫu xuất hiện"
+ *     thì hết logo lạ, nhưng chữ trên sản phẩm bị vẽ sai.
+ *   - Mô tả công việc như một THAO TÁC SỬA ẢNH CỤ THỂ — "chụp lại đúng tấm ảnh
+ *     này, thay món đồ trong đó" — thì đúng cả bố cục lẫn sản phẩm, ba lần chạy
+ *     liên tiếp đều đạt, và đúng cả trên bộ ảnh quần áo khác hẳn thể loại.
+ *
+ * Nên khung dưới đây cố tình KHÔNG dùng từ trừu tượng như "style", "vibe",
+ * "mimic". Nó nêu đích danh từng thứ phải giữ (góc máy, số lượng món, cách xếp
+ * chồng, nền, ánh sáng, khung hình) và từng thứ phải đổi. Đổi lại chữ trừu tượng
+ * là mở đường cho model tự diễn giải, mà nó luôn diễn giải theo hướng bê nguyên
+ * sản phẩm của ảnh mẫu sang.
+ *
+ * Vẫn giữ ngắn: không đánh số bước, không HARD RULES, không dặn "bản thứ mấy
+ * phải khác đi". Muốn siết thêm thì viết vào ô "Mô tả thêm" ở giao diện — ở đó
+ * khách sửa được cho từng bộ ảnh, còn sửa ở đây là ép cứng cho mọi khách.
  */
+
+/** "Image 2" hoặc "Images 2–4", tuỳ số ảnh sản phẩm khách gửi. */
+const productRange = (count: number, firstIndex: number): string =>
+  count > 1 ? `Images ${firstIndex}–${firstIndex + count - 1}` : `Image ${firstIndex}`;
+
 function buildPrompt(request: GenerateRequest): string {
   const userPrompt = request.prompt.trim();
+  const productCount = Math.max(request.productImages.length, 1);
+  const blocks: string[] = [];
 
-  // Không có ảnh mẫu: chỉ còn nhiệm vụ dựng bối cảnh quanh sản phẩm.
-  if (!request.referenceImage) {
-    return [
-      'Generate a high-quality professional marketing image.',
-      '',
-      'INPUTS:',
-      '- The images provided are the PRODUCTS to be featured.',
-      '',
-      'TASK:',
-      'Create a new image that features the provided PRODUCT(S) in a clean, well-lit commercial scene.',
-      '',
-      'DETAILS:',
-      userPrompt || 'Place the products naturally in a professional studio setting.',
-    ].join('\n');
+  if (request.referenceImage) {
+    const products = productRange(productCount, 2);
+
+    blocks.push(
+      'Take the photograph in Image 1 and swap out the product it shows.',
+
+      `Image 1 = the photograph to recreate. ${products} = the replacement product` +
+        (productCount > 1 ? ', shown from different angles or as its separate pieces.' : '.'),
+
+      'Recreate Image 1 as closely as you can — same camera angle, same number of items and how they are\n' +
+        'placed and overlap, same background, same lighting and shadows, same crop and framing — but showing\n' +
+        'the replacement product instead of the product from Image 1.',
+
+      'The replacement product keeps its own real shape, colours, materials, prints, logos and lettering\n' +
+        `exactly as in ${products}. Do not restyle it, and do not give it the colours or the logos of the\n` +
+        'product from Image 1.',
+
+      /*
+       * ĐỪNG thêm câu cấm logo kiểu "never put a brand logo, swoosh, monogram on
+       * the product". Đã thử: kết quả TỆ HẲN ĐI — một lần ra nửa giày mẫu nửa giày
+       * khách, một lần ra nguyên đôi giày của ảnh mẫu. Gọi tên thứ cần tránh làm
+       * chính nó nổi bật lên trong đầu model, đúng kiểu "đừng nghĩ đến con voi".
+       * Câu khẳng định "giữ đúng như trong ảnh sản phẩm" ở trên hiệu quả hơn hẳn.
+       */
+      'The product from Image 1 must not appear anywhere in the result.',
+    );
+  } else {
+    // Không có ảnh mẫu: chỉ còn nhiệm vụ dựng bối cảnh quanh sản phẩm.
+    const products = productRange(productCount, 1);
+
+    blocks.push(
+      'Create one finished, professional advertising photograph of the product shown in the input image(s).',
+
+      `${products} = the product. Keep it exactly as it is: same shape, colours, materials, prints, logos\n` +
+        'and lettering. Do not restyle it.',
+    );
+
+    if (!userPrompt) blocks.push('Place it in a clean, well-lit commercial studio scene.');
   }
 
-  return [
-    'Generate a high-quality professional marketing image.',
-    '',
-    'INPUTS:',
-    '- The FIRST image provided is the REFERENCE STYLE (composition, lighting, vibe).',
-    '- The SUBSEQUENT images are the PRODUCTS to be featured.',
-    '',
-    'TASK:',
-    'Create a new image that features the provided PRODUCT(S) but seamlessly mimics the style and layout of the REFERENCE image.',
-    '',
-    'DETAILS:',
-    userPrompt || 'Integrate the products naturally into the scene defined by the reference style.',
-  ].join('\n');
+  /*
+   * Mô tả của khách phải nói rõ nó ĐÈ ĐƯỢC lệnh bám ảnh mẫu, nhưng KHÔNG đè được
+   * nhận diện sản phẩm. Thiếu vế đầu thì khách bảo "đổi nền màu be" mà model vẫn
+   * giữ nguyên nền ảnh mẫu; thiếu vế sau thì khách mô tả gì hơi lạ là model coi
+   * như được phép vẽ lại luôn món hàng.
+   */
+  if (userPrompt) {
+    blocks.push(
+      [
+        'USER INSTRUCTIONS — written by the customer, often in Vietnamese. Follow them whatever the language.',
+        request.referenceImage
+          ? 'Where they ask for something different from Image 1 — scene, background, colours, mood, framing —\n' +
+            'follow them instead, and keep Image 1 only for what they did not mention.'
+          : 'They define the scene.',
+        'The one thing they can never change is the product itself.',
+        '"""',
+        userPrompt,
+        '"""',
+      ].join('\n'),
+    );
+  }
+
+  /*
+   * Câu chốt, luôn nằm CUỐI prompt.
+   *
+   * Model bám câu cuối cùng chặt hơn các câu giữa. Thiếu nó thì khi khách không
+   * nhập mô tả — lúc prompt kết thúc ngay sau phần tả nhiệm vụ — có lần model để
+   * đặc điểm của sản phẩm trong ảnh mẫu lẫn sang: đã bắt gặp một chiếc giày mọc
+   * ra logo và chữ của đôi giày trong ảnh mẫu. Khi có mô tả thì khối USER
+   * INSTRUCTIONS vô tình đóng vai trò này, nên lỗi chỉ hiện ở đường không mô tả.
+   */
+  if (request.referenceImage) {
+    blocks.push(
+      'Before you finish, check the result: every item shown must be the replacement product, with none of\n' +
+        'the shape, colours, logos or lettering of the product from Image 1 anywhere on it.',
+    );
+  }
+
+  return blocks.join('\n\n');
 }
 
 /** Bóc URL ảnh ra khỏi các kiểu response khác nhau mà Kie.ai từng trả về. */
