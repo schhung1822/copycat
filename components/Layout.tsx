@@ -2,17 +2,20 @@ import React from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { formatNumber } from '../lib/format';
+import { APP_HOME } from '../lib/routes';
 import { ThemeToggle } from './ThemeToggle';
 
 const navItems = [
-  { to: '/', label: 'Tạo ảnh', end: true },
+  { to: APP_HOME, label: 'Tạo ảnh' },
   { to: '/lich-su', label: 'Lịch sử' },
   { to: '/vi-diem', label: 'Ví điểm' },
   { to: '/nap-tien', label: 'Gói dịch vụ' },
 ];
 
+// Bấm logo trong ứng dụng về bàn làm việc, không về trang bán hàng: khách đã
+// đăng nhập rồi thì "nhà" của họ là chỗ tạo ảnh.
 const Logo: React.FC = () => (
-  <Link to="/" className="flex items-center gap-2.5 shrink-0">
+  <Link to={APP_HOME} className="flex items-center gap-2.5 shrink-0">
     <div className="w-8 h-8 bg-brand-500 rounded-full flex items-center justify-center shadow-lg shadow-brand-500/20">
       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path
@@ -47,8 +50,10 @@ export const Layout: React.FC = () => {
         <Logo />
 
         <nav className="flex items-center gap-1 ml-4 overflow-x-auto custom-scrollbar">
+          {/* Không cần `end`: từ khi bàn làm việc rời khỏi "/", không đường dẫn
+              nào trong thanh này còn là tiền tố của đường dẫn khác. */}
           {navItems.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end} className={linkClass}>
+            <NavLink key={item.to} to={item.to} className={linkClass}>
               {item.label}
             </NavLink>
           ))}

@@ -50,6 +50,42 @@ const SAMPLES: Sample[] = [
       headline: 'Set đồ thể thao Tennis',
     },
   },
+  {
+    label: 'Poster',
+    reference: { src: '/img/mau4.webp', alt: 'Ảnh mẫu ngành thời trang nữ tuổi teen' },
+    product: { src: '/img/ao4.webp', alt: 'Ảnh sản phẩm thời trang nữ tuổi teen' },
+    result: { src: '/img/kq4.webp', alt: 'Ảnh kết quả ngành thời trang nữ tuổi teen' },
+    post: {
+      page: 'Thời Trang Gen Z',
+      caption: '✨ Tự tin khoe cá tính với bộ sưu tập mới nhất! Thiết kế năng động, trendy.',
+      domain: 'thoitrangteen.vn',
+      headline: 'Set Đồ Nữ Váy Áo Cực Xinh',
+    },
+  },
+  {
+    label: 'Poster',
+    reference: { src: '/img/mau5.webp', alt: 'Ảnh mẫu ngành thời trang trẻ em nữ' },
+    product: { src: '/img/ao5.webp', alt: 'Ảnh sản phẩm thời trang trẻ em nữ' },
+    result: { src: '/img/kq5.webp', alt: 'Ảnh kết quả ngành thời trang trẻ em nữ' },
+    post: {
+      page: 'Thời Trang Bé Yêu',
+      caption: '🎀 Hóa công chúa nhỏ ngọt ngào. Chất liệu cotton mềm mịn, thoáng mát.',
+      domain: 'quanaochobe.com',
+      headline: 'Váy Đầm Xinh Xắn Cho Bé Gái',
+    },
+  },
+  {
+    label: 'Poster',
+    reference: { src: '/img/mau6.webp', alt: 'Ảnh mẫu ngành Thời trang trẻ em nam' },
+    product: { src: '/img/ao6.webp', alt: 'Ảnh sản phẩm Thời trang trẻ em nam' },
+    result: { src: '/img/kq6.webp', alt: 'Ảnh kết quả ngành Thời trang trẻ em nam' },
+    post: {
+      page: 'Thời Trang Bé Yêu',
+      caption: '😎 Hóa "soái ca nhí" vạn người mê! Lên đồ cực chất, form rộng thoải mái.',
+      domain: 'quanaochobe.com',
+      headline: 'Set Đồ Bò Denim Cực Ngầu Cho Bé',
+    },
+  },
 ];
 
 const AUTOPLAY_MS = 6_000;

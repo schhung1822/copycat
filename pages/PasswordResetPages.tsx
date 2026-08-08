@@ -5,6 +5,7 @@ import { PasswordInput } from '../components/PasswordInput';
 import { Alert, Field, inputClass, PageLoader } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
+import { APP_HOME } from '../lib/routes';
 import { AuthShell } from './AuthPages';
 
 /**
@@ -23,7 +24,7 @@ export const ForgotPasswordPage: React.FC = () => {
   const [isSent, setIsSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to={APP_HOME} replace />;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();

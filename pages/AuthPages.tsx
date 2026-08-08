@@ -6,6 +6,7 @@ import { ThemeToggle } from '../components/ThemeToggle';
 import { Alert, Field, inputClass } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../lib/api';
+import { APP_HOME } from '../lib/routes';
 
 /** Khung chung của các màn hình ngoài ứng dụng; dùng lại ở trang quên mật khẩu. */
 export const AuthShell: React.FC<{
@@ -60,7 +61,7 @@ export const LoginPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (user) return <Navigate to={(location.state as { from?: string })?.from ?? '/'} replace />;
+  if (user) return <Navigate to={(location.state as { from?: string })?.from ?? APP_HOME} replace />;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -68,7 +69,7 @@ export const LoginPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       await login(email, password);
-      navigate((location.state as { from?: string })?.from ?? '/', { replace: true });
+      navigate((location.state as { from?: string })?.from ?? APP_HOME, { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Đăng nhập thất bại.');
     } finally {
@@ -135,7 +136,7 @@ export const RegisterPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to={APP_HOME} replace />;
 
   const update = (key: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement>) =>
     setForm((current) => ({ ...current, [key]: event.target.value }));

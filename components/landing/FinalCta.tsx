@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { APP_HOME } from '../../lib/routes';
 import { Reveal } from './Reveal';
 
 /** Lời mời cuối trang — chốt lại cho người đã đọc hết. */
@@ -28,10 +29,10 @@ export const FinalCta: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => (
 
             <div className="mt-9 flex flex-col items-stretch justify-center gap-3 sm:flex-row">
               <Link
-                to={isLoggedIn ? '/' : '/dang-ky'}
+                to={isLoggedIn ? APP_HOME : '/dang-ky'}
                 className="group inline-flex items-center justify-center gap-2 rounded-full bg-brand-500 px-8 py-3.5 text-sm font-bold text-white shadow-xl shadow-brand-500/30 transition-all hover:-translate-y-0.5 hover:bg-brand-600 hover:shadow-brand-500/45"
               >
-                {isLoggedIn ? 'Đăng nhập' : 'Tạo tài khoản miễn phí'}
+                {isLoggedIn ? 'Vào tạo ảnh' : 'Tạo tài khoản miễn phí'}
                 <svg
                   className="h-4 w-4 transition-transform group-hover:translate-x-1"
                   fill="none"

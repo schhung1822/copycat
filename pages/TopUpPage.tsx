@@ -5,6 +5,7 @@ import { Alert, Badge, Card, EmptyState, PageLoader, TableWrap } from '../compon
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
 import { countdown, formatDateTime, formatNumber, formatVnd, STATUS_LABEL } from '../lib/format';
+import { APP_HOME } from '../lib/routes';
 import type {
   BankInfo,
   Catalog,
@@ -544,7 +545,7 @@ const PaidPanel: React.FC<{ order: Order; onContinue: () => void }> = ({ order, 
       </p>
     )}
     <div className="flex gap-3 mt-5">
-      <Link to="/">
+      <Link to={APP_HOME}>
         <Button className="!rounded-xl">Bắt đầu tạo ảnh</Button>
       </Link>
       <Button variant="ghost" onClick={onContinue}>

@@ -4,6 +4,7 @@ import { Layout } from './components/Layout';
 import { PageLoader } from './components/ui';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { APP_HOME } from './lib/routes';
 import { AccountPage } from './pages/AccountPage';
 import { AdminPage } from './pages/AdminPage';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
@@ -22,24 +23,33 @@ const RequireAuth: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> 
 
   if (isLoading) return <PageLoader label="Đang kiểm tra phiên đăng nhập..." />;
 
-  if (!user) {
-    /*
-     * Khách vào thẳng trang chủ thì đưa sang trang giới thiệu, không đá vào form
-     * đăng nhập: người chưa biết hệ thống làm gì mà đã bị đòi mật khẩu sẽ đóng
-     * tab. Các trang bên trong vẫn về thẳng form đăng nhập như cũ vì ai gõ đúng
-     * /vi-diem thì đã biết mình đang tìm gì.
-     */
-    if (location.pathname === '/') return <Navigate to="/gioi-thieu" replace />;
-    return <Navigate to="/dang-nhap" state={{ from: location.pathname }} replace />;
-  }
+  /*
+   * Không còn ngoại lệ cho "/" như trước: trang chủ nay chính là trang giới
+   * thiệu và ai cũng vào được, nên khách chưa đăng nhập không bao giờ chạm tới
+   * đoạn này từ trang chủ nữa.
+   */
+  if (!user) return <Navigate to="/dang-nhap" state={{ from: location.pathname }} replace />;
 
-  if (adminOnly && !isAdmin) return <Navigate to="/" replace />;
+  // Đã đăng nhập nhưng không phải quản trị viên: trả về bàn làm việc, không phải
+  // trang bán hàng — họ là khách đang dùng dịch vụ chứ không phải người đi xem.
+  if (adminOnly && !isAdmin) return <Navigate to={APP_HOME} replace />;
 
   return <>{children}</>;
 };
 
 const AppRoutes: React.FC = () => (
   <Routes>
+    {/*
+      Trang chủ là trang giới thiệu, mở công khai cho mọi người.
+
+      Ai gõ tên miền trần cũng đáp xuống trang bán hàng — kể cả khách đã đăng
+      nhập, vì đó cũng là link họ gửi cho người khác. Muốn vào làm việc thì bấm
+      nút "Vào tạo ảnh" trên thanh điều hướng.
+    */}
+    <Route path="/" element={<LandingPage />} />
+    {/* Đường dẫn cũ của trang giới thiệu — giữ lại cho link và bookmark đã phát ra */}
+    <Route path="/gioi-thieu" element={<Navigate to="/" replace />} />
+
     <Route path="/dang-nhap" element={<LoginPage />} />
     <Route path="/dang-ky" element={<RegisterPage />} />
     {/* Công khai: người quên mật khẩu thì đương nhiên chưa đăng nhập được */}
@@ -47,8 +57,6 @@ const AppRoutes: React.FC = () => (
     <Route path="/dat-lai-mat-khau" element={<ResetPasswordPage />} />
     {/* Công khai: khách phải đọc được điều khoản trước khi tạo tài khoản */}
     <Route path="/chinh-sach" element={<PolicyPage />} />
-    {/* Công khai: trang giới thiệu, cũng là nơi khách chưa đăng nhập đáp xuống */}
-    <Route path="/gioi-thieu" element={<LandingPage />} />
 
     <Route
       element={
@@ -57,7 +65,7 @@ const AppRoutes: React.FC = () => (
         </RequireAuth>
       }
     >
-      <Route index element={<StudioPage />} />
+      <Route path="tao-anh" element={<StudioPage />} />
       <Route path="lich-su" element={<HistoryPage />} />
       <Route path="vi-diem" element={<WalletPage />} />
       <Route path="nap-tien" element={<TopUpPage />} />

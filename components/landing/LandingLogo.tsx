@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
  * to hơn, luôn hiện tên đầy đủ và thêm một vòng sáng mờ phía sau.
  */
 export const LandingLogo: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <Link to="/gioi-thieu" className={`flex shrink-0 items-center gap-2.5 ${className}`}>
+  <Link to="/" className={`flex shrink-0 items-center gap-2.5 ${className}`}>
     <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 shadow-lg shadow-brand-500/30">
       <span className="absolute inset-0 rounded-xl bg-brand-500/40 blur-md" aria-hidden />
       <svg

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { APP_HOME } from '../../lib/routes';
 import { ThemeToggle } from '../ThemeToggle';
 import { LandingLogo } from './LandingLogo';
 
@@ -78,10 +79,10 @@ export const LandingNav: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) =>
 
           {isLoggedIn ? (
             <Link
-              to="/"
+              to={APP_HOME}
               className="whitespace-nowrap rounded-full bg-brand-500 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-brand-600 sm:px-4 sm:text-sm"
             >
-              Đăng nhập
+              Vào tạo ảnh
             </Link>
           ) : (
             <>

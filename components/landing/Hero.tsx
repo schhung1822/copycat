@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { APP_HOME } from '../../lib/routes';
 import { HeroShowcase } from './HeroShowcase';
 import { Reveal } from './Reveal';
 
@@ -69,10 +70,10 @@ export const Hero: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => (
         <Reveal delay={230}>
           <div className="mt-7 flex flex-col items-stretch justify-center gap-2.5 sm:mt-8 sm:flex-row sm:gap-3 lg:justify-start">
             <Link
-              to={isLoggedIn ? '/' : '/dang-ky'}
+              to={isLoggedIn ? APP_HOME : '/dang-ky'}
               className="group inline-flex items-center justify-center gap-2 rounded-full bg-brand-500 px-7 py-3.5 text-sm font-bold text-white shadow-xl shadow-brand-500/30 transition-all hover:-translate-y-0.5 hover:bg-brand-600 hover:shadow-brand-500/45"
             >
-              {isLoggedIn ? 'Đăng nhập' : 'Tạo ảnh đầu tiên'}
+              {isLoggedIn ? 'Vào tạo ảnh' : 'Tạo ảnh đầu tiên'}
               <svg
                 className="h-4 w-4 transition-transform group-hover:translate-x-1"
                 fill="none"
