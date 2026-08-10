@@ -61,10 +61,10 @@ const SAMPLES: Sample[] = [
   },
   {
     label: 'Thời trang thể thao',
-    reference: { src: '/img/mau.webp', alt: 'Ảnh mẫu: poster quảng cáo áo thun thể thao' },
-    product: { src: '/img/ao.webp', alt: 'Ảnh sản phẩm: bộ áo và quần thể thao chụp trên nền trắng' },
+    reference: { src: '/img/mau7.webp', alt: 'Ảnh mẫu: poster quảng cáo áo thun thể thao' },
+    product: { src: '/img/ao7.webp', alt: 'Ảnh sản phẩm: bộ áo và quần thể thao chụp trên nền trắng' },
     result: {
-      src: '/img/kq.webp',
+      src: '/img/kq7.webp',
       alt: 'Ảnh kết quả: bộ sản phẩm được dựng lại theo đúng bố cục của poster mẫu',
     },
     post: {
@@ -147,6 +147,24 @@ const InputCard: React.FC<{ step: number; label: string; image: { src: string; a
     <div className="overflow-hidden rounded-xl ring-1 ring-inset ring-white/5">
       <SquareImage image={image} className="transition-transform duration-500 group-hover/card:scale-[1.04]" />
     </div>
+  </div>
+);
+
+const ResultFrame: React.FC<{ image: { src: string; alt: string } }> = ({ image }) => (
+  <div className="overflow-hidden rounded-[1.15rem] bg-dark-900/95 p-2 ring-1 ring-white/10">
+    {image.src ? (
+      <img
+        src={image.src}
+        alt={image.alt}
+        loading="eager"
+        draggable={false}
+        className="aspect-[3/4] w-full select-none rounded-[0.9rem] object-cover"
+      />
+    ) : (
+      <div className="aspect-[3/4] w-full overflow-hidden rounded-[0.9rem]">
+        <Placeholder label="Ảnh kết quả" />
+      </div>
+    )}
   </div>
 );
 
@@ -253,7 +271,7 @@ const SampleSlide: React.FC<{ sample: Sample }> = ({ sample }) => (
       đăng bên dưới. Không khoá thì chúng chiếm trọn bề ngang màn hình, to hơn
       hẳn kết quả — đúng ngược với thứ tự quan trọng mà hình này muốn kể.
     */}
-    <div className="mx-auto flex w-full max-w-[17rem] gap-2.5 sm:mx-0 sm:w-[8.25rem] sm:max-w-none sm:flex-col sm:gap-3 md:w-[9rem]">
+    <div className="mx-auto flex w-full max-w-[94vw] gap-2.5 sm:mx-0 sm:w-[8.25rem] sm:max-w-none sm:flex-col sm:gap-3 md:w-[9rem]">
       <InputCard step={1} label="Ảnh mẫu" image={sample.reference} />
       <InputCard step={2} label="Sản phẩm" image={sample.product} />
     </div>
@@ -265,9 +283,9 @@ const SampleSlide: React.FC<{ sample: Sample }> = ({ sample }) => (
       nền. Thêm một vòng viền tối rất nhạt vì ở chế độ sáng, thẻ trắng nằm trên
       nền sáng gần như không còn ranh giới.
     */}
-    <div className="w-full max-w-[17rem] shrink-0 sm:w-[14.5rem] md:w-[16rem]">
+    <div className="w-full max-w-[84vw] shrink-0 sm:w-[14.5rem] md:w-[16rem]">
       <div className="lp-gradient-border rounded-[1.3rem] p-[2px] shadow-2xl shadow-black/25 ring-1 ring-black/5">
-        <FacebookPost sample={sample} />
+        <ResultFrame image={sample.result} />
       </div>
     </div>
   </div>

@@ -16,16 +16,11 @@ const navItems = [
 // đăng nhập rồi thì "nhà" của họ là chỗ tạo ảnh.
 const Logo: React.FC = () => (
   <Link to={APP_HOME} className="flex items-center gap-2.5 shrink-0">
-    <div className="w-8 h-8 bg-brand-500 rounded-full flex items-center justify-center shadow-lg shadow-brand-500/20">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
-        />
-      </svg>
-    </div>
+    <img
+      src="/img/logo_copycat.webp"
+      alt=""
+      className="w-8 h-8 rounded-full object-cover shadow-lg shadow-brand-500/20"
+    />
     <span className="font-bold text-gray-100 tracking-tight hidden sm:block">Design Copycat AI</span>
   </Link>
 );
