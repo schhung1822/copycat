@@ -12,21 +12,6 @@ interface Sample {
 
 const SAMPLES: Sample[] = [
   {
-    label: 'Thời trang thể thao',
-    reference: { src: '/img/mau.webp', alt: 'Ảnh mẫu: poster quảng cáo áo thun thể thao' },
-    product: { src: '/img/ao.webp', alt: 'Ảnh sản phẩm: bộ áo và quần thể thao chụp trên nền trắng' },
-    result: {
-      src: '/img/kq.webp',
-      alt: 'Ảnh kết quả: bộ sản phẩm được dựng lại theo đúng bố cục của poster mẫu',
-    },
-    post: {
-      page: 'Veroww Mens Fashion',
-      caption: 'Bộ thể thao nam mới về — chất mát, form rộng thoải mái. Freeship đơn từ 299k 🔥',
-      domain: 'verowwwear.com',
-      headline: 'Sports T-Shirt Set — Premium',
-    },
-  },
-  {
     label: 'Nữ',
     reference: { src: '/img/mau2.webp', alt: 'Ảnh mẫu ngành mỹ phẩm' },
     product: { src: '/img/ao2.webp', alt: 'Ảnh sản phẩm mỹ phẩm' },
@@ -36,18 +21,6 @@ const SAMPLES: Sample[] = [
       caption: 'Outfit này mặc đi làm, đi cà phê hay dạo phố đều rất hợp cho các bạn nữ.',
       domain: 'thoitrangnu.com',
       headline: 'Set đồ nữ đẹp',
-    },
-  },
-  {
-    label: 'Poster',
-    reference: { src: '/img/kq3.webp', alt: 'Ảnh mẫu ngành đồ gia dụng' },
-    product: { src: '/img/ao.webp', alt: 'Ảnh sản phẩm đồ gia dụng' },
-    result: { src: '/img/mau3.webp', alt: 'Ảnh kết quả ngành đồ gia dụng' },
-    post: {
-      page: 'Thời trang thể thao',
-      caption: '🏸 Bộ sưu tập Tennis: Áo nhẹ bay, đánh thật hay.',
-      domain: 'dothethao.com',
-      headline: 'Set đồ thể thao Tennis',
     },
   },
   {
@@ -84,6 +57,33 @@ const SAMPLES: Sample[] = [
       caption: '😎 Hóa "soái ca nhí" vạn người mê! Lên đồ cực chất, form rộng thoải mái.',
       domain: 'quanaochobe.com',
       headline: 'Set Đồ Bò Denim Cực Ngầu Cho Bé',
+    },
+  },
+  {
+    label: 'Thời trang thể thao',
+    reference: { src: '/img/mau.webp', alt: 'Ảnh mẫu: poster quảng cáo áo thun thể thao' },
+    product: { src: '/img/ao.webp', alt: 'Ảnh sản phẩm: bộ áo và quần thể thao chụp trên nền trắng' },
+    result: {
+      src: '/img/kq.webp',
+      alt: 'Ảnh kết quả: bộ sản phẩm được dựng lại theo đúng bố cục của poster mẫu',
+    },
+    post: {
+      page: 'Veroww Mens Fashion',
+      caption: 'Bộ thể thao nam mới về — chất mát, form rộng thoải mái. Freeship đơn từ 299k 🔥',
+      domain: 'verowwwear.com',
+      headline: 'Sports T-Shirt Set — Premium',
+    },
+  },
+  {
+    label: 'Poster',
+    reference: { src: '/img/kq3.webp', alt: 'Ảnh mẫu ngành đồ gia dụng' },
+    product: { src: '/img/ao.webp', alt: 'Ảnh sản phẩm đồ gia dụng' },
+    result: { src: '/img/mau3.webp', alt: 'Ảnh kết quả ngành đồ gia dụng' },
+    post: {
+      page: 'Thời trang thể thao',
+      caption: '🏸 Bộ sưu tập Tennis: Áo nhẹ bay, đánh thật hay.',
+      domain: 'dothethao.com',
+      headline: 'Set đồ thể thao Tennis',
     },
   },
 ];
