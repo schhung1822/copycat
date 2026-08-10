@@ -37,7 +37,17 @@ const INCLUDED = [
 ];
 
 export const Pricing: React.FC<{ plans?: SubscriptionPlan[]; packages?: TokenPackage[] }> = ({ plans, packages }) => {
-  const planList = plans && plans.length > 0 ? plans : FALLBACK_PLANS;
+  const allPlans = plans && plans.length > 0 ? plans : FALLBACK_PLANS;
+  /*
+   * Gói 0đ (gói miễn phí) không hiện ở trang giới thiệu: nó do admin cấp tay cho
+   * từng khách chứ không bán, mà đứng cạnh các gói trả tiền thì luôn được gắn nhãn
+   * "-100%" và hút hết lượt bấm của người mới vào.
+   *
+   * Vẫn giữ lại nếu bảng giá KHÔNG còn gói trả tiền nào — khu bảng giá trống trơn
+   * còn tệ hơn.
+   */
+  const paidPlans = allPlans.filter((plan) => plan.priceVnd > 0);
+  const planList = paidPlans.length > 0 ? paidPlans : allPlans;
   const packageList = packages && packages.length > 0 ? packages : FALLBACK_PACKAGES;
 
   /*
