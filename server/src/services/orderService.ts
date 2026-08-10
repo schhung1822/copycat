@@ -135,6 +135,13 @@ export async function createSubscriptionOrder(userId: number, planId: number): P
   const plan = await queryOne<PlanRow>('SELECT * FROM subscription_plans WHERE id = ? AND is_active = 1', [planId]);
   if (!plan) throw badRequest('Gói dịch vụ không tồn tại hoặc đã ngừng bán.');
 
+  // Gói 0đ (gói miễn phí) không đi qua đường chuyển khoản được: đơn sinh ra sẽ có
+  // mã QR 0đ mà ngân hàng không bao giờ báo có, khách ngồi chờ vĩnh viễn. Gói loại
+  // này do admin cấp tay trong Quản trị → Khách hàng → "Gói".
+  if (plan.price_vnd <= 0) {
+    throw badRequest(`${plan.name} không mua được qua chuyển khoản. Vui lòng liên hệ hỗ trợ để được cấp gói.`);
+  }
+
   return insertOrder({
     userId,
     orderType: 'subscription',

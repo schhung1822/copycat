@@ -7,7 +7,12 @@ import { optionalString, parsePaging, requireEmail, requireInt, requireString } 
 import { providerStatus } from '../providers/index.js';
 import { queueStatus, serializeGeneration, type GenerationRow, type ModelPricingRow } from '../services/generationService.js';
 import { markOrderPaid, serializeOrder, type OrderRow, type PackageRow } from '../services/orderService.js';
-import { expireStaleSubscriptions, lockAccountState, type PlanRow } from '../services/subscriptionService.js';
+import {
+  activateSubscription,
+  expireStaleSubscriptions,
+  lockAccountState,
+  type PlanRow,
+} from '../services/subscriptionService.js';
 import { adjustMonthlyTokens, creditPurchasedTokens } from '../services/tokenService.js';
 
 export const adminRouter = Router();
@@ -496,6 +501,79 @@ adminRouter.post(
     );
 
     res.json({ ok: true, bucket, balanceAfter: result.balanceAfter, tokenBalance: result.balanceAfter });
+  }),
+);
+
+/**
+ * Cấp gói dịch vụ thẳng cho khách, không qua đơn thanh toán.
+ *
+ * Dùng khi khách trả tiền ngoài luồng (chuyển khoản sai nội dung, thu tiền mặt,
+ * hợp đồng riêng), khi tặng gói dùng thử, hoặc khi bật **gói miễn phí** — gói 0đ
+ * không có hạn mức tháng, chỉ mở khoá tài khoản để khách mua điểm lẻ.
+ *
+ * Chạy qua đúng `activateSubscription` mà đơn đã thanh toán vẫn dùng, nên bản ghi
+ * trong bảng `subscriptions` và các dòng sổ cái hạn mức giống hệt luồng mua bình
+ * thường. Khác biệt duy nhất: `order_id` để NULL và không cộng `total_topup_vnd`,
+ * vì đây không phải doanh thu — báo cáo không được tính khống.
+ *
+ * `mode`:
+ *   - `extend`  (mặc định) — còn hạn thì nối tiếp vào ngày hết hạn cũ, giữ nguyên
+ *                hạn mức đang dùng dở của chu kỳ hiện tại.
+ *   - `restart` — tính lại từ bây giờ và cấp hạn mức mới ngay. Dùng khi đổi sang
+ *                gói khác chứ không phải gia hạn gói cũ.
+ */
+adminRouter.post(
+  '/users/:id/subscription',
+  asyncHandler(async (req, res) => {
+    const userId = Number(req.params.id);
+    const planId = requireInt(req.body, 'planId', { min: 1, label: 'Gói dịch vụ' });
+
+    const mode = optionalString(req.body, 'mode') ?? 'extend';
+    if (!['extend', 'restart'].includes(mode)) {
+      throw badRequest('Kiểu cấp gói chỉ nhận "extend" (nối tiếp) hoặc "restart" (tính lại từ hôm nay).');
+    }
+
+    // Bỏ trống = dùng đúng chu kỳ của gói. Cho sửa để còn tặng thử 1 tháng của một
+    // gói vốn bán theo năm, hoặc bù thêm tháng cho khách bị gián đoạn dịch vụ.
+    const months =
+      req.body?.months === undefined || req.body?.months === null || req.body?.months === ''
+        ? null
+        : requireInt(req.body, 'months', { min: 1, max: 120, label: 'Số tháng' });
+
+    const user = await queryOne<RowDataPacket & { email: string }>('SELECT email FROM users WHERE id = ?', [userId]);
+    if (!user) throw notFound('Không tìm thấy tài khoản.');
+
+    // Không lọc `is_active`: gói miễn phí và các gói đã ngừng bán vẫn phải cấp tay được.
+    const plan = await queryOne<PlanRow>('SELECT * FROM subscription_plans WHERE id = ?', [planId]);
+    if (!plan) throw notFound('Không tìm thấy gói dịch vụ.');
+
+    const activated = await withTransaction((conn) =>
+      activateSubscription(
+        conn,
+        userId,
+        {
+          id: plan.id,
+          code: plan.code,
+          name: plan.name,
+          months: months ?? plan.months,
+          priceVnd: plan.price_vnd,
+          allowance: plan.monthly_token_allowance,
+        },
+        null,
+        { restart: mode === 'restart' },
+      ),
+    );
+
+    res.json({
+      ok: true,
+      email: user.email,
+      planName: plan.name,
+      months: months ?? plan.months,
+      monthlyAllowance: plan.monthly_token_allowance,
+      startedAt: activated.startedAt,
+      expiresAt: activated.expiresAt,
+      isRenewal: activated.isRenewal,
+    });
   }),
 );
 

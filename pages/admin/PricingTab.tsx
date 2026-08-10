@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Card, TableWrap } from '../../components/ui';
 import { api, ApiError } from '../../lib/api';
 import { formatNumber, formatVnd } from '../../lib/format';
-import type { AdminModelPricing, AdminPackage } from '../../types';
+import type { AdminModelPricing, AdminPackage, AdminPlan } from '../../types';
 
 /** Ô nhập chỉnh sửa tại chỗ: chỉ gọi API khi giá trị thực sự đổi và rời khỏi ô. */
 const EditableCell: React.FC<{
@@ -39,19 +39,6 @@ const EditableCell: React.FC<{
     />
   );
 };
-
-interface AdminPlan {
-  id: number;
-  code: string;
-  name: string;
-  months: number;
-  priceVnd: number;
-  pricePerMonthVnd: number;
-  monthlyTokenAllowance: number;
-  description: string | null;
-  isPopular: boolean;
-  isActive: boolean;
-}
 
 export const PricingTab: React.FC = () => {
   const [models, setModels] = useState<AdminModelPricing[]>([]);
@@ -122,7 +109,9 @@ export const PricingTab: React.FC = () => {
           <p className="text-xs text-gray-500 mt-1">
             Khách bắt buộc mua gói này trước khi tạo ảnh. <strong>Hạn mức</strong> được cấp lại mỗi tháng và không cộng
             dồn, kể cả khi mua chu kỳ dài. 1 điểm = 1đ giá vốn, nên hạn mức 500.000 điểm đúng bằng 500.000đ tiền
-            điểm theo giá gốc.
+            điểm theo giá gốc. Gói để <strong>hạn mức 0</strong> (như <code>FREE</code>) chỉ mở khoá tài khoản chứ
+            không tặng điểm hàng tháng — khách phải mua điểm lẻ. Bỏ tích <strong>Bán</strong> thì gói không hiện trên
+            trang bảng giá nhưng admin vẫn cấp tay được ở tab Khách hàng.
           </p>
         </div>
 

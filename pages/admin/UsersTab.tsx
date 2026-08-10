@@ -5,7 +5,7 @@ import { Alert, Badge, Card, EmptyState, Field, TableWrap, inputClass, selectCla
 import { useAuth } from '../../context/AuthContext';
 import { api, ApiError, qs } from '../../lib/api';
 import { formatDateTime, formatNumber, formatVnd, STATUS_LABEL } from '../../lib/format';
-import type { AdminUser } from '../../types';
+import type { AdminPlan, AdminUser } from '../../types';
 
 /**
  * ISO của server → chuỗi cho <input type="datetime-local">.
@@ -36,6 +36,7 @@ export const UsersTab: React.FC = () => {
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [adjustTarget, setAdjustTarget] = useState<AdminUser | null>(null);
   const [editTarget, setEditTarget] = useState<AdminUser | null>(null);
+  const [planTarget, setPlanTarget] = useState<AdminUser | null>(null);
 
   const load = useCallback(async () => {
     const data = await api.get<{ users: AdminUser[] }>(`/admin/users${qs({ search, limit: 50 })}`);
@@ -58,10 +59,11 @@ export const UsersTab: React.FC = () => {
     }
   };
 
-  /** Dùng chung cho cả hai hộp thoại: đóng, báo thành công, tải lại dữ liệu. */
+  /** Dùng chung cho các hộp thoại: đóng, báo thành công, tải lại dữ liệu. */
   const afterChange = async (text: string) => {
     setEditTarget(null);
     setAdjustTarget(null);
+    setPlanTarget(null);
     setMessage({ tone: 'success', text });
     // Admin hay thao tác lên chính tài khoản mình để kiểm thử; đọc lại phiên hiện
     // tại để huy hiệu điểm trên thanh điều hướng khớp ngay, không phải tải lại trang.
@@ -161,6 +163,12 @@ export const UsersTab: React.FC = () => {
                         Sửa
                       </button>
                       <button
+                        onClick={() => setPlanTarget(user)}
+                        className="text-xs text-gray-400 hover:text-gray-100 px-2 transition-colors"
+                      >
+                        Gói
+                      </button>
+                      <button
                         onClick={() => setAdjustTarget(user)}
                         className="text-xs text-gray-400 hover:text-gray-100 px-2 transition-colors"
                       >
@@ -195,6 +203,7 @@ export const UsersTab: React.FC = () => {
       </p>
 
       {editTarget && <EditUserModal user={editTarget} onClose={() => setEditTarget(null)} onDone={afterChange} />}
+      {planTarget && <GrantPlanModal user={planTarget} onClose={() => setPlanTarget(null)} onDone={afterChange} />}
       {adjustTarget && (
         <AdjustTokenModal user={adjustTarget} onClose={() => setAdjustTarget(null)} onDone={afterChange} />
       )}
@@ -346,6 +355,182 @@ const EditUserModal: React.FC<{
             </Button>
             <Button type="submit" isLoading={isSaving} className="!rounded-xl">
               Lưu thay đổi
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Cấp gói dịch vụ thẳng cho một khách, không qua đơn chuyển khoản.
+ *
+ * Dùng khi khách trả tiền ngoài luồng, khi tặng gói dùng thử, hoặc khi bật gói
+ * miễn phí (0 điểm/tháng) để khách được phép mua điểm lẻ.
+ *
+ * Danh sách gói lấy nguyên bảng `/admin/plans` chứ không lọc theo trạng thái bán:
+ * gói miễn phí và các gói đã ngừng bán vẫn phải cấp tay được.
+ */
+const GrantPlanModal: React.FC<{
+  user: AdminUser;
+  onClose: () => void;
+  onDone: (message: string) => void | Promise<void>;
+}> = ({ user, onClose, onDone }) => {
+  const [plans, setPlans] = useState<AdminPlan[] | null>(null);
+  const [planId, setPlanId] = useState<number | null>(null);
+  const [months, setMonths] = useState('');
+  const [mode, setMode] = useState<'extend' | 'restart'>('extend');
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const stillValid = user.subscriptionExpiresAt
+    ? new Date(user.subscriptionExpiresAt).getTime() > Date.now()
+    : false;
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const data = await api.get<{ plans: AdminPlan[] }>('/admin/plans');
+        setPlans(data.plans);
+        // Chọn sẵn gói đang bán chứ không phải dòng đầu bảng: gói miễn phí xếp trước
+        // các gói trả tiền, để nó làm mặc định thì dễ bấm nhầm thành cấp gói 0đ.
+        const preselected = data.plans.find((plan) => plan.isActive) ?? data.plans[0];
+        if (preselected) {
+          setPlanId(preselected.id);
+          setMonths(String(preselected.months));
+        }
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : 'Không tải được danh sách gói dịch vụ.');
+      }
+    })();
+  }, []);
+
+  const selected = plans?.find((plan) => plan.id === planId) ?? null;
+
+  // Đổi gói thì số tháng nhảy theo chu kỳ của gói mới — admin muốn khác thì sửa lại.
+  const pickPlan = (id: number) => {
+    setPlanId(id);
+    const plan = plans?.find((item) => item.id === id);
+    if (plan) setMonths(String(plan.months));
+  };
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selected) return setError('Chọn một gói dịch vụ.');
+
+    const value = Number(months);
+    if (!Number.isInteger(value) || value < 1 || value > 120) {
+      return setError('Số tháng phải là số nguyên từ 1 đến 120.');
+    }
+
+    setError(null);
+    setIsSaving(true);
+    try {
+      const data = await api.post<{ expiresAt: string; isRenewal: boolean }>(
+        `/admin/users/${user.id}/subscription`,
+        { planId: selected.id, months: value, mode },
+      );
+      await onDone(
+        `Đã cấp ${selected.name} (${value} tháng) cho ${user.email} — hiệu lực đến ${formatDateTime(data.expiresAt)}.`,
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Cấp gói thất bại.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      <Card className="w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <h3 className="text-lg font-bold text-gray-100">Cấp gói dịch vụ</h3>
+        <p className="text-sm text-gray-500 mt-1 mb-5">{user.email}</p>
+
+        <div className="rounded-xl border border-dark-800 bg-dark-900/50 px-4 py-3 mb-5 text-[11px] text-gray-500">
+          Đang dùng:{' '}
+          <strong className="text-gray-300">{user.planName || 'chưa có gói'}</strong>
+          {user.subscriptionExpiresAt && (
+            <>
+              {' · '}
+              {stillValid ? 'còn hạn đến ' : 'đã hết hạn '}
+              <strong className={stillValid ? 'text-gray-300' : 'text-red-400'}>
+                {formatDateTime(user.subscriptionExpiresAt)}
+              </strong>
+            </>
+          )}
+          {' · hạn mức '}
+          <strong className="text-gray-300">{formatNumber(user.monthlyAllowance)}</strong> điểm/tháng
+        </div>
+
+        <form onSubmit={submit} className="space-y-4">
+          {error && <Alert tone="error">{error}</Alert>}
+
+          <Field label="Gói dịch vụ" hint="Gói ghi (ngừng bán) không hiện trên trang bảng giá nhưng vẫn cấp tay được.">
+            <select
+              className={selectClass}
+              value={planId ?? ''}
+              onChange={(e) => pickPlan(Number(e.target.value))}
+              disabled={!plans}
+            >
+              {!plans && <option value="">Đang tải...</option>}
+              {plans?.map((plan) => (
+                <option key={plan.id} value={plan.id}>
+                  {plan.name} — {plan.priceVnd > 0 ? formatVnd(plan.priceVnd) : 'miễn phí'} ·{' '}
+                  {plan.monthlyTokenAllowance > 0
+                    ? `${formatNumber(plan.monthlyTokenAllowance)} điểm/tháng`
+                    : 'không tặng điểm'}
+                  {plan.isActive ? '' : ' (ngừng bán)'}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Số tháng" hint="Mặc định theo chu kỳ của gói. Sửa lại nếu muốn tặng thử ngắn hơn hoặc bù thêm.">
+            <input className={inputClass} inputMode="numeric" value={months} onChange={(e) => setMonths(e.target.value)} />
+          </Field>
+
+          <Field
+            label="Cách tính thời hạn"
+            hint={
+              stillValid
+                ? mode === 'extend'
+                  ? 'Cộng nối tiếp vào ngày hết hạn hiện tại, hạn mức của chu kỳ đang dùng dở giữ nguyên.'
+                  : 'Bỏ ngày hết hạn cũ, tính lại từ bây giờ và cấp hạn mức mới ngay. Hạn mức còn thừa của gói cũ bị thu hồi.'
+                : 'Khách đang không có gói nên gói mới luôn tính từ bây giờ, hạn mức được cấp ngay.'
+            }
+          >
+            <select
+              className={selectClass}
+              value={mode}
+              onChange={(e) => setMode(e.target.value as 'extend' | 'restart')}
+              disabled={!stillValid}
+            >
+              <option value="extend">Gia hạn — nối tiếp ngày hết hạn hiện tại</option>
+              <option value="restart">Đổi gói — tính lại từ hôm nay</option>
+            </select>
+          </Field>
+
+          {selected && selected.monthlyTokenAllowance === 0 && (
+            <Alert tone="info">
+              <strong>{selected.name}</strong> không tặng điểm hàng tháng. Khách được phép đăng nhập và mua điểm lẻ, và
+              chỉ tạo được ảnh bằng số điểm đã mua.
+            </Alert>
+          )}
+
+          <p className="text-[11px] text-gray-600">
+            Thao tác này không tạo đơn nạp và không tính vào doanh thu. Khách đã chuyển khoản thì duyệt đơn ở tab{' '}
+            <strong className="text-gray-400">Đơn nạp</strong> thay vì cấp tay ở đây.
+          </p>
+
+          <div className="flex justify-end gap-3 pt-1">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Huỷ
+            </Button>
+            <Button type="submit" isLoading={isSaving} disabled={!selected} className="!rounded-xl">
+              Cấp gói
             </Button>
           </div>
         </form>

@@ -304,6 +304,24 @@ export interface AdminModelPricing {
   notes: string | null;
 }
 
+export interface AdminPlan {
+  id: number;
+  code: string;
+  name: string;
+  months: number;
+  priceVnd: number;
+  pricePerMonthVnd: number;
+  /** 0 = gói không tặng điểm hàng tháng (gói miễn phí), khách chỉ dùng điểm mua thêm */
+  monthlyTokenAllowance: number;
+  /** Hạn mức quy ra tiền vốn — 1 điểm = 1đ giá vốn */
+  allowanceCostVnd: number;
+  description: string | null;
+  isPopular: boolean;
+  /** Tắt = không bán trên trang bảng giá, nhưng admin vẫn cấp tay được */
+  isActive: boolean;
+  sortOrder: number;
+}
+
 export interface AdminPackage {
   id: number;
   code: string;

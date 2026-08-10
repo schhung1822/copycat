@@ -174,10 +174,26 @@ const MODEL_PRICING = [
  *
  * Hạn mức 500.000 điểm được cấp lại MỖI THÁNG kể cả khi mua chu kỳ dài, và
  * KHÔNG cộng dồn nếu tháng đó dùng không hết.
+ *
+ * Riêng gói MIỄN PHÍ nằm ngoài bảng trên: 0đ và KHÔNG có hạn mức tháng, chỉ để mở
+ * khoá tài khoản cho khách mua điểm lẻ (mua điểm lẻ bắt buộc phải có gói). Gói này
+ * đặt `is_active = 0` nên không hiện trên trang bảng giá — admin cấp tay cho từng
+ * khách trong Quản trị → Khách hàng → nút "Gói".
  */
 const MONTHLY_TOKEN_ALLOWANCE = 500_000;
 
 const SUBSCRIPTION_PLANS = [
+  {
+    code: 'FREE',
+    name: 'Gói miễn phí',
+    months: 12,
+    price_vnd: 0,
+    monthly_token_allowance: 0,
+    description: 'Không được tặng điểm hàng tháng — khách nạp điểm lẻ để dùng.',
+    is_popular: 0,
+    is_active: 0,
+    sort_order: 0,
+  },
   {
     code: 'MONTHLY_1',
     name: 'Gói 1 tháng',
@@ -344,16 +360,17 @@ export async function seed(): Promise<void> {
   for (const plan of SUBSCRIPTION_PLANS) {
     await execute(
       `INSERT IGNORE INTO subscription_plans
-         (code, name, months, price_vnd, monthly_token_allowance, description, is_popular, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (code, name, months, price_vnd, monthly_token_allowance, description, is_popular, is_active, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         plan.code,
         plan.name,
         plan.months,
         plan.price_vnd,
-        MONTHLY_TOKEN_ALLOWANCE,
+        'monthly_token_allowance' in plan ? plan.monthly_token_allowance : MONTHLY_TOKEN_ALLOWANCE,
         plan.description,
         plan.is_popular,
+        'is_active' in plan ? plan.is_active : 1,
         plan.sort_order,
       ],
     );

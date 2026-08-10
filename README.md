@@ -243,7 +243,7 @@ Admin vào mục **Quản trị** trên thanh điều hướng, gồm 4 tab:
 |---|---|
 | Tổng quan | Doanh thu, chi phí vốn, lợi nhuận gộp, số khách, tỉ lệ ảnh thành công, biểu đồ theo ngày, hiệu quả từng model, top khách hàng |
 | Đơn nạp | Lọc theo trạng thái, tìm theo mã đơn/email, duyệt tay, huỷ đơn |
-| Khách hàng | Xem và sửa hồ sơ, thời hạn gói, hạn mức, mật khẩu; cộng–trừ điểm theo từng nguồn |
+| Khách hàng | Xem và sửa hồ sơ, thời hạn gói, hạn mức, mật khẩu; cấp gói dịch vụ; cộng–trừ điểm theo từng nguồn |
 | Bảng giá & gói nạp | Sửa trực tiếp giá vốn, số điểm thu, slug model, giá gói, điểm thưởng |
 
 ### Sửa thông tin khách hàng
@@ -265,6 +265,25 @@ Nút **Điểm** cộng/trừ điểm và **bắt buộc chọn nguồn**, vì h
 
 Mọi thay đổi số dư đều ghi một dòng vào sổ cái `token_transactions` kèm lý do, kể cả khi hạ
 hạn mức tháng làm số dư bị kéo xuống theo — nếu không, tổng sổ cái sẽ lệch với số dư thật.
+
+### Cấp gói dịch vụ cho khách
+
+Nút **Gói** ở tab Khách hàng kích hoạt một gói thẳng cho khách, **không qua đơn chuyển khoản**.
+Dùng khi khách trả tiền ngoài luồng (thu tiền mặt, hợp đồng riêng), khi tặng gói dùng thử, hoặc
+khi bật gói miễn phí. Chọn gói, số tháng (mặc định theo chu kỳ của gói) và cách tính thời hạn:
+
+- **Gia hạn** — nối tiếp vào ngày hết hạn hiện tại, giữ nguyên hạn mức của chu kỳ đang dùng dở.
+- **Đổi gói** — bỏ hạn cũ, tính lại từ hôm nay và cấp hạn mức mới ngay. Hạn mức thừa của gói cũ
+  bị thu hồi (có ghi sổ cái).
+
+Thao tác này chạy qua đúng đường kích hoạt của đơn đã thanh toán nên bảng `subscriptions` và sổ
+cái hạn mức giống hệt luồng mua thường; khác duy nhất là `order_id` để `NULL` và **không** cộng
+`total_topup_vnd` — tiền không vào thì doanh thu không được tính khống.
+
+**Gói miễn phí** (`FREE`, 0đ, hạn mức 0 điểm/tháng) được tạo sẵn nhưng để **ngừng bán** nên
+không hiện trên trang bảng giá — chỉ cấp tay ở đây. Gói này không tặng điểm hàng tháng, nó chỉ
+mở khoá tài khoản để khách **mua điểm lẻ** (mua điểm lẻ bắt buộc phải đang có gói). Muốn có
+thêm gói kiểu này thì thêm dòng ở tab Bảng giá với hạn mức 0 và bỏ tích *Bán*.
 
 Ba thứ **không** sửa được từ giao diện, do thiết kế:
 

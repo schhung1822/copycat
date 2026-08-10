@@ -83,7 +83,8 @@ export const PolicyPage: React.FC = () => {
   if (!catalog) return <PageLoader label="Đang tải chính sách..." />;
 
   const { site, plans, packages, models } = catalog;
-  const allowance = plans[0]?.monthlyTokenAllowance ?? 0;
+  // Bỏ qua gói không có hạn mức (gói miễn phí) — câu văn đang nói về hạn mức tháng.
+  const allowance = (plans.find((plan) => plan.monthlyTokenAllowance > 0) ?? plans[0])?.monthlyTokenAllowance ?? 0;
   const cycles = plans.map((plan) => plan.months).join(', ');
   const cheapest = models.reduce<(typeof models)[number] | null>(
     (best, model) => (model.tokenCost > 0 && (!best || model.tokenCost < best.tokenCost) ? model : best),

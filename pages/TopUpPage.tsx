@@ -228,7 +228,7 @@ export const TopUpPage: React.FC = () => {
               <PackageGrid
                 packages={catalog.packages}
                 creatingId={creatingId}
-                allowance={catalog.plans[0]?.monthlyTokenAllowance ?? 0}
+                allowance={catalog.plans.find((plan) => plan.monthlyTokenAllowance > 0)?.monthlyTokenAllowance ?? 0}
                 onSelect={(pkg) => createOrder('/orders', { packageId: pkg.id }, `pkg-${pkg.id}`)}
               />
             ) : (
@@ -689,7 +689,8 @@ const PaymentPanel: React.FC<{
 /** Bảng điểm tiêu hao mỗi ảnh, để khách ước lượng hạn mức dùng được bao nhiêu ảnh. */
 const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
   // Các gói có thể có hạn mức khác nhau, nên phải nói rõ bảng đang tính theo gói nào.
-  const basePlan = catalog.plans[0] ?? null;
+  // Gói không có hạn mức (gói miễn phí) không dùng làm mốc được — bảng sẽ ra 0 ảnh.
+  const basePlan = catalog.plans.find((plan) => plan.monthlyTokenAllowance > 0) ?? catalog.plans[0] ?? null;
   const allowance = basePlan?.monthlyTokenAllowance ?? 0;
 
   /**
