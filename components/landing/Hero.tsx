@@ -11,7 +11,7 @@ import { Reveal } from './Reveal';
  * đọc như câu khẩu hiệu bị đứt hơi, và về mặt cấu trúc trang thì <h1> nên nói
  * đúng MỘT thông điệp. Hai dòng này là lý do mua, nên vẫn để cỡ chữ lớn và đậm.
  */
-const BENEFITS = ['Tiết kiệm 90% chi phí chụp ảnh', 'Đẩy hàng tồn kho chỉ bằng 1 click chuột'];
+const BENEFITS = ['Không cần thuê mẫu, không cần studio', 'Nhanh nhất - Tăng 90% hiệu suất bán hàng'];
 
 /** Ba lời hứa ngắn ngay dưới nút bấm — thứ khách quyết định mua hay không. */
 const PROMISES = [
