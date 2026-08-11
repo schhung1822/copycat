@@ -137,12 +137,12 @@ const InputCard: React.FC<{ step: number; label: string; image: { src: string; a
   label,
   image,
 }) => (
-  <div className="group/card flex-1 rounded-2xl border border-dark-700/80 bg-dark-900/90 p-1.5 shadow-lg shadow-black/10 backdrop-blur transition-colors duration-300 hover:border-dark-600 sm:flex-none">
+  <div className="group/card flex-1 rounded-2xl border border-dark-700/80 bg-dark-900/90 p-2 shadow-lg shadow-black/10 backdrop-blur transition-colors duration-300 hover:border-dark-600 sm:flex-none">
     <div className="mb-1.5 flex items-center gap-1.5 px-1 pt-0.5">
-      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-dark-800 text-[9px] font-bold text-gray-400">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-dark-800 text-[10px] font-bold text-gray-400">
         {step}
       </span>
-      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{label}</span>
+      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">{label}</span>
     </div>
     <div className="overflow-hidden rounded-xl ring-1 ring-inset ring-white/5">
       <SquareImage image={image} className="transition-transform duration-500 group-hover/card:scale-[1.04]" />
@@ -182,13 +182,13 @@ const ResultFrame: React.FC<{ image: { src: string; alt: string } }> = ({ image 
 const FacebookPost: React.FC<{ sample: Sample }> = ({ sample }) => (
   <div className="overflow-hidden rounded-[1.15rem] bg-white text-[#050505]">
     {/* Đầu bài đăng */}
-    <div className="flex items-center gap-2 px-3 py-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#050505] text-[11px] font-bold text-white">
+    <div className="flex items-center gap-2.5 px-3.5 py-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#050505] text-xs font-bold text-white">
         {sample.post.page.charAt(0)}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[11px] font-semibold leading-tight">{sample.post.page}</p>
-        <p className="flex items-center gap-1 text-[9px] leading-tight text-[#65676B]">
+        <p className="truncate text-xs font-semibold leading-tight">{sample.post.page}</p>
+        <p className="flex items-center gap-1 text-[10px] leading-tight text-[#65676B]">
           Được tài trợ
           <span>·</span>
           <svg className="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -196,34 +196,34 @@ const FacebookPost: React.FC<{ sample: Sample }> = ({ sample }) => (
           </svg>
         </p>
       </div>
-      <svg className="h-4 w-4 shrink-0 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <svg className="h-5 w-5 shrink-0 text-[#65676B]" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
         <circle cx="5" cy="12" r="1.8" />
         <circle cx="12" cy="12" r="1.8" />
         <circle cx="19" cy="12" r="1.8" />
       </svg>
     </div>
 
-    <p className="line-clamp-2 min-h-[2rem] px-3 pb-2 text-[11px] leading-snug">{sample.post.caption}</p>
+    <p className="line-clamp-2 min-h-[2.25rem] px-3.5 pb-2.5 text-xs leading-snug">{sample.post.caption}</p>
 
     {/* Ảnh kết quả do hệ thống tạo ra */}
     <SquareImage image={sample.result} label="Ảnh kết quả" />
 
     {/* Thanh liên kết kiểu quảng cáo */}
-    <div className="flex items-center gap-2 bg-[#F0F2F5] px-3 py-2">
+    <div className="flex items-center gap-2 bg-[#F0F2F5] px-3.5 py-2.5">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[8px] uppercase tracking-wide text-[#65676B]">{sample.post.domain}</p>
-        <p className="truncate text-[11px] font-semibold leading-tight">{sample.post.headline}</p>
+        <p className="truncate text-[9px] uppercase tracking-wide text-[#65676B]">{sample.post.domain}</p>
+        <p className="truncate text-xs font-semibold leading-tight">{sample.post.headline}</p>
       </div>
-      <span className="shrink-0 rounded-md bg-[#E4E6EB] px-2.5 py-1 text-[10px] font-semibold">Mua ngay</span>
+      <span className="shrink-0 rounded-md bg-[#E4E6EB] px-3 py-1.5 text-[11px] font-semibold">Mua ngay</span>
     </div>
 
     {/* Lượt tương tác */}
-    <div className="flex items-center justify-between border-b border-[#E4E6EB] px-3 py-1.5 text-[9px] text-[#65676B]">
+    <div className="flex items-center justify-between border-b border-[#E4E6EB] px-3.5 py-2 text-[10px] text-[#65676B]">
       <span className="flex items-center gap-1">
-        <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#1877F2] text-[7px] text-white">
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#1877F2] text-[8px] text-white">
           👍
         </span>
-        <span className="-ml-2 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#F3425F] text-[7px] text-white">
+        <span className="-ml-2 flex h-4 w-4 items-center justify-center rounded-full bg-[#F3425F] text-[8px] text-white">
           ❤️
         </span>
         <span className="ml-0.5">1,2K</span>
@@ -232,7 +232,7 @@ const FacebookPost: React.FC<{ sample: Sample }> = ({ sample }) => (
     </div>
 
     {/* Hàng nút cuối bài */}
-    <div className="flex items-center justify-around px-2 py-1.5 text-[10px] font-semibold text-[#65676B]">
+    <div className="flex items-center justify-around px-2 py-2 text-[11px] font-semibold text-[#65676B]">
       {['Thích', 'Bình luận', 'Chia sẻ'].map((action) => (
         <span key={action}>{action}</span>
       ))}
@@ -249,7 +249,7 @@ const FacebookPost: React.FC<{ sample: Sample }> = ({ sample }) => (
  */
 const AiConnector: React.FC = () => (
   <div className="flex shrink-0 flex-col items-center gap-2 sm:flex-row" aria-hidden>
-    <span className="h-5 w-px bg-gradient-to-b from-transparent to-brand-500/50 sm:h-px sm:w-7 sm:bg-gradient-to-r" />
+    <span className="h-5 w-px bg-gradient-to-b from-transparent to-brand-500/50 sm:h-px sm:w-5 sm:bg-gradient-to-r md:w-8" />
 
     <span className="relative flex items-center gap-1.5 rounded-full border border-brand-500/30 bg-brand-500/10 px-2.5 py-1.5 backdrop-blur">
       <span className="lp-ping-ring absolute inset-0 rounded-full border border-brand-500/40" />
@@ -259,7 +259,7 @@ const AiConnector: React.FC = () => (
       <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-brand-500">AI</span>
     </span>
 
-    <span className="h-5 w-px bg-gradient-to-t from-transparent to-brand-500/50 sm:h-px sm:w-7 sm:bg-gradient-to-l" />
+    <span className="h-5 w-px bg-gradient-to-t from-transparent to-brand-500/50 sm:h-px sm:w-5 sm:bg-gradient-to-l md:w-8" />
   </div>
 );
 
@@ -271,7 +271,7 @@ const SampleSlide: React.FC<{ sample: Sample }> = ({ sample }) => (
       đăng bên dưới. Không khoá thì chúng chiếm trọn bề ngang màn hình, to hơn
       hẳn kết quả — đúng ngược với thứ tự quan trọng mà hình này muốn kể.
     */}
-    <div className="mx-auto flex w-full max-w-[94vw] gap-2.5 sm:mx-0 sm:w-[8.25rem] sm:max-w-none sm:flex-col sm:gap-3 md:w-[9rem]">
+    <div className="mx-auto flex w-full max-w-[94vw] gap-2.5 sm:mx-0 sm:w-[10rem] sm:max-w-none sm:flex-col sm:gap-3 md:w-[11.5rem] lg:w-[9.5rem] xl:w-[12rem]">
       <InputCard step={1} label="Ảnh mẫu" image={sample.reference} />
       <InputCard step={2} label="Sản phẩm" image={sample.product} />
     </div>
@@ -283,7 +283,7 @@ const SampleSlide: React.FC<{ sample: Sample }> = ({ sample }) => (
       nền. Thêm một vòng viền tối rất nhạt vì ở chế độ sáng, thẻ trắng nằm trên
       nền sáng gần như không còn ranh giới.
     */}
-    <div className="w-full max-w-[84vw] shrink-0 sm:w-[14.5rem] md:w-[16rem]">
+    <div className="w-full max-w-[92vw] shrink-0 sm:w-[18rem] md:w-[20rem] lg:w-[16.5rem] xl:w-[21rem]">
       <div className="lp-gradient-border rounded-[1.3rem] p-[2px] shadow-2xl shadow-black/25 ring-1 ring-black/5">
         <ResultFrame image={sample.result} />
       </div>
@@ -356,8 +356,13 @@ export const HeroShowcase: React.FC = () => {
     }
   };
 
+  /*
+   * `max-w-md` chỉ áp cho mobile (lúc này cụm xếp dọc). Từ sm trở lên cụm nằm
+   * ngang và cần trọn bề ngang của cột: khoá bề rộng ở đây thì hai ảnh đầu vào
+   * bị bóp lại cho vừa khung, đúng ngược với việc phóng to.
+   */
   return (
-    <div className="relative mx-auto w-full max-w-md lg:max-w-none">
+    <div className="relative mx-auto w-full max-w-md sm:max-w-none">
       {/* Vệt màu trôi phía sau, chỉ để tạo chiều sâu */}
       <div className="pointer-events-none absolute -inset-10 -z-10" aria-hidden>
         <div className="lp-blob absolute left-0 top-4 h-56 w-56 rounded-full bg-brand-500/25 blur-3xl" />

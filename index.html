@@ -289,6 +289,17 @@
         animation-play-state: paused;
       }
 
+      /*
+        Cửa sổ phóng to ảnh ở phần Quy trình. Mở ra phải có một nhịp mờ dần rất
+        ngắn: bật thẳng lớp phủ đen kín màn hình là chói mắt.
+      */
+      .lp-lightbox {
+        animation: lp-fade-in 0.18s ease-out both;
+      }
+      .lp-lightbox > figure {
+        animation: lp-zoom-in 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
       /* Lưới mờ làm nền, dùng biến màu nên tự đổi theo sáng/tối */
       .lp-grid {
         background-image: linear-gradient(rgb(var(--s-700) / 0.5) 1px, transparent 1px),
@@ -332,6 +343,8 @@
         .lp-blob,
         .lp-marquee,
         .lp-ping-ring,
+        .lp-lightbox,
+        .lp-lightbox > figure,
         .lp-reveal.is-visible .lp-line {
           animation: none !important;
         }

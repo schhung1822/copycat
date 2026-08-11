@@ -21,7 +21,11 @@ export const Hero: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => (
   <section className="relative overflow-hidden pb-14 pt-24 sm:pb-24 sm:pt-28 lg:pt-32">
     <div className="lp-grid pointer-events-none absolute inset-0 -z-10" aria-hidden />
 
-    <div className="mx-auto grid max-w-[1280px] items-center gap-10 px-4 sm:gap-14 sm:px-6 lg:grid-cols-2 lg:gap-10">
+    {/*
+      Cột phải rộng hơn cột chữ (1.25fr): khối minh hoạ là thứ khách nhìn đầu
+      tiên, chia đôi đều thì ảnh kết quả bé hơn mức đọc được bố cục.
+    */}
+    <div className="mx-auto grid max-w-[1280px] items-center gap-10 px-4 sm:gap-14 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] lg:gap-10">
       <div className="text-center lg:text-left">
         <Reveal>
           <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-dark-700 bg-dark-900/80 px-3 py-1.5 text-[11px] font-medium text-gray-400 shadow-sm shadow-black/5 backdrop-blur sm:text-xs">
@@ -108,7 +112,7 @@ export const Hero: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => (
         </Reveal>
       </div>
 
-      <Reveal delay={200} anim="zoom" className="lg:pl-4">
+      <Reveal delay={200} anim="zoom" className="xl:pl-4">
         <HeroShowcase />
       </Reveal>
     </div>

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Reveal } from './Reveal';
 import { SectionHeading } from './SectionHeading';
 
@@ -62,6 +63,108 @@ const ImagePlaceholder: React.FC<{ index: number }> = ({ index }) => (
 );
 
 /**
+ * Cửa sổ phóng to ảnh của một bước.
+ *
+ * Dựng bằng portal ra thẳng `document.body`: khung ảnh ở cột phải nằm trong một
+ * thẻ `overflow-hidden` và một khối `position: sticky`, đặt lớp phủ ngay tại đó
+ * thì nó bị cắt và bị nhốt trong ngữ cảnh xếp lớp của cột.
+ *
+ * Ảnh dùng `object-contain` chứ không phải `object-cover` như ở khung nhỏ — mục
+ * đích của cửa sổ này là nhìn rõ toàn bộ ảnh, cắt mất mép là mất luôn lý do mở.
+ */
+const ImageLightbox: React.FC<{
+  step: (typeof STEPS)[number];
+  hasSiblings: boolean;
+  onClose: () => void;
+  onNavigate: (delta: number) => void;
+}> = ({ step, hasSiblings, onClose, onNavigate }) => {
+  /*
+   * Khoá cuộn nền khi cửa sổ mở, nếu không thì lăn chuột trên lớp phủ sẽ cuộn
+   * trang phía sau và lúc đóng lại người xem thấy mình ở một chỗ khác.
+   */
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+      else if (event.key === 'ArrowRight') onNavigate(1);
+      else if (event.key === 'ArrowLeft') onNavigate(-1);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose, onNavigate]);
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Ảnh minh hoạ ${step.tag.toLowerCase()} — ${step.title}`}
+      /* Bấm ra ngoài để đóng. Ảnh và các nút gọi stopPropagation nên bấm trúng
+         chúng không bị tính là bấm nền. */
+      onClick={onClose}
+      className="lp-lightbox fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm sm:p-8"
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Đóng ảnh phóng to"
+        className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 sm:right-5 sm:top-5"
+      >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
+
+      {hasSiblings && (
+        <>
+          {[-1, 1].map((delta) => (
+            <button
+              key={delta}
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onNavigate(delta);
+              }}
+              aria-label={delta < 0 ? 'Xem bước trước' : 'Xem bước sau'}
+              className={`absolute top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 sm:h-12 sm:w-12 ${
+                delta < 0 ? 'left-2 sm:left-5' : 'right-2 sm:right-5'
+              }`}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d={delta < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} />
+              </svg>
+            </button>
+          ))}
+        </>
+      )}
+
+      <figure
+        onClick={(event) => event.stopPropagation()}
+        className="flex max-h-full max-w-5xl flex-col items-center gap-3"
+      >
+        <img
+          src={step.image}
+          alt={step.imageAlt}
+          className="max-h-[76vh] w-auto max-w-full rounded-xl object-contain shadow-2xl shadow-black/50"
+        />
+        <figcaption className="text-center">
+          <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand-500">{step.tag}</span>
+          <p className="mt-1 text-sm font-semibold text-white sm:text-base">{step.title}</p>
+        </figcaption>
+      </figure>
+    </div>,
+    document.body,
+  );
+};
+
+/**
  * Quy trình 4 bước, kèm khung ảnh minh hoạ ở cột phải.
  *
  * Bấm vào một bước thì khung bên phải mờ chuyển sang ảnh của bước đó. Các ảnh
@@ -77,6 +180,18 @@ const ImagePlaceholder: React.FC<{ index: number }> = ({ index }) => (
  */
 export const HowItWorks: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isZoomed, setIsZoomed] = useState(false);
+
+  /*
+   * Cửa sổ phóng to đọc thẳng `activeIndex` chứ không giữ chỉ số riêng: chuyển
+   * bước trong cửa sổ vì thế kéo theo cả bước đang chọn ở dưới, đóng cửa sổ ra
+   * là thấy đúng bước vừa xem chứ không nhảy về chỗ cũ.
+   */
+  const navigateZoom = useCallback((delta: number) => {
+    setActiveIndex((current) => (current + delta + STEPS.length) % STEPS.length);
+  }, []);
+
+  const closeZoom = useCallback(() => setIsZoomed(false), []);
 
   const onKeyDown = (event: React.KeyboardEvent) => {
     const step = event.key === 'ArrowDown' || event.key === 'ArrowRight' ? 1 : event.key === 'ArrowUp' || event.key === 'ArrowLeft' ? -1 : 0;
@@ -209,12 +324,47 @@ export const HowItWorks: React.FC = () => {
                       }`}
                     >
                       {step.image ? (
-                        <img
-                          src={step.image}
-                          alt={step.imageAlt}
-                          loading="lazy"
-                          className="h-full w-full object-cover"
-                        />
+                        /*
+                          Cả khung ảnh là một nút bấm để phóng to. Dùng <button>
+                          chứ không phải onClick trên <img>: bàn phím tab tới
+                          được, Enter/Space chạy đúng, và trình đọc màn hình đọc
+                          ra đây là thao tác mở ảnh chứ không phải ảnh trang trí.
+                        */
+                        <button
+                          type="button"
+                          onClick={() => setIsZoomed(true)}
+                          aria-label={`Phóng to ảnh ${step.tag.toLowerCase()}: ${step.imageAlt}`}
+                          className="group/zoom relative block h-full w-full cursor-zoom-in overflow-hidden outline-none"
+                        >
+                          <img
+                            src={step.image}
+                            alt={step.imageAlt}
+                            loading="lazy"
+                            className="h-full w-full object-cover transition-transform duration-500 group-hover/zoom:scale-[1.03]"
+                          />
+
+                          {/* Gợi ý bấm được: hiện khi rê chuột, và luôn hiện khi
+                              focus bằng bàn phím. */}
+                          <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-300 group-hover/zoom:opacity-100 group-focus-visible/zoom:opacity-100">
+                            <span className="flex items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-xs font-bold text-dark-900 shadow-lg">
+                              <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2.2}
+                                aria-hidden
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M21 21l-4.35-4.35M11 8v6m-3-3h6m5 0a8 8 0 11-16 0 8 8 0 0116 0z"
+                                />
+                              </svg>
+                              Bấm để xem ảnh lớn
+                            </span>
+                          </span>
+                        </button>
                       ) : (
                         <ImagePlaceholder index={index} />
                       )}
@@ -245,6 +395,15 @@ export const HowItWorks: React.FC = () => {
           </Reveal>
         </div>
       </div>
+
+      {isZoomed && (
+        <ImageLightbox
+          step={STEPS[activeIndex]}
+          hasSiblings={STEPS.length > 1}
+          onClose={closeZoom}
+          onNavigate={navigateZoom}
+        />
+      )}
     </section>
   );
 };
