@@ -223,7 +223,7 @@ const PackageGrid: React.FC<{
           return (
             <Card
               key={pkg.id}
-              className={`p-5 flex flex-col relative w-full sm:w-[calc(50%-0.5rem)] lg:w-[calc(25%-0.75rem)] ${pkg.isPopular ? 'border-brand-500 shadow-lg shadow-brand-500/10' : ''}`}
+              className={`p-4 flex flex-col relative w-full sm:w-[calc(50%-0.5rem)] lg:w-[calc(25%-0.75rem)] ${pkg.isPopular ? 'border-brand-500 shadow-lg shadow-brand-500/10' : ''}`}
             >
               {pkg.isPopular && (
                 <span className="absolute -top-2.5 left-5 bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
@@ -231,21 +231,27 @@ const PackageGrid: React.FC<{
                 </span>
               )}
 
-              <p className="text-2xl font-bold text-gray-100">{formatVnd(pkg.priceVnd)}</p>
+              <p className="text-xl font-bold text-gray-300">{formatVnd(pkg.priceVnd)}</p>
 
               {/*
-                Số to LUÔN là tổng điểm nhận được, và phần thưởng ghi rõ là "đã
-                gồm". Trước đây để "550.000 điểm +50.000" cạnh nhau, đọc ra thành
-                550.000 cộng thêm 50.000 nữa = 600.000 — hứa nhiều gấp đôi phần
-                thưởng thật, khách nạp xong thấy thiếu là mất tin ngay.
+                SỐ ĐIỂM là con số lớn nhất trên thẻ, không phải giá tiền: khách đã
+                biết mình định tiêu bao nhiêu, thứ họ cần so giữa các thẻ là đổi
+                được bao nhiêu điểm.
+
+                Số to LUÔN là tổng nhận được, phần thưởng ghi rõ là "đã gồm".
+                Trước đây để "550.000 điểm +50.000" cạnh nhau, đọc ra thành 550.000
+                cộng thêm 50.000 nữa = 600.000 — hứa gấp đôi phần thưởng thật.
+
+                Khoá chiều cao tối thiểu vì thẻ có thưởng cao hơn thẻ không có đúng
+                một dòng; không khoá thì nét kẻ ngang bên dưới mỗi thẻ một độ cao.
               */}
-              {/* Khoá chiều cao tối thiểu: thẻ có thưởng cao hơn thẻ không có
-                  đúng một dòng, không khoá thì nét kẻ ngang bên dưới mỗi thẻ một
-                  độ cao, cả hàng trông như xếp ẩu. */}
-              <div className="mt-2 min-h-[3.25rem]">
-                <p className="text-brand-500 font-bold text-lg">{formatNumber(pkg.totalTokens)} điểm</p>
+              <div className="mt-2 min-h-[3.5rem]">
+                <p className="text-[1.75rem] font-bold leading-none tracking-tight text-brand-500">
+                  {formatNumber(pkg.totalTokens)}
+                  <span className="ml-1 text-xs font-semibold text-gray-500">điểm</span>
+                </p>
                 {pkg.bonusTokens > 0 && (
-                  <p className="text-[11px] text-green-400 mt-0.5 leading-tight">
+                  <p className="text-[11px] text-green-400 mt-1 leading-tight">
                     Đã gồm {formatNumber(pkg.bonusTokens)} điểm thưởng
                   </p>
                 )}
@@ -253,18 +259,16 @@ const PackageGrid: React.FC<{
 
               <div className="pt-3 border-t border-dark-800 flex-1">
                 {images > 0 && (
-                  <p className="text-gray-200 font-semibold text-sm leading-tight">
-                    Tạo được khoảng {formatNumber(images)} ảnh
-                  </p>
+                  <p className="text-xs font-bold text-gray-200">≈ {formatNumber(images)} ảnh</p>
                 )}
-                {pkg.description && <p className="text-[11px] text-gray-500 mt-1">{pkg.description}</p>}
+                {pkg.description && <p className="text-[11px] text-gray-500 mt-1.5">{pkg.description}</p>}
               </div>
 
               <Button
                 onClick={() => onSelect(pkg)}
                 isLoading={creatingId === `pkg-${pkg.id}`}
                 variant={pkg.isPopular ? 'primary' : 'secondary'}
-                className="w-full mt-4 !rounded-xl !py-2.5 !text-sm"
+                className="w-full mt-3 !rounded-xl !py-2.5 !text-sm"
               >
                 Mua ngay
               </Button>

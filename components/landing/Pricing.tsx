@@ -67,7 +67,7 @@ export const Pricing: React.FC<{ packages?: TokenPackage[]; models?: ModelOption
           Bề rộng trừ đi phần khoảng cách: gap-4 = 1rem, 4 cột có 3 khoảng nên mỗi
           thẻ nhường 0,75rem; 2 cột có 1 khoảng nên nhường 0,5rem.
         */}
-        <div className="mt-10 flex flex-wrap justify-center gap-4 sm:mt-14">
+        <div className="mt-8 flex flex-wrap justify-center gap-4 sm:mt-12">
           {packageList.map((pkg, index) => {
             const images = referenceModel ? roundedImageCount(pkg.totalTokens, referenceModel.tokenCost) : 0;
             // Tiền mỗi ảnh, làm tròn tới trăm đồng — đây là con số khách so sánh
@@ -82,7 +82,7 @@ export const Pricing: React.FC<{ packages?: TokenPackage[]; models?: ModelOption
               <Reveal
                 key={pkg.code}
                 delay={index * 80}
-                className={`relative flex w-full flex-col rounded-2xl border p-5 transition-all duration-300 hover:-translate-y-1 sm:w-[calc(50%-0.5rem)] sm:p-6 lg:w-[calc(25%-0.75rem)] ${
+                className={`relative flex w-full flex-col rounded-2xl border p-4 transition-all duration-300 hover:-translate-y-1 sm:w-[calc(50%-0.5rem)] sm:p-5 lg:w-[calc(25%-0.75rem)] ${
                   pkg.isPopular
                     ? 'border-brand-500 bg-dark-900 shadow-2xl shadow-brand-500/10'
                     : 'border-dark-800 bg-dark-900 hover:border-dark-700'
@@ -94,52 +94,62 @@ export const Pricing: React.FC<{ packages?: TokenPackage[]; models?: ModelOption
                   </span>
                 )}
 
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-3xl font-bold tracking-tight text-gray-100">{formatVnd(pkg.priceVnd)}</p>
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="text-xl font-bold tracking-tight text-gray-300">{formatVnd(pkg.priceVnd)}</p>
                   {/* Chỉ gắn nhãn khi mức tiết kiệm đủ lớn để đáng nói. Dưới 5%
                       thì con số vừa nhỏ vừa làm rối bốn thẻ đứng cạnh nhau. */}
                   {savedPercent >= 5 && (
-                    <span className="mt-1 shrink-0 rounded-md bg-green-500/10 px-2 py-0.5 text-[10px] font-bold text-green-400">
+                    <span className="shrink-0 rounded-md bg-green-500/10 px-1.5 py-0.5 text-[10px] font-bold text-green-400">
                       −{savedPercent}%
                     </span>
                   )}
                 </div>
 
                 {/*
-                  Khối điểm khoá chiều cao tối thiểu: thẻ có thưởng cao hơn thẻ
-                  không có đúng một dòng, không khoá thì mọi thứ bên dưới lệch
-                  nhau và bốn thẻ trông như xếp ẩu.
+                  SỐ ĐIỂM là con số lớn nhất trên thẻ, không phải giá tiền: khách
+                  đã biết mình định tiêu bao nhiêu, thứ họ cần so giữa các thẻ là
+                  đổi được bao nhiêu điểm. Bỏ luôn khung nền xám bọc ngoài — chữ
+                  đủ to rồi thì cái khung chỉ tốn chiều cao.
+
+                  Khoá chiều cao tối thiểu vì thẻ có thưởng cao hơn thẻ không có
+                  đúng một dòng; không khoá thì mọi thứ bên dưới lệch nhau.
 
                   Số to LUÔN là tổng nhận được, phần thưởng ghi rõ "đã gồm" —
                   để "+50.000" ngay sau tổng thì đọc ra thành cộng thêm lần nữa.
                 */}
-                <div className="mt-4 min-h-[3.25rem] rounded-lg bg-dark-850 px-3 py-2">
-                  <p className="text-xs text-gray-400">
-                    <span className="font-bold text-brand-500">{formatNumber(pkg.totalTokens)}</span> điểm
+                <div className="mt-2 min-h-[3.5rem]">
+                  <p className="text-[1.75rem] font-bold leading-none tracking-tight text-brand-500">
+                    {formatNumber(pkg.totalTokens)}
+                    <span className="ml-1 text-xs font-semibold text-gray-500">điểm</span>
                   </p>
                   {pkg.bonusTokens > 0 && (
-                    <p className="mt-0.5 text-[11px] leading-tight text-green-400">
+                    <p className="mt-1 text-[11px] leading-tight text-green-400">
                       Đã gồm {formatNumber(pkg.bonusTokens)} điểm thưởng
                     </p>
                   )}
                 </div>
 
                 {/* Vùng co giãn: mô tả dài ngắn khác nhau nhưng nút vẫn thẳng hàng đáy */}
-                <div className="mt-4 flex-1">
+                <div className="mt-3 flex-1 border-t border-dark-800 pt-3">
                   {images > 0 && (
-                    <p className="text-sm font-bold text-gray-100">≈ {formatNumber(images)} ảnh</p>
-                  )}
-                  {pricePerImage > 0 && (
-                    <p className="mt-0.5 text-[11px] text-gray-500">chỉ {formatVnd(pricePerImage)}/ảnh</p>
+                    <p className="text-xs text-gray-500">
+                      <span className="font-bold text-gray-200">≈ {formatNumber(images)} ảnh</span>
+                      {pricePerImage > 0 && (
+                        <>
+                          <span className="mx-1.5 text-gray-600">·</span>
+                          {formatVnd(pricePerImage)}/ảnh
+                        </>
+                      )}
+                    </p>
                   )}
                   {pkg.description && (
-                    <p className="mt-2.5 text-xs leading-relaxed text-gray-600">{pkg.description}</p>
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-gray-600">{pkg.description}</p>
                   )}
                 </div>
 
                 <Link
                   to="/dang-ky"
-                  className={`mt-5 rounded-xl px-4 py-2.5 text-center text-sm font-bold transition-colors ${
+                  className={`mt-4 rounded-xl px-4 py-2.5 text-center text-sm font-bold transition-colors ${
                     pkg.isPopular
                       ? 'bg-brand-500 text-white hover:bg-brand-600'
                       : 'border border-dark-700 text-gray-200 hover:border-brand-500/40 hover:bg-dark-850'
