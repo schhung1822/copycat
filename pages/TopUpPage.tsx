@@ -441,15 +441,18 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
   const baseTokens = basePackage?.totalTokens ?? 0;
 
   /**
-   * Đơn giá điểm để quy ảnh ra tiền, lấy từ chính các gói điểm lẻ đang bán.
+   * Đơn giá điểm để quy ảnh ra tiền — lấy đúng ĐƠN GIÁ CỦA GÓI MỐC.
    *
-   * Dùng đơn giá RẺ NHẤT trong các gói: đây là mức thấp nhất khách có thể mua
-   * được, nên con số quy đổi là mức tối thiểu chứ không thổi phồng giá trị gói.
+   * Trước đây chỗ này lấy đơn giá rẻ nhất trong tất cả các gói, trong khi cột
+   * "số ảnh" bên cạnh lại tính theo gói mốc. Hai cột hai mốc khác nhau nên bảng
+   * tự mâu thuẫn: khách nhân "140 ảnh × 3.000đ" ra 420.000đ, không khớp với giá
+   * 499.000đ của chính gói ghi ở đầu cột.
+   *
+   * Cùng một gói cho cả hai cột thì phép nhân ngược lại luôn ra xấp xỉ giá gói,
+   * chênh chút ít do số ảnh đã làm tròn xuống.
    */
   const pricePerToken =
-    catalog.packages.length > 0
-      ? Math.min(...catalog.packages.filter((pkg) => pkg.totalTokens > 0).map((pkg) => pkg.priceVnd / pkg.totalTokens))
-      : 0;
+    basePackage && basePackage.totalTokens > 0 ? basePackage.priceVnd / basePackage.totalTokens : 0;
 
   // Làm tròn tới trăm đồng cho dễ đọc — đây là giá tham chiếu, không phải giá thu.
   const equivalentPrice = (tokenCost: number) => Math.round((tokenCost * pricePerToken) / 100) * 100;
@@ -494,18 +497,12 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
           </tbody>
         </TableWrap>
         <p className="text-[11px] text-gray-600 mt-3">
-          {baseTokens > 0 && (
+          {basePackage && baseTokens > 0 && (
             <>
-              Cột cuối tính trên {formatNumber(baseTokens)} điểm
-              {basePackage && ` của ${basePackage.name}`}, nếu chỉ dùng một loại ảnh duy nhất. Mua gói lớn hơn thì số ảnh
-              tăng tương ứng.{' '}
-            </>
-          )}
-          {pricePerToken > 0 && (
-            <>
-              Cột <strong className="text-gray-500">tiền / ảnh</strong> là số tiền thực tế bạn bỏ ra cho mỗi ảnh, tính
-              theo đơn giá tốt nhất trong các gói đang bán (
-              {pricePerToken.toLocaleString('vi-VN', { maximumFractionDigits: 2 })}đ/điểm).
+              Cả hai cột cuối đều tính theo <strong className="text-gray-500">{basePackage.name}</strong> (
+              {formatNumber(baseTokens)} điểm, {pricePerToken.toLocaleString('vi-VN', { maximumFractionDigits: 2 })}
+              đ/điểm), nếu chỉ dùng một loại ảnh duy nhất. Mua gói khác thì đơn giá mỗi điểm đổi theo bảng giá gói ở
+              trên, số ảnh tăng giảm tương ứng.
             </>
           )}
         </p>
