@@ -53,23 +53,25 @@ export function pickReferenceModel(models: ModelOption[] | undefined): ModelOpti
 }
 
 /**
- * Số ảnh tạo được từ một số điểm, làm tròn XUỐNG cho gọn mắt.
+ * Số ảnh tạo được từ một số điểm, làm tròn tới mốc gần nhất cho gọn mắt.
  *
- * Luôn làm tròn xuống chứ không làm tròn gần nhất: làm tròn lên là hứa nhiều ảnh
- * hơn số điểm thật sự cho phép (vd 357 ảnh mà ghi 400), khách tạo tới ảnh thứ 358
- * là hết điểm và có cơ sở khiếu nại.
+ * KHÔNG làm tròn xuống hai lần. Bản trước lấy `Math.floor` rồi mới hạ tiếp về
+ * bội của 5 hoặc 10, nên sai lệch cộng dồn tới mức phi lý: gói 42.000 điểm ở mức
+ * 1.700 điểm/ảnh tạo được 24,7 ảnh mà bảng giá ghi 20 — thấp hơn thực tế 19%, tự
+ * dìm giá trị gói của mình.
  *
- * Bước làm tròn nhỏ dần theo độ lớn: số càng bé thì sai lệch do làm tròn càng
- * chiếm tỉ lệ lớn. Làm tròn 35 ảnh xuống 30 là mất 14%, trong khi 357 xuống 350
- * chỉ mất 2%.
+ * Vì đã làm tròn hai chiều nên chữ đi kèm phải là "khoảng"/"~", KHÔNG được viết
+ * "tối đa" hay "tới": con số có thể nhỉnh hơn thực tế vài ảnh.
+ *
+ * Bước làm tròn nhỏ dần theo độ lớn: số càng bé thì một bậc làm tròn càng chiếm
+ * tỉ lệ lớn. Với 24,7 ảnh thì bước 10 là quá thô, bước 5 vừa phải.
  */
 export function roundedImageCount(tokens: number, costPerImage: number): number {
   if (costPerImage <= 0) return 0;
 
-  const exact = Math.floor(tokens / costPerImage);
-  if (exact >= 100) return Math.floor(exact / 10) * 10;
-  if (exact >= 20) return Math.floor(exact / 5) * 5;
-  return exact;
+  const exact = tokens / costPerImage;
+  const step = exact >= 100 ? 10 : exact >= 20 ? 5 : 1;
+  return Math.round(exact / step) * step;
 }
 
 /** "GPT Image 2 — 2K" -> "GPT Image 2", để ghép vào câu chú thích. */

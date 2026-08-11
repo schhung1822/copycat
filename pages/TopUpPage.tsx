@@ -232,19 +232,24 @@ const PackageGrid: React.FC<{
               )}
 
               <p className="text-2xl font-bold text-gray-100">{formatVnd(pkg.priceVnd)}</p>
-              <p className="text-brand-500 font-bold text-lg mt-2">
-                {formatNumber(pkg.totalTokens)} điểm
-                {pkg.bonusTokens > 0 && (
-                  <span className="text-green-400 text-xs font-semibold ml-1">
-                    +{formatNumber(pkg.bonusTokens)}
-                  </span>
-                )}
-              </p>
+
+              {/*
+                Số to LUÔN là tổng điểm nhận được, và phần thưởng ghi rõ là "đã
+                gồm". Trước đây để "550.000 điểm +50.000" cạnh nhau, đọc ra thành
+                550.000 cộng thêm 50.000 nữa = 600.000 — hứa nhiều gấp đôi phần
+                thưởng thật, khách nạp xong thấy thiếu là mất tin ngay.
+              */}
+              <p className="text-brand-500 font-bold text-lg mt-2">{formatNumber(pkg.totalTokens)} điểm</p>
+              {pkg.bonusTokens > 0 && (
+                <p className="text-[11px] text-green-400 mt-0.5">
+                  Đã gồm {formatNumber(pkg.bonusTokens)} điểm thưởng
+                </p>
+              )}
 
               <div className="mt-3 pt-3 border-t border-dark-800 flex-1">
                 {images > 0 && (
                   <p className="text-gray-200 font-semibold text-sm leading-tight">
-                    Tạo được tới {formatNumber(images)} ảnh
+                    Tạo được khoảng {formatNumber(images)} ảnh
                   </p>
                 )}
                 {pkg.description && <p className="text-[11px] text-gray-500 mt-1">{pkg.description}</p>}

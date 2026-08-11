@@ -81,14 +81,23 @@ export const Pricing: React.FC<{ packages?: TokenPackage[]; models?: ModelOption
 
                 <p className="text-3xl font-bold tracking-tight text-gray-100">{formatVnd(pkg.priceVnd)}</p>
 
+                {/*
+                  Số to LUÔN là tổng điểm nhận được, phần thưởng ghi rõ là "đã
+                  gồm". Để "(+50.000 thưởng)" ngay sau tổng thì đọc ra thành cộng
+                  thêm một lần nữa — hứa gấp đôi phần thưởng thật.
+                */}
                 <p className="mt-4 rounded-lg bg-dark-850 px-3 py-2 text-xs text-gray-400">
                   <span className="font-bold text-brand-500">{formatNumber(pkg.totalTokens)}</span> điểm
                   {pkg.bonusTokens > 0 && (
-                    <span className="ml-1 text-green-400">(+{formatNumber(pkg.bonusTokens)} thưởng)</span>
+                    <span className="mt-0.5 block text-[11px] text-green-400">
+                      Đã gồm {formatNumber(pkg.bonusTokens)} điểm thưởng
+                    </span>
                   )}
                 </p>
 
-                {images > 0 && <p className="mt-2 text-xs text-gray-500">Tạo được tới {formatNumber(images)} ảnh</p>}
+                {images > 0 && (
+                  <p className="mt-2 text-xs text-gray-500">Tạo được khoảng {formatNumber(images)} ảnh</p>
+                )}
 
                 {pkg.description && <p className="mt-2 text-xs leading-relaxed text-gray-600">{pkg.description}</p>}
 
