@@ -105,13 +105,13 @@ export const PricingTab: React.FC = () => {
 
       <Card className="p-5">
         <div className="mb-4">
-          <h2 className="font-bold text-gray-100">Gói dịch vụ theo tháng</h2>
+          <h2 className="font-bold text-gray-100">Gói tháng — đã ngừng bán</h2>
           <p className="text-xs text-gray-500 mt-1">
-            Khách bắt buộc mua gói này trước khi tạo ảnh. <strong>Hạn mức</strong> được cấp lại mỗi tháng và không cộng
-            dồn, kể cả khi mua chu kỳ dài. 1 điểm = 1đ giá vốn, nên hạn mức 500.000 điểm đúng bằng 500.000đ tiền
-            điểm theo giá gốc. Gói để <strong>hạn mức 0</strong> (như <code>FREE</code>) chỉ mở khoá tài khoản chứ
-            không tặng điểm hàng tháng — khách phải mua điểm lẻ. Bỏ tích <strong>Bán</strong> thì gói không hiện trên
-            trang bảng giá nhưng admin vẫn cấp tay được ở tab Khách hàng.
+            Hệ thống nay <strong>chỉ bán điểm</strong>: khách mua điểm là dùng được ngay, không phải mua gói. Bảng này
+            giữ lại để bạn <strong>cấp gói tay</strong> cho khách VIP ở tab Khách hàng → nút "Gói", và để các gói đã bán
+            trước đây chạy hết hạn. Cột <strong>Bán</strong> không còn tác dụng gì với khách — không có màn hình nào của
+            khách hiện các gói này nữa. <strong>Hạn mức</strong> được cấp lại mỗi tháng và không cộng dồn; 1 điểm = 1đ
+            giá vốn.
           </p>
         </div>
 
@@ -264,10 +264,11 @@ export const PricingTab: React.FC = () => {
 
       <Card className="p-5">
         <div className="mb-4">
-          <h2 className="font-bold text-gray-100">Gói điểm lẻ</h2>
+          <h2 className="font-bold text-gray-100">Gói điểm</h2>
           <p className="text-xs text-gray-500 mt-1">
-            Dành cho khách đã dùng hết hạn mức tháng. Quy tắc định giá: bán <strong>gấp đôi giá vốn</strong>, tức số
-            điểm nhận được bằng nửa số tiền nạp. Điểm mua thêm không hết hạn theo chu kỳ tháng.
+            Sản phẩm <strong>duy nhất đang bán</strong>. Quy tắc định giá: bán <strong>gấp đôi giá vốn</strong>, tức số
+            điểm nhận được bằng nửa số tiền nạp. Điểm đã mua không hết hạn. Cột <strong>Mô tả</strong> là dòng chữ nhỏ
+            hiện dưới mỗi thẻ gói ở trang giới thiệu và trang Mua điểm — để trống thì thẻ không hiện dòng đó.
           </p>
         </div>
 
@@ -276,6 +277,7 @@ export const PricingTab: React.FC = () => {
             <tr className="text-[11px] uppercase tracking-wider text-gray-500 border-b border-dark-800">
               <th className="text-left font-bold py-2">Mã</th>
               <th className="text-left font-bold py-2">Tên gói</th>
+              <th className="text-left font-bold py-2">Mô tả</th>
               <th className="text-right font-bold py-2">Giá nạp</th>
               <th className="text-right font-bold py-2">Điểm cơ bản</th>
               <th className="text-right font-bold py-2">Điểm thưởng</th>
@@ -295,6 +297,14 @@ export const PricingTab: React.FC = () => {
                     align="left"
                     width="w-32"
                     onSave={(value) => updatePackage(pkg.id, { name: value })}
+                  />
+                </td>
+                <td className="py-2">
+                  <EditableCell
+                    value={pkg.description ?? ''}
+                    align="left"
+                    width="w-64"
+                    onSave={(value) => updatePackage(pkg.id, { description: value.trim() || null })}
                   />
                 </td>
                 <td className="py-2 text-right">

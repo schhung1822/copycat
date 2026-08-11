@@ -37,8 +37,8 @@ const SETTINGS_KEY = 'copycat-studio-settings-v3';
 /**
  * Mô tả ngắn giúp khách chọn model, thay cho việc hiện số điểm.
  *
- * Cố ý KHÔNG nói về giá hay điểm: khách đã trả tiền theo gói tháng, việc của họ
- * ở màn này là chọn model hợp nhu cầu chứ không phải tính tiền.
+ * Cố ý KHÔNG nói về giá hay điểm: khách đã mua điểm rồi, việc của họ ở màn này
+ * là chọn model hợp nhu cầu chứ không phải tính tiền lại lần nữa.
  *
  * Khoá theo `family` trong bảng giá. Model mới chưa có mô tả thì chỉ hiện tên,
  * thêm một dòng vào đây là xong.
@@ -196,19 +196,16 @@ export const StudioPage: React.FC = () => {
   const jobCount = Math.max(refImages.length, 1) * quantity;
   const totalCost = (selectedModel?.tokenCost ?? 0) * jobCount;
   const balance = user?.tokenBalance ?? 0;
-  const isSubscribed = user?.isSubscribed ?? false;
   const notEnoughTokens = totalCost > balance;
 
   /**
-   * Hạn mức còn lại quy ra số ảnh ở mức chất lượng đang chọn.
+   * Số điểm còn lại quy ra số ảnh ở mức chất lượng đang chọn.
    *
    * Màn này không nói chuyện điểm, nhưng vẫn phải cho khách biết còn tạo được
    * bao nhiêu — nếu không, việc bị chặn ở nút "Tạo" sẽ đến rất bất ngờ.
    */
   const remainingImages =
-    isSubscribed && selectedModel && selectedModel.tokenCost > 0
-      ? Math.floor(balance / selectedModel.tokenCost)
-      : null;
+    selectedModel && selectedModel.tokenCost > 0 ? Math.floor(balance / selectedModel.tokenCost) : null;
 
   // --- Hỏi trạng thái các ảnh đang xử lý ------------------------------------
   const pendingIds = useMemo(() => generations.filter(isPending).map((g) => g.id), [generations]);
@@ -332,7 +329,7 @@ export const StudioPage: React.FC = () => {
   }
   if (!catalog) return <PageLoader label="Đang tải bảng giá..." />;
 
-  const canSubmit = Boolean(selectedModel) && prodImages.length > 0 && !notEnoughTokens && !isSubmitting && isSubscribed;
+  const canSubmit = Boolean(selectedModel) && prodImages.length > 0 && !notEnoughTokens && !isSubmitting;
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] w-full overflow-hidden">
@@ -495,27 +492,27 @@ export const StudioPage: React.FC = () => {
         <div className="p-5 border-t border-dark-800 bg-dark-900 space-y-3">
           {error && (
             <Alert tone="error">
-              {/* Lỗi hết hạn mức từ server có kèm số điểm; ở màn này không nói
+              {/* Lỗi hết điểm từ server có kèm con số; ở màn này không nói
                   chuyện điểm nên thay bằng câu ngắn gọn của giao diện. */}
               {error instanceof ApiError && error.isInsufficientTokens
-                ? 'Hạn mức tháng của bạn không còn đủ cho số ảnh này.'
+                ? 'Bạn không còn đủ điểm cho số ảnh này.'
                 : error.message}
               {error instanceof ApiError && error.isInsufficientTokens && (
                 <Link to="/nap-tien" className="block mt-2 font-bold underline">
-                  Mua thêm lượt tạo ảnh →
+                  Mua thêm điểm →
                 </Link>
               )}
             </Alert>
           )}
 
-          {!isSubscribed ? (
+          {/*
+            Khách hết điểm (kể cả khách mới chưa mua bao giờ) được dẫn thẳng tới
+            trang mua điểm thay vì bấm nút "Tạo" rồi ăn lỗi 402.
+          */}
+          {notEnoughTokens ? (
             <Link to="/nap-tien" className="block">
-              <Button className="w-full !rounded-xl">Đăng ký gói dịch vụ để bắt đầu</Button>
-            </Link>
-          ) : notEnoughTokens ? (
-            <Link to="/nap-tien" className="block">
-              <Button className="w-full !rounded-xl" variant="secondary">
-                Hết hạn mức · Mua thêm
+              <Button className="w-full !rounded-xl" variant={balance === 0 ? 'primary' : 'secondary'}>
+                {balance === 0 ? 'Mua điểm để bắt đầu' : 'Không đủ điểm · Mua thêm'}
               </Button>
             </Link>
           ) : (
@@ -524,20 +521,16 @@ export const StudioPage: React.FC = () => {
             </Button>
           )}
 
-          {isSubscribed ? (
-            <p className="text-[11px] text-gray-600 text-center leading-relaxed">
-              {remainingImages !== null && (
-                <>
-                  Còn tạo được khoảng <strong className="text-gray-500">{formatNumber(remainingImages)} ảnh</strong> ở
-                  mức chất lượng này.
-                  <br />
-                </>
-              )}
-              Ảnh lỗi được hoàn lại tự động, không tính vào hạn mức.
-            </p>
-          ) : (
-            <p className="text-[11px] text-gray-600 text-center">Cần có gói dịch vụ theo tháng mới tạo được ảnh.</p>
-          )}
+          <p className="text-[11px] text-gray-600 text-center leading-relaxed">
+            {remainingImages !== null && remainingImages > 0 && (
+              <>
+                Còn tạo được khoảng <strong className="text-gray-500">{formatNumber(remainingImages)} ảnh</strong> ở mức
+                chất lượng này.
+                <br />
+              </>
+            )}
+            Ảnh lỗi được hoàn điểm tự động.
+          </p>
         </div>
       </aside>
 

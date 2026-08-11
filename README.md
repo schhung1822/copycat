@@ -243,8 +243,8 @@ Admin vào mục **Quản trị** trên thanh điều hướng, gồm 4 tab:
 |---|---|
 | Tổng quan | Doanh thu, chi phí vốn, lợi nhuận gộp, số khách, tỉ lệ ảnh thành công, biểu đồ theo ngày, hiệu quả từng model, top khách hàng |
 | Đơn nạp | Lọc theo trạng thái, tìm theo mã đơn/email, duyệt tay, huỷ đơn |
-| Khách hàng | Xem và sửa hồ sơ, thời hạn gói, hạn mức, mật khẩu; cấp gói dịch vụ; cộng–trừ điểm theo từng nguồn |
-| Bảng giá & gói nạp | Sửa trực tiếp giá vốn, số điểm thu, slug model, giá gói, điểm thưởng |
+| Khách hàng | Xem và sửa hồ sơ, mật khẩu; cộng–trừ điểm theo từng nguồn; cấp gói tháng tay (di sản) |
+| Bảng giá & gói điểm | Sửa trực tiếp giá vốn, số điểm thu, slug model, giá gói điểm, điểm thưởng |
 
 ### Sửa thông tin khách hàng
 
@@ -266,11 +266,21 @@ Nút **Điểm** cộng/trừ điểm và **bắt buộc chọn nguồn**, vì h
 Mọi thay đổi số dư đều ghi một dòng vào sổ cái `token_transactions` kèm lý do, kể cả khi hạ
 hạn mức tháng làm số dư bị kéo xuống theo — nếu không, tổng sổ cái sẽ lệch với số dư thật.
 
-### Cấp gói dịch vụ cho khách
+### Tặng điểm cho khách
 
-Nút **Gói** ở tab Khách hàng kích hoạt một gói thẳng cho khách, **không qua đơn chuyển khoản**.
-Dùng khi khách trả tiền ngoài luồng (thu tiền mặt, hợp đồng riêng), khi tặng gói dùng thử, hoặc
-khi bật gói miễn phí. Chọn gói, số tháng (mặc định theo chu kỳ của gói) và cách tính thời hạn:
+Nút **Điểm** ở tab Khách hàng cộng (hoặc trừ) điểm thẳng vào ví, **không qua đơn chuyển
+khoản**. Dùng khi khách trả tiền ngoài luồng (thu tiền mặt, hợp đồng riêng), khi tặng điểm dùng
+thử, hoặc khi cần bù cho khách sau sự cố. Chọn nguồn `purchased` — điểm không hết hạn, đúng thứ
+khách mong đợi.
+
+Muốn tặng điểm cho **mọi tài khoản đăng ký mới**, sửa `free_tokens_on_signup` trong bảng
+`settings` (mặc định `0`).
+
+### Cấp gói tháng cho khách (đã ngừng bán)
+
+Nút **Gói** ở tab Khách hàng kích hoạt một gói tháng thẳng cho khách. Gói tháng không còn bán
+cho khách nữa (xem [Di sản gói tháng](#di-sản-gói-tháng)); đường này giữ lại để tặng **hạn mức
+tháng** cho khách VIP. Chọn gói, số tháng và cách tính thời hạn:
 
 - **Gia hạn** — nối tiếp vào ngày hết hạn hiện tại, giữ nguyên hạn mức của chu kỳ đang dùng dở.
 - **Đổi gói** — bỏ hạn cũ, tính lại từ hôm nay và cấp hạn mức mới ngay. Hạn mức thừa của gói cũ
@@ -280,10 +290,8 @@ Thao tác này chạy qua đúng đường kích hoạt của đơn đã thanh t
 cái hạn mức giống hệt luồng mua thường; khác duy nhất là `order_id` để `NULL` và **không** cộng
 `total_topup_vnd` — tiền không vào thì doanh thu không được tính khống.
 
-**Gói miễn phí** (`FREE`, 0đ, hạn mức 0 điểm/tháng) được tạo sẵn nhưng để **ngừng bán** nên
-không hiện trên trang bảng giá — chỉ cấp tay ở đây. Gói này không tặng điểm hàng tháng, nó chỉ
-mở khoá tài khoản để khách **mua điểm lẻ** (mua điểm lẻ bắt buộc phải đang có gói). Muốn có
-thêm gói kiểu này thì thêm dòng ở tab Bảng giá với hạn mức 0 và bỏ tích *Bán*.
+> Cân nhắc dùng nút **Điểm** thay cho nút này trong hầu hết trường hợp: hạn mức tháng **bị thu
+> hồi** khi hết hạn gói và **không cộng dồn** qua chu kỳ, còn điểm tặng thì khách giữ mãi.
 
 Ba thứ **không** sửa được từ giao diện, do thiết kế:
 
@@ -304,9 +312,11 @@ Ba thứ **không** sửa được từ giao diện, do thiết kế:
 
 ## 3. Mô hình kinh doanh
 
-Khách **bắt buộc mua gói thuê bao theo tháng** trước khi dùng dịch vụ. Gói tháng đã bao gồm
-chi phí duy trì, nhân sự và một hạn mức điểm dùng trong tháng. Dùng hết hạn mức thì mua thêm
-gói điểm lẻ.
+Khách **mua điểm và dùng dần**. Không có gói thuê bao, không phí duy trì, không cam kết thời
+hạn: tạo tài khoản xong, mua một gói điểm bất kỳ là tạo ảnh được ngay.
+
+> **Gói thuê bao theo tháng đã ngừng bán.** Phần còn lại của mô hình đó trong mã nguồn là có
+> chủ đích — xem [Di sản gói tháng](#di-sản-gói-tháng) ở cuối mục này.
 
 ### Đơn vị điểm
 
@@ -316,22 +326,25 @@ gói điểm lẻ.
 
 | Khái niệm | Cách tính | Kết quả |
 |---|---|---|
-| Hạn mức tháng | 500.000đ tiền điểm theo giá gốc | **500.000 điểm** |
 | Điểm tiêu hao mỗi ảnh | `api_cost_usd × USD_TO_VND` | GPT 1K = 840 · Pro 4K = 3.360 |
-| Gói điểm lẻ | khách chỉ nhận **một nửa** lượng điểm so với số tiền bỏ ra tính theo giá vốn | 499.000đ → **250.000 điểm** |
+| Gói điểm | khách nhận **một nửa** lượng điểm so với số tiền bỏ ra tính theo giá vốn | 499.000đ → **250.000 điểm** |
 
-Khách trả 1.500.000đ/tháng nhưng chỉ được cấp 500.000đ tiền điểm theo giá vốn — phần chênh
-lệch là chi phí duy trì, nhân sự và lợi nhuận.
+Bán gấp đôi giá vốn: phần chênh lệch là chi phí duy trì, nhân sự và lợi nhuận.
 
-### Hai nguồn điểm, tiêu theo thứ tự
+### Bảng giá gói điểm
 
-| Nguồn | Nguồn gốc | Hết hạn |
+Giá bán làm tròn xuống mốc x99.000đ nên đơn giá luôn xấp xỉ 2đ/điểm.
+
+| Gói | Điểm nhận | Đơn giá |
 |---|---|---|
-| **Hạn mức tháng** | Kèm theo gói thuê bao, cấp lại đầu mỗi chu kỳ tháng | **Có** — không cộng dồn, sang tháng mới là mất |
-| **Điểm mua thêm** | Khách bỏ tiền mua gói lẻ | Không |
+| 99.000đ | 50.000 | 1,98đ/điểm |
+| 199.000đ | 100.000 | 1,99đ/điểm |
+| **499.000đ** | **250.000** | 2,00đ/điểm |
+| 999.000đ | 500.000 | 2,00đ/điểm |
+| 1.999.000đ | 1.000.000 | 2,00đ/điểm |
 
-Khi tạo ảnh, hệ thống **trừ hạn mức tháng trước**, cạn mới dùng tới điểm đã mua. Thứ tự này
-có lợi cho khách: phần sắp hết hạn được tiêu trước, phần đã trả tiền được để dành.
+Sửa giá và số điểm ở tab **Bảng giá** trong trang Quản trị, hoặc trong `TOKEN_PACKAGES` của
+[seed.ts](server/src/seed.ts) nếu muốn đổi bộ mặc định.
 
 ### Luồng hoạt động
 
@@ -339,118 +352,66 @@ có lợi cho khách: phần sắp hết hạn được tiêu trước, phần �
 Đăng ký / Đăng nhập
         │
         ▼
-Mua gói tháng (1 / 3 / 6 / 12 tháng) ──► Tạo đơn (mã NAPxxxxxx) ──► QR VietQR
-        │                                              │
-        │                            khách chuyển khoản│
-        │                                              ▼
-        │                                Ngân hàng ──► Webhook SePay/Casso
-        │                                              │
-        │                              khớp mã đơn ────┤
-        │                                              ▼
-        │                          Kích hoạt gói + cấp 500.000 điểm hạn mức
-        │                                              │
-        │      ┌───────────────────────────────────────┤
-        │      ▼                                       ▼
-        │  Hết hạn mức?                    Tạo ảnh ──► Trừ điểm
-        │      │                                       │  (hạn mức tháng trước,
-        │      ▼                                       │   điểm mua thêm sau)
-        └─ Mua gói điểm lẻ ──► Cộng điểm             ▼
-           (không hết hạn)              ┌──────────────┴──────────────┐
-                                     thành công                     lỗi
-                                        │                            │
-                          Tải ảnh về server              Hoàn đúng nguồn đã trừ
-
-        Đầu chu kỳ tháng mới ──► Xoá hạn mức thừa ──► Cấp lại 500.000 điểm
+Mua gói điểm ──► Tạo đơn (mã NAPxxxxxx) ──► QR VietQR
+        │                      │
+        │    khách chuyển khoản│
+        │                      ▼
+        │        Ngân hàng ──► Webhook SePay/Casso
+        │                      │
+        │        khớp mã đơn ──┤
+        │                      ▼
+        │              Cộng điểm vào ví (không hết hạn)
+        │                      │
+        └──────────────────────┤
+                               ▼
+                    Tạo ảnh ──► Trừ điểm
+                               │
+                ┌──────────────┴──────────────┐
+             thành công                      lỗi
+                │                             │
+   Tải ảnh về server              Hoàn đúng số điểm đã trừ
 ```
 
-### Bảng giá gói thuê bao
+### Di sản gói tháng
 
-| Chu kỳ | Giá niêm yết | Thực trả | Quy ra mỗi tháng | Chiết khấu |
-|---|---|---|---|---|
-| 1 tháng | 1.500.000đ | **1.500.000đ** | 1.500.000đ | — |
-| 3 tháng | 4.500.000đ | **4.275.000đ** | 1.425.000đ | 5% |
-| 6 tháng | 9.000.000đ | **8.100.000đ** | 1.350.000đ | 10% |
-| 12 tháng | 18.000.000đ | **15.300.000đ** | 1.275.000đ | 15% |
+Trước đây khách **bắt buộc** mua gói thuê bao tháng (1.500.000đ/tháng, kèm hạn mức 500.000
+điểm/tháng không cộng dồn) rồi mới được tạo ảnh, và điểm lẻ chỉ là phần mua thêm. Mô hình đó
+đã bỏ, nhưng hạ tầng của nó vẫn còn trong mã nguồn vì hai lý do:
 
-Mua chu kỳ dài **không** cấp nhiều hạn mức hơn một lần: hạn mức vẫn là 500.000 điểm và vẫn
-được cấp lại theo từng tháng. Chu kỳ dài chỉ rẻ hơn và khỏi phải gia hạn thường xuyên.
+1. **Gói đã bán phải chạy hết hạn.** Khách đã trả tiền cho chúng, nên `monthly_tokens` vẫn
+   được cấp lại, tiêu và thu hồi đúng như cũ cho tới khi gói cuối cùng hết hạn.
+2. **Admin vẫn cấp gói tay được** cho khách VIP ở tab Khách hàng → nút **Gói**.
 
-### Nâng lên gói cao hơn
+Vì vậy hệ thống vẫn có **hai nguồn điểm**:
 
-Khách đang dùng gói có thể nâng lên gói **đắt hơn** và chỉ trả phần chênh lệch:
+| Nguồn | Nguồn gốc | Hết hạn |
+|---|---|---|
+| **Điểm đã mua** (`purchased`) | Khách mua gói điểm — nguồn duy nhất của khách mới | Không |
+| **Hạn mức tháng** (`monthly`) | Gói tháng cũ hoặc admin cấp tay | **Có** — không cộng dồn, sang chu kỳ mới là mất |
 
-```
-Số tiền phải bù = Giá gói mới − ( Giá gói cũ × số ngày còn lại ÷ tổng số ngày )
-```
+Khi tạo ảnh, hệ thống **trừ hạn mức tháng trước**, cạn mới dùng tới điểm đã mua — phần sắp hết
+hạn được tiêu trước. Với khách chỉ mua điểm thì `monthly_tokens` luôn bằng 0 nên mọi thứ chảy
+qua nhánh `purchased`, và giao diện ẩn hẳn khái niệm "hạn mức tháng" khỏi mắt họ.
 
-Ví dụ đang dùng gói 1 tháng (1.500.000đ), còn 30/31 ngày, nâng lên gói 1 năm:
+**Đã gỡ hẳn:** bán và gia hạn gói qua chuyển khoản, nâng gói (khấu trừ theo ngày), hàm chặn
+`requireSubscription`, và endpoint `/orders/subscription` · `/orders/upgrade` ·
+`/orders/upgrade-options`. Bảng `subscriptions`, `subscription_plans` và các cột `monthly_*`
+trên `users` **giữ nguyên** — sổ cái `token_transactions` có các dòng `bucket = 'monthly'` tham
+chiếu tới chúng, xoá đi là hỏng lịch sử kế toán.
 
-| | |
-|---|---|
-| Giá gói 1 năm | 15.300.000đ |
-| Trừ phần chưa dùng | −1.451.613đ |
-| **Phải bù** | **13.848.387đ** |
-
-Sau khi thanh toán thành công:
-
-- Thời hạn gói mới **tính từ thời điểm nâng**, không cộng nối vào ngày hết hạn cũ.
-- Hạn mức tháng được cấp lại ngay theo mức của gói mới. Hạn mức chưa dùng của gói cũ bị thu
-  hồi (có ghi dòng `expire` trong sổ cái) vì phần đó đã được quy thành tiền khấu trừ vào đơn.
-- Thuê bao lưu **giá niêm yết** của gói, không phải số tiền đã trả — nếu lưu số đã trả thì lần
-  nâng sau khách sẽ bị tính khấu trừ trên một con số thấp hơn giá trị thật.
-
-Chỉ nâng lên được gói có giá cao hơn. **Hạ gói không hỗ trợ** vì sẽ phát sinh nghĩa vụ hoàn
-tiền mặt, nằm ngoài luồng thanh toán một chiều hiện tại.
-
-Trên giao diện, nâng gói nằm ngay trong lưới gói ở trang **Gói dịch vụ** — không có mục riêng.
-Mỗi thẻ gói có một trong ba nút tuỳ trạng thái:
-
-| Thẻ | Nút |
-|---|---|
-| Gói đang dùng | `Gói đang dùng` (không bấm được) |
-| Gói đắt hơn gói đang dùng | `Nâng cấp gói` → mở hộp thoại chi tiết |
-| Gói còn lại (hoặc chưa có gói nào) | `Gia hạn thêm N tháng` / `Chọn gói` |
-
-Bấm "Nâng gói" chỉ mở hộp thoại xem trước (giá gói mới − phần chưa dùng = số phải bù), chưa
-tạo đơn. Đơn chỉ được tạo khi khách bấm **Bắt đầu thanh toán** trong hộp thoại đó.
-
-Lưu ý "Gia hạn thêm N tháng": khi đã có gói, bấm một thẻ **không phải** gói đang dùng và không
-đắt hơn nó thì server **nối thêm đúng số tháng của thẻ đó** vào ngày hết hạn hiện tại, giữ
-nguyên hạn mức của gói đang dùng — chứ không chuyển sang gói rẻ hơn.
-
-> Lưu ý về vận hành: khấu trừ tính theo **ngày**, không theo điểm đã dùng. Khách tiêu hết
-> hạn mức tháng rồi nâng gói ngay vẫn được khấu trừ gần như trọn vẹn và nhận thêm một hạn mức
-> mới. Với gói 1 tháng, mức thiệt tối đa khoảng 500.000đ tiền điểm theo giá vốn. Nếu muốn
-> chặn, sửa `computeUpgradeQuote` trong
-> [subscriptionService.ts](server/src/services/subscriptionService.ts) để lấy tỉ lệ nhỏ hơn
-> giữa "ngày còn lại" và "điểm còn lại".
-
-### Bảng giá gói điểm lẻ
-
-Số điểm của mỗi gói neo theo hạn mức tháng cho khách dễ hình dung, giá bán làm tròn xuống
-mốc x99.000đ nên đơn giá luôn xấp xỉ 2đ/điểm (đúng quy tắc bán gấp đôi giá vốn).
-
-| Gói | Điểm nhận | So với hạn mức tháng | Đơn giá |
-|---|---|---|---|
-| 99.000đ | 50.000 | 1/10 | 1,98đ/điểm |
-| 199.000đ | 100.000 | 1/5 | 1,99đ/điểm |
-| **499.000đ** | **250.000** | **1/2** | 2,00đ/điểm |
-| 999.000đ | 500.000 | bằng đúng | 2,00đ/điểm |
-| 1.999.000đ | 1.000.000 | gấp đôi | 2,00đ/điểm |
+Khi ô **Gói tháng còn hạn** ở trang Tổng quan về 0 và không cần tra doanh thu gói cũ nữa thì
+mới gỡ được nốt phần này.
 
 ### Điểm quan trọng về tiền và điểm
 
-- **Chưa có gói thuê bao thì không tạo ảnh được, cũng không mua điểm lẻ được.** Điểm lẻ là
-  phần mua thêm cho khách đang dùng dịch vụ, không phải đường vòng để né gói tháng.
-- **Hạn mức tháng được cấp lại ngay lúc khách dùng tới** (lazy), không cần cron. Nhờ vậy số
-  liệu luôn đúng kể cả khi server vừa khởi động lại hay dừng vài ngày.
-- **Gia hạn khi gói cũ còn hạn thì nối tiếp vào ngày hết hạn cũ**, khách không mất những ngày
-  còn lại, và hạn mức đang dùng dở không bị reset.
-- **Hết hạn thuê bao: hạn mức tháng bị thu hồi, điểm đã mua thêm vẫn còn nguyên** — đó là tiền
-  thật khách đã bỏ ra.
-- **Hoàn điểm khi ảnh lỗi trả về đúng nguồn đã trừ.** Phần hạn mức tháng bị chặn không cho
-  vượt quá hạn mức của gói, nên ảnh lỗi sau khi đã sang chu kỳ mới không tạo ra điểm khống.
-
+- **Không có điều kiện gì trước khi mua điểm hay tạo ảnh.** Đăng ký xong là mua được, mua xong
+  là tạo được. Hết điểm thì mua thêm — server chỉ chặn đúng một chỗ: không đủ điểm cho lô ảnh
+  đang yêu cầu (lỗi 402 `insufficient_tokens`).
+- **Điểm đã mua không hết hạn.** Số dư nằm trong `users.token_balance` cho tới khi tiêu hết.
+- **Hoàn điểm khi ảnh lỗi trả về đúng nguồn đã trừ.** Phần hạn mức tháng (nếu có) bị chặn không
+  cho vượt quá hạn mức của gói, nên ảnh lỗi sau khi đã sang chu kỳ mới không tạo ra điểm khống.
+- **Hạn mức tháng của gói cũ được cấp lại ngay lúc khách dùng tới** (lazy), không cần cron. Nhờ
+  vậy số liệu luôn đúng kể cả khi server vừa khởi động lại hay dừng vài ngày.
 - **Mọi biến động điểm đều được ghi vào bảng `token_transactions`** kèm số dư sau giao dịch.
   Không có đường nào sửa `users.token_balance` mà không ghi sổ.
 - **Trừ điểm và cộng điểm chạy trong transaction có khoá dòng** (`SELECT ... FOR UPDATE`),
@@ -472,8 +433,8 @@ khởi động (`DB_AUTO_MIGRATE=true`).
 | Bảng | Vai trò |
 |---|---|
 | `users` | Khách hàng, hạn mức tháng, điểm đã mua, ngày hết hạn thuê bao |
-| `subscription_plans` | Bảng giá gói thuê bao 1 / 3 / 6 / 12 tháng |
-| `subscriptions` | Lịch sử thuê bao đã mua, dùng để đối soát và gia hạn |
+| `subscription_plans` | Bảng giá gói tháng — đã ngừng bán, giữ để admin cấp tay |
+| `subscriptions` | Lịch sử gói tháng đã bán, giữ để đối soát doanh thu cũ |
 | `token_packages` | Các gói điểm lẻ mua thêm |
 | `model_pricing` | Bảng giá từng model: giá vốn USD ↔ số điểm thu của khách |
 | `orders` | Đơn nạp tiền, có snapshot thông tin gói tại thời điểm đặt |
@@ -555,7 +516,7 @@ khi trừ điểm** và báo lỗi cụ thể, thay vì trừ rồi hoàn.
 Các model Imagen 4 của Google không được đưa vào vì chúng chỉ sinh ảnh từ chữ, không nhận
 ảnh sản phẩm nên không dùng được cho luồng sao chép bố cục của ứng dụng này.
 
-Bảng giá gói thuê bao và gói điểm lẻ nằm ở [mục 3](#3-mô-hình-kinh-doanh).
+Bảng giá gói điểm nằm ở [mục 3](#3-mô-hình-kinh-doanh).
 
 Dữ liệu này chỉ được nạp **một lần** lúc khởi tạo (`INSERT IGNORE`). Sau đó sửa trong tab
 **Bảng giá & gói nạp** của trang Quản trị; server không ghi đè lại.
@@ -607,7 +568,7 @@ UPDATE orders SET status = 'paid' WHERE code = 'NAPXXXXXX';
 ```
 
 Server tự phát hiện trong vòng `ORDER_SYNC_INTERVAL_SECONDS` (mặc định 20 giây) rồi làm nốt
-phần còn lại: kích hoạt gói thuê bao hoặc cộng điểm, ghi sổ cái, bù `paid_at`/`paid_source`
+phần còn lại: cộng điểm vào ví (hoặc kích hoạt gói tháng nếu là đơn cũ), ghi sổ cái, bù `paid_at`/`paid_source`
 cho báo cáo doanh thu. Workflow của bạn **không cần biết gì** về nghiệp vụ điểm.
 
 Cách này an toàn:

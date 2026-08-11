@@ -4,13 +4,15 @@ import { env } from '../env.js';
 import { asyncHandler } from '../lib/errors.js';
 import type { ModelPricingRow } from '../services/generationService.js';
 import { bankInfo, listActivePackages } from '../services/orderService.js';
-import { listActivePlans, serializePlan } from '../services/subscriptionService.js';
 
 export const catalogRouter = Router();
 
 /**
- * Bảng giá công khai: model đang bán + gói nạp + thông tin chuyển khoản.
+ * Bảng giá công khai: model đang bán + gói điểm + thông tin chuyển khoản.
  * Không cần đăng nhập để khách xem giá trước khi tạo tài khoản.
+ *
+ * KHÔNG trả về gói tháng: chúng đã ngừng bán và chỉ còn dùng trong trang Quản
+ * trị (`/admin/plans`) để cấp tay cho khách VIP.
  */
 catalogRouter.get(
   '/',
@@ -19,10 +21,8 @@ catalogRouter.get(
       'SELECT * FROM model_pricing WHERE is_active = 1 ORDER BY sort_order, code',
     );
     const packages = await listActivePackages();
-    const plans = await listActivePlans();
 
     res.json({
-      plans: plans.map(serializePlan),
       models: models.map((model) => ({
         code: model.code,
         label: model.label,

@@ -14,11 +14,15 @@ const QUESTIONS = [
   },
   {
     q: 'Điểm là gì và tính thế nào?',
-    a: 'Điểm là đơn vị đo mức sử dụng: 1 điểm tương ứng 1đ chi phí gốc trả cho nhà cung cấp mô hình. Mỗi ảnh trừ một số điểm cố định theo model và độ phân giải, hiện rõ trước khi bạn bấm tạo. Gói thuê bao cấp 500.000 điểm mỗi tháng.',
+    a: 'Điểm là đơn vị đo mức sử dụng: 1 điểm tương ứng 1đ chi phí gốc trả cho nhà cung cấp mô hình. Mỗi ảnh trừ một số điểm cố định theo model và độ phân giải, hiện rõ trước khi bạn bấm tạo.',
   },
   {
-    q: 'Hạn mức tháng dùng không hết có được cộng dồn không?',
-    a: 'Không. Hạn mức 500.000 điểm được cấp lại vào đầu mỗi chu kỳ tháng và phần chưa dùng sẽ không chuyển sang tháng sau. Riêng điểm bạn mua thêm thì không hết hạn.',
+    q: 'Có phải đóng phí hàng tháng không?',
+    a: 'Không. Bạn chỉ mua điểm, mua xong là dùng được ngay — không có phí duy trì, không cam kết thời hạn, không tự động gia hạn. Hết điểm thì mua thêm, không mua cũng không mất gì.',
+  },
+  {
+    q: 'Điểm đã mua có hết hạn không?',
+    a: 'Không. Điểm nằm trong ví cho tới khi bạn dùng hết, dù bạn nghỉ vài tháng không tạo ảnh.',
   },
   {
     q: 'Ảnh bị lỗi thì có mất điểm không?',
@@ -26,15 +30,11 @@ const QUESTIONS = [
   },
   {
     q: 'Thanh toán bằng cách nào?',
-    a: 'Chuyển khoản ngân hàng theo mã QR hiện sẵn trên trang Gói dịch vụ. Chuyển đúng số tiền và đúng nội dung thì hệ thống ghi nhận và kích hoạt tự động, không cần gửi ảnh chụp biên lai.',
+    a: 'Chuyển khoản ngân hàng theo mã QR hiện sẵn trên trang Mua điểm. Chuyển đúng số tiền và đúng nội dung thì hệ thống cộng điểm tự động, không cần gửi ảnh chụp biên lai.',
   },
   {
     q: 'Ảnh tạo ra tôi có được dùng để bán hàng không?',
     a: 'Có. Bạn chịu trách nhiệm về ảnh mẫu và ảnh sản phẩm mình tải lên, và không dùng hệ thống để làm giả thương hiệu hay sản phẩm của người khác. Chi tiết nằm trong phần Nội dung & bản quyền của Chính sách.',
-  },
-  {
-    q: 'Đang dùng gói ngắn, muốn lên gói dài hơn thì sao?',
-    a: 'Nâng gói được ngay trong trang Gói dịch vụ, phần giá trị còn lại của gói cũ được tính bù vào gói mới nên bạn không mất phần đã trả.',
   },
 ];
 

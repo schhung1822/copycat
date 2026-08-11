@@ -46,50 +46,36 @@ export const WalletPage: React.FC = () => {
           <p className="text-sm text-gray-500 mt-1">Toàn bộ biến động điểm của tài khoản.</p>
         </div>
         <Link to="/nap-tien">
-          <Button className="!rounded-xl !py-2.5">Nạp thêm điểm</Button>
+          <Button className="!rounded-xl !py-2.5">Mua thêm điểm</Button>
         </Link>
       </div>
 
-      {summary.isSubscribed ? (
+      {/*
+        Thẻ gói tháng chỉ hiện với khách còn gói cũ chưa hết hạn. Gói tháng đã
+        ngừng bán nên không còn nút "Gia hạn" — hết hạn thì khách chuyển hẳn sang
+        mua điểm như mọi người.
+      */}
+      {summary.isSubscribed && (
         <Card className="p-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">Gói dịch vụ</p>
-              <p className="text-gray-100 font-semibold mt-1">{summary.subscriptionName ?? 'Đang hoạt động'}</p>
-              <p className="text-[11px] text-gray-500 mt-0.5">
-                Hết hạn {formatDateTime(summary.subscriptionExpiresAt)}
-              </p>
-            </div>
-            <Link to="/nap-tien">
-              <Button variant="secondary" className="!rounded-xl !py-2 !px-4 !text-xs">
-                Gia hạn
-              </Button>
-            </Link>
-          </div>
+          <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">Gói tháng (đã ngừng bán)</p>
+          <p className="text-gray-100 font-semibold mt-1">{summary.subscriptionName ?? 'Đang hoạt động'}</p>
+          <p className="text-[11px] text-gray-500 mt-0.5">
+            Còn hiệu lực tới {formatDateTime(summary.subscriptionExpiresAt)}. Sau mốc này, phần hạn mức tháng dừng lại;
+            điểm bạn mua vẫn dùng bình thường.
+          </p>
         </Card>
-      ) : (
-        <Alert tone="warning">
-          Bạn cần đăng ký gói dịch vụ để có thể bắt đầu tạo được ảnh.{' '}
-          <Link to="/nap-tien" className="underline font-bold">
-            Đăng ký ngay
-          </Link>
-        </Alert>
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Điểm khả dụng" value={formatNumber(summary.tokenBalance)} sub="dùng được ngay" />
         <StatCard
-          label="Hạn mức tháng còn lại"
-          value={formatNumber(summary.monthlyTokens)}
+          label={summary.isSubscribed ? 'Trong đó: hạn mức tháng' : 'Điểm đã mua'}
+          value={formatNumber(summary.isSubscribed ? summary.monthlyTokens : summary.purchasedTokens)}
           sub={
-            summary.monthlyAllowance > 0
+            summary.isSubscribed
               ? `trên ${formatNumber(summary.monthlyAllowance)} · cấp lại ${formatDateTime(summary.monthlyPeriodEnd)}`
-              : 'chưa có gói'
+              : 'không hết hạn'
           }
-        />
-        <StatCard
-          label="Điểm đã mua thêm"
-          value={formatNumber(summary.purchasedTokens)}
-          sub="không hết hạn theo tháng"
         />
         <StatCard label="Đã sử dụng" value={formatNumber(summary.totalTokensOut)} sub="điểm" />
         <StatCard
@@ -100,8 +86,17 @@ export const WalletPage: React.FC = () => {
       </div>
 
       <Alert tone="info">
-        Khi tạo ảnh, hệ thống <strong>trừ hạn mức tháng trước</strong>, hết mới dùng tới điểm đã mua thêm. Hạn mức
-        tháng không dùng hết sẽ <strong>không được cộng dồn</strong> sang chu kỳ sau.
+        {summary.isSubscribed ? (
+          <>
+            Khi tạo ảnh, hệ thống <strong>trừ hạn mức tháng trước</strong>, hết mới dùng tới điểm đã mua. Hạn mức tháng
+            không dùng hết sẽ <strong>không được cộng dồn</strong> sang chu kỳ sau; điểm đã mua thì không hết hạn.
+          </>
+        ) : (
+          <>
+            Điểm đã mua <strong>không hết hạn</strong> — dùng tới đâu trừ tới đó. Ảnh lỗi được hoàn điểm tự động và ghi
+            rõ trong sao kê bên dưới.
+          </>
+        )}
       </Alert>
 
       <Card className="p-4">

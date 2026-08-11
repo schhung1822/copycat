@@ -7,18 +7,10 @@ import {
   bankInfo,
   cancelOrder,
   createOrder,
-  createSubscriptionOrder,
-  createUpgradeOrder,
   expireStaleOrders,
   serializeOrder,
   type OrderRow,
 } from '../services/orderService.js';
-import {
-  getActiveSubscription,
-  listUpgradeOptions,
-  readAccountState,
-  requireSubscription,
-} from '../services/subscriptionService.js';
 
 export const orderRouter = Router();
 
@@ -46,73 +38,17 @@ orderRouter.get(
 );
 
 /**
- * Tạo đơn mua thêm điểm lẻ.
+ * Tạo đơn mua điểm.
  *
- * Chỉ dành cho khách đã có gói dịch vụ — điểm lẻ là phần mua thêm khi dùng hết
- * hạn mức tháng, không phải đường vòng để dùng dịch vụ mà không đăng ký gói.
+ * Không còn điều kiện gì phía trước: mua điểm là dùng được ngay. Trước đây
+ * đường này bị chặn bởi `requireSubscription` vì điểm lẻ chỉ là phần mua thêm
+ * của gói tháng — mô hình đó đã bỏ.
  */
 orderRouter.post(
   '/',
   asyncHandler(async (req, res) => {
-    const state = await readAccountState(req.user!.id);
-    requireSubscription(state);
-
     const packageId = requireInt(req.body, 'packageId', { min: 1, label: 'Gói điểm' });
     const order = await createOrder(req.user!.id, packageId);
-    res.status(201).json({ order: serializeOrder(order), bank: bankInfo() });
-  }),
-);
-
-/** Tạo đơn mua hoặc gia hạn gói dịch vụ theo tháng. */
-orderRouter.post(
-  '/subscription',
-  asyncHandler(async (req, res) => {
-    const planId = requireInt(req.body, 'planId', { min: 1, label: 'Gói dịch vụ' });
-    const order = await createSubscriptionOrder(req.user!.id, planId);
-    res.status(201).json({ order: serializeOrder(order), bank: bankInfo() });
-  }),
-);
-
-/**
- * Các gói có thể nâng lên, kèm số tiền phải bù cho từng gói.
- * Trả về mảng rỗng nếu khách chưa có gói hoặc đang dùng gói cao nhất.
- */
-orderRouter.get(
-  '/upgrade-options',
-  asyncHandler(async (req, res) => {
-    const current = await getActiveSubscription(req.user!.id);
-    const options = await listUpgradeOptions(req.user!.id);
-
-    res.json({
-      currentPlan: current
-        ? {
-            planId: current.plan_id,
-            name: current.plan_name,
-            priceVnd: current.price_vnd,
-            expiresAt: current.expires_at,
-          }
-        : null,
-      options: options.map((quote) => ({
-        planId: quote.plan.id,
-        name: quote.plan.name,
-        months: quote.plan.months,
-        monthlyTokenAllowance: quote.plan.monthly_token_allowance,
-        listPriceVnd: quote.listPriceVnd,
-        creditVnd: quote.creditVnd,
-        payableVnd: quote.payableVnd,
-        remainingDays: quote.remainingDays,
-        totalDays: quote.totalDays,
-      })),
-    });
-  }),
-);
-
-/** Tạo đơn nâng lên gói cao hơn. Số tiền đã trừ phần chưa dùng của gói hiện tại. */
-orderRouter.post(
-  '/upgrade',
-  asyncHandler(async (req, res) => {
-    const planId = requireInt(req.body, 'planId', { min: 1, label: 'Gói dịch vụ' });
-    const order = await createUpgradeOrder(req.user!.id, planId);
     res.status(201).json({ order: serializeOrder(order), bank: bankInfo() });
   }),
 );

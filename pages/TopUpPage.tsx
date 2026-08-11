@@ -6,16 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
 import { countdown, formatDateTime, formatNumber, formatVnd, STATUS_LABEL } from '../lib/format';
 import { APP_HOME } from '../lib/routes';
-import type {
-  BankInfo,
-  Catalog,
-  ModelOption,
-  Order,
-  SubscriptionPlan,
-  TokenPackage,
-  UpgradeInfo,
-  UpgradeOption,
-} from '../types';
+import type { BankInfo, Catalog, ModelOption, Order, TokenPackage } from '../types';
 
 const ORDER_POLL_MS = 5000;
 
@@ -25,16 +16,11 @@ const ORDER_POLL_MS = 5000;
  */
 const isAwaitingPayment = (order: Order) => order.status === 'pending' || order.status === 'expired';
 
-/**
- * Bội số làm tròn số ảnh hiển thị trên thẻ gói.
- *
- * Đang để 10. Đổi thành 100 nếu muốn số tròn trăm — nhưng lưu ý với hạn mức hiện
- * tại thì gói 1 tháng và 3 tháng sẽ cùng ra "300 ảnh", hai thẻ nhìn y hệt nhau.
- */
+/** Bội số làm tròn số ảnh hiển thị trên thẻ gói. */
 const IMAGE_COUNT_STEP = 10;
 
 /**
- * Model dùng làm mốc quy đổi hạn mức ra số ảnh trên thẻ gói.
+ * Model dùng làm mốc quy đổi số điểm ra số ảnh trên thẻ gói.
  *
  * Phải trùng với model ghi ở dòng chú thích dưới lưới, nếu không số ảnh hiển thị
  * sẽ không khớp với lời giải thích — khách đọc "tính theo Nano Banana 2" nhưng
@@ -45,39 +31,34 @@ const IMAGE_COUNT_STEP = 10;
 const REFERENCE_MODEL = { family: 'nano-banana-2', resolution: '2K' };
 
 /**
- * Quy hạn mức điểm ra số ảnh, làm tròn XUỐNG cho số gọn mắt.
+ * Quy số điểm ra số ảnh, làm tròn XUỐNG cho số gọn mắt.
  *
  * Luôn làm tròn xuống chứ không làm tròn gần nhất: làm tròn lên sẽ hứa nhiều ảnh
- * hơn số hạn mức thật sự cho phép (vd 357 ảnh mà ghi 400), khách tạo tới ảnh thứ
+ * hơn số điểm thật sự cho phép (vd 357 ảnh mà ghi 400), khách tạo tới ảnh thứ
  * 358 là hết điểm và có cơ sở khiếu nại.
  */
-function roundedImageCount(allowance: number, tokenCostPerImage: number): number {
-  const exact = Math.floor(allowance / tokenCostPerImage);
-  // Hạn mức quá nhỏ để làm tròn thì giữ nguyên con số thật, tránh hiển thị 0.
+function roundedImageCount(tokens: number, tokenCostPerImage: number): number {
+  const exact = Math.floor(tokens / tokenCostPerImage);
+  // Số điểm quá nhỏ để làm tròn thì giữ nguyên con số thật, tránh hiển thị 0.
   if (exact < IMAGE_COUNT_STEP) return exact;
   return Math.floor(exact / IMAGE_COUNT_STEP) * IMAGE_COUNT_STEP;
 }
 
 export const TopUpPage: React.FC = () => {
-  const { user, refreshUser } = useAuth();
+  const { refreshUser } = useAuth();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [upgrade, setUpgrade] = useState<UpgradeInfo | null>(null);
-  /** Gói khách vừa bấm "Nâng gói" — mở hộp thoại xem chi tiết trước khi tạo đơn. */
-  const [upgradeTarget, setUpgradeTarget] = useState<UpgradeOption | null>(null);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creatingId, setCreatingId] = useState<string | null>(null);
 
   const load = async () => {
-    const [catalogData, orderData, upgradeData] = await Promise.all([
+    const [catalogData, orderData] = await Promise.all([
       api.get<Catalog>('/catalog'),
       api.get<{ orders: Order[] }>('/orders?limit=20'),
-      api.get<UpgradeInfo>('/orders/upgrade-options'),
     ]);
     setCatalog(catalogData);
     setOrders(orderData.orders);
-    setUpgrade(upgradeData);
     setActiveOrder((current) => current ?? orderData.orders.find((order) => isAwaitingPayment(order)) ?? null);
   };
 
@@ -124,17 +105,6 @@ export const TopUpPage: React.FC = () => {
     }
   };
 
-  /**
-   * Tạo đơn nâng gói rồi đóng hộp thoại.
-   *
-   * Chỉ đóng khi tạo đơn thành công — nếu lỗi (gói hết hiệu lực giữa chừng, số
-   * tiền bù quá nhỏ) thì giữ hộp thoại lại để khách còn thấy mình đã bấm gì.
-   */
-  const handleUpgrade = async (option: UpgradeOption) => {
-    const created = await createOrder('/orders/upgrade', { planId: option.planId }, `upgrade-${option.planId}`);
-    if (created) setUpgradeTarget(null);
-  };
-
   const handleCancel = async (order: Order) => {
     try {
       await api.post(`/orders/${order.id}/cancel`);
@@ -147,9 +117,7 @@ export const TopUpPage: React.FC = () => {
 
   if (!catalog) return <PageLoader />;
 
-  const isSubscribed = user?.isSubscribed ?? false;
-
-  // Quy hạn mức ra số ảnh — con số này dễ hình dung hơn nhiều so với "500.000
+  // Quy số điểm ra số ảnh — con số này dễ hình dung hơn nhiều so với "500.000
   // điểm". Mốc quy đổi lấy đúng model ghi trên thẻ (REFERENCE_MODEL), nếu không
   // số hiển thị sẽ không khớp với dòng chú thích bên dưới.
   const cheapestOf = (list: ModelOption[]) =>
@@ -171,7 +139,7 @@ export const TopUpPage: React.FC = () => {
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-100">Gói dịch vụ</h1>
+        <h1 className="text-2xl font-bold text-gray-100">Mua điểm</h1>
         <Link
           to="/chinh-sach"
           className="text-sm text-gray-500 hover:text-brand-500 transition-colors whitespace-nowrap"
@@ -193,342 +161,165 @@ export const TopUpPage: React.FC = () => {
         <PaidPanel order={activeOrder} onContinue={() => setActiveOrder(null)} />
       ) : (
         <>
-          <SubscriptionStatus />
+          <BalanceStatus referenceModel={referenceModel} />
 
           <section>
             <div className="flex items-baseline justify-between gap-4 mb-3">
-              <h2 className="text-lg font-bold text-gray-100">
-                {isSubscribed ? 'Gói dịch vụ' : 'Chọn gói dịch vụ'}
-              </h2>
-              <span className="text-xs text-gray-500">
-                {isSubscribed ? 'Nâng gói cao hơn chỉ cần bù phần chênh lệch' : 'Tiết kiệm hơn với gói chu kỳ dài'}
-              </span>
+              <h2 className="text-lg font-bold text-gray-100">Chọn gói điểm</h2>
+              <span className="text-xs text-gray-500">Không phí duy trì · điểm không hết hạn</span>
             </div>
-            <PlanGrid
-              plans={catalog.plans}
+
+            <PackageGrid
+              packages={catalog.packages}
               creatingId={creatingId}
               referenceModel={referenceModel}
-              upgrade={upgrade}
-              onSelect={(plan) => createOrder('/orders/subscription', { planId: plan.id }, `plan-${plan.id}`)}
-              onUpgrade={(option) => {
-                // Xoá lỗi cũ trước khi mở, nếu không hộp thoại mở ra đã thấy lỗi của lần trước.
-                setError(null);
-                setUpgradeTarget(option);
-              }}
+              onSelect={(pkg) => createOrder('/orders', { packageId: pkg.id }, `pkg-${pkg.id}`)}
             />
-          </section>
-
-          <section>
-            <div className="flex items-baseline justify-between gap-4 mb-3">
-              <h2 className="text-lg font-bold text-gray-100">Mua thêm điểm</h2>
-              <span className="text-xs text-gray-500">Điểm mua thêm không hết hạn theo tháng</span>
-            </div>
-
-            {isSubscribed ? (
-              <PackageGrid
-                packages={catalog.packages}
-                creatingId={creatingId}
-                allowance={catalog.plans.find((plan) => plan.monthlyTokenAllowance > 0)?.monthlyTokenAllowance ?? 0}
-                onSelect={(pkg) => createOrder('/orders', { packageId: pkg.id }, `pkg-${pkg.id}`)}
-              />
-            ) : (
-              <Card className="p-6">
-                <p className="text-sm text-gray-400">
-                  Cần có gói dịch vụ đang hoạt động mới mua thêm điểm được. Hãy chọn một gói ở phần trên.
-                </p>
-              </Card>
-            )}
           </section>
         </>
       )}
 
       <PricingReference catalog={catalog} />
       <OrderHistory orders={orders} onResume={setActiveOrder} />
-
-      {upgradeTarget && (
-        <UpgradeDialog
-          option={upgradeTarget}
-          currentPlanName={upgrade?.currentPlan?.name ?? 'gói hiện tại'}
-          isSubmitting={creatingId === `upgrade-${upgradeTarget.planId}`}
-          error={error}
-          onClose={() => setUpgradeTarget(null)}
-          onConfirm={() => void handleUpgrade(upgradeTarget)}
-        />
-      )}
     </div>
   );
 };
 
 // ---------------------------------------------------------------------------
 
-/** Nhắc trạng thái gói hiện tại: còn hạn tới bao giờ, hạn mức còn bao nhiêu. */
-const SubscriptionStatus: React.FC = () => {
+/**
+ * Số điểm đang có, quy ra số ảnh tạo được.
+ *
+ * Khối "hạn mức tháng" chỉ hiện với khách còn gói cũ chưa hết hạn. Khách mới
+ * không bao giờ thấy nó — họ chưa từng nghe tới khái niệm hạn mức tháng, bày ra
+ * một thanh tiến trình "0 / 0" chỉ khiến họ tưởng mình đang thiếu thứ gì đó.
+ */
+const BalanceStatus: React.FC<{ referenceModel: ModelOption | null }> = ({ referenceModel }) => {
   const { user } = useAuth();
   if (!user) return null;
 
-  if (!user.isSubscribed) {
-    return (
-      <Alert tone="warning">
-        Bạn <strong>chưa có gói dịch vụ</strong> nên chưa tạo được ảnh. Chọn một gói bên dưới để bắt đầu.
-      </Alert>
-    );
-  }
-
-  const usedPercent =
-    user.monthlyAllowance > 0
-      ? Math.round(((user.monthlyAllowance - user.monthlyTokens) / user.monthlyAllowance) * 100)
-      : 0;
+  const images =
+    referenceModel && referenceModel.tokenCost > 0 ? roundedImageCount(user.tokenBalance, referenceModel.tokenCost) : 0;
 
   return (
     <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">Gói đang dùng</p>
-          <p className="text-gray-100 font-semibold mt-1">
-            Còn hiệu lực tới {formatDateTime(user.subscriptionExpiresAt)}
-          </p>
+          <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">Điểm đang có</p>
+          <p className="text-brand-500 font-bold text-2xl mt-1">{formatNumber(user.tokenBalance)}</p>
+          {images > 0 && (
+            <p className="text-[11px] text-gray-500 mt-1">
+              Tạo được khoảng {formatNumber(images)} ảnh {referenceModel?.resolution} với{' '}
+              {referenceModel?.label.split('—')[0].trim()}
+            </p>
+          )}
         </div>
-        <div className="text-right">
-          <p className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">Hạn mức tháng còn lại</p>
-          <p className="text-brand-500 font-bold text-lg mt-1">
-            {formatNumber(user.monthlyTokens)}
-            <span className="text-gray-600 text-sm font-normal"> / {formatNumber(user.monthlyAllowance)}</span>
+
+        {user.tokenBalance === 0 && (
+          <p className="text-sm text-gray-400 max-w-xs">
+            Chọn một gói bên dưới để nạp điểm. Chuyển khoản xong là dùng được ngay, không cần đăng ký gì thêm.
           </p>
-        </div>
-      </div>
-
-      <div className="h-1.5 bg-dark-800 rounded-full overflow-hidden mt-4">
-        <div className="h-full bg-brand-500 rounded-full transition-all" style={{ width: `${usedPercent}%` }} />
-      </div>
-
-      <p className="text-[11px] text-gray-500 mt-2">
-        Hạn mức được cấp lại vào {formatDateTime(user.monthlyPeriodEnd)}.{' '}
-        <strong className="text-gray-400">Không cộng dồn</strong> — phần chưa dùng của tháng này sẽ mất khi sang chu kỳ mới.
-        {user.purchasedTokens > 0 && (
-          <> Ngoài ra bạn còn {formatNumber(user.purchasedTokens)} điểm mua thêm, phần này không hết hạn.</>
         )}
-      </p>
+      </div>
+
+      {/* Chỉ khách còn gói tháng cũ mới thấy phần này */}
+      {user.isSubscribed && user.monthlyAllowance > 0 && (
+        <div className="mt-4 pt-4 border-t border-dark-800">
+          <p className="text-[11px] text-gray-500">
+            Trong đó có <strong className="text-gray-400">{formatNumber(user.monthlyTokens)}</strong> điểm hạn mức từ gói
+            tháng cũ của bạn (còn hiệu lực tới {formatDateTime(user.subscriptionExpiresAt)}). Phần này được cấp lại vào{' '}
+            {formatDateTime(user.monthlyPeriodEnd)} và <strong className="text-gray-400">không cộng dồn</strong>. Điểm bạn
+            mua thêm thì không hết hạn.
+          </p>
+        </div>
+      )}
     </Card>
   );
 };
 
-const PlanGrid: React.FC<{
-  plans: SubscriptionPlan[];
+const PackageGrid: React.FC<{
+  packages: TokenPackage[];
   creatingId: string | null;
-  onSelect: (plan: SubscriptionPlan) => void;
-  /** Model rẻ nhất đang bán — dùng làm mốc quy đổi hạn mức ra số ảnh */
+  onSelect: (pkg: TokenPackage) => void;
+  /** Model dùng làm mốc quy số điểm ra số ảnh */
   referenceModel: ModelOption | null;
-  /** Thông tin nâng gói; null khi khách chưa có gói nào */
-  upgrade: UpgradeInfo | null;
-  onUpgrade: (option: UpgradeOption) => void;
-}> = ({ plans, creatingId, onSelect, referenceModel, upgrade, onUpgrade }) => {
-  // Mốc so sánh để tính % tiết kiệm: giá mỗi tháng của gói ngắn nhất.
-  const basePerMonth = Math.max(...plans.map((plan) => plan.pricePerMonthVnd), 0);
-
+}> = ({ packages, creatingId, onSelect, referenceModel }) => {
   // "Nano Banana 2 — 2K" -> "Nano Banana 2". Lấy từ bảng giá chứ không gõ tay,
   // để đổi model mốc là chữ trên thẻ tự đổi theo.
   const modelShortName = referenceModel?.label.split('—')[0].trim() ?? '';
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      {plans.map((plan) => {
-        const savedPercent = basePerMonth > 0 ? Math.round((1 - plan.pricePerMonthVnd / basePerMonth) * 100) : 0;
+      {/*
+        Flex-wrap chứ không phải grid: có 5 gói mà mỗi hàng 4 cột nên gói cuối
+        luôn đứng lẻ. Grid ghim nó vào cột đầu bên trái trông như lỗi bố cục;
+        flex + justify-center đưa nó về giữa hàng dưới.
 
-        // Gói này có nâng lên được không, và có phải gói đang dùng không.
-        const upgradeOption = upgrade?.options.find((option) => option.planId === plan.id) ?? null;
-        const isCurrentPlan = upgrade?.currentPlan?.planId === plan.id;
+        Bề rộng trừ đi phần khoảng cách: gap-4 = 1rem, 4 cột có 3 khoảng nên mỗi
+        thẻ nhường 0,75rem; 2 cột có 1 khoảng nên nhường 0,5rem.
+      */}
+      <div className="flex flex-wrap justify-center gap-4">
+        {packages.map((pkg) => {
+          const images =
+            referenceModel && referenceModel.tokenCost > 0
+              ? roundedImageCount(pkg.totalTokens, referenceModel.tokenCost)
+              : 0;
 
-        return (
-          <Card
-            key={plan.id}
-            className={`p-5 flex flex-col relative ${plan.isPopular ? 'border-brand-500 shadow-lg shadow-brand-500/10' : ''}`}
-          >
-            {plan.isPopular && (
-              <span className="absolute -top-2.5 left-5 bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                Đáng tiền nhất
-              </span>
-            )}
-            {savedPercent > 0 && (
-              <span className="absolute -top-2.5 right-5 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                −{savedPercent}%
-              </span>
-            )}
-
-            <h3 className="font-bold text-gray-100">{plan.name}</h3>
-            <p className="text-2xl font-bold text-gray-100 mt-2">{formatVnd(plan.priceVnd)}</p>
-            {/* <p className="text-[11px] text-gray-500 mt-1">
-              {plan.months > 1 ? `${formatVnd(plan.pricePerMonthVnd)}/tháng` : 'thanh toán hàng tháng'}
-            </p> */}
-            <p className="text-[11px] text-gray-600 mt-1">
-              {formatNumber(plan.monthlyTokenAllowance)} điểm/tháng
-            </p>
-
-            <div className="mt-3 pt-3 border-t border-dark-800 flex-1">
-              {referenceModel && referenceModel.tokenCost > 0 ? (
-                (() => {
-                  const perMonth = roundedImageCount(plan.monthlyTokenAllowance, referenceModel.tokenCost);
-                  return (
-                    <>
-                      {/* Bọc phép nhân BÊN TRONG formatNumber: formatNumber trả về
-                          chuỗi, nhân chuỗi với số sẽ mất dấu phân cách nghìn và cho
-                          kết quả sai hẳn khi số vượt 1.000 ("1.170" * 3 = 3.51). */}
-                      <p className="text-brand-500 font-bold text-xl leading-tight">
-                        Miễn phí {formatNumber(perMonth * plan.months)} ảnh
-                      </p>
-                      <p className="text-[11px] text-gray-500 mt-1">
-                        Ảnh có độ phân giải {referenceModel.resolution} - {modelShortName}
-                      </p>
-                    </>
-                  );
-                })()
-              ) : (
-                <p className="text-brand-500 font-bold">{formatNumber(plan.monthlyTokenAllowance)} điểm/tháng</p>
+          return (
+            <Card
+              key={pkg.id}
+              className={`p-5 flex flex-col relative w-full sm:w-[calc(50%-0.5rem)] lg:w-[calc(25%-0.75rem)] ${pkg.isPopular ? 'border-brand-500 shadow-lg shadow-brand-500/10' : ''}`}
+            >
+              {pkg.isPopular && (
+                <span className="absolute -top-2.5 left-5 bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  Phổ biến nhất
+                </span>
               )}
-            </div>
 
-            {/* Ba trạng thái: gói đang dùng / gói nâng lên được / gói mua hoặc gia hạn bình thường */}
-            {isCurrentPlan ? (
-              <div className="w-full mt-4 rounded-xl py-2.5 text-sm font-bold text-center bg-dark-850 border border-dark-700 text-gray-500">
-                Gói đang dùng
+              <p className="text-2xl font-bold text-gray-100">{formatVnd(pkg.priceVnd)}</p>
+              <p className="text-brand-500 font-bold text-lg mt-2">
+                {formatNumber(pkg.totalTokens)} điểm
+                {pkg.bonusTokens > 0 && (
+                  <span className="text-green-400 text-xs font-semibold ml-1">
+                    +{formatNumber(pkg.bonusTokens)}
+                  </span>
+                )}
+              </p>
+
+              <div className="mt-3 pt-3 border-t border-dark-800 flex-1">
+                {images > 0 && (
+                  <p className="text-gray-200 font-semibold text-sm leading-tight">
+                    Tạo được tới {formatNumber(images)} ảnh
+                  </p>
+                )}
+                {pkg.description && <p className="text-[11px] text-gray-500 mt-1">{pkg.description}</p>}
               </div>
-            ) : upgradeOption ? (
+
               <Button
-                onClick={() => onUpgrade(upgradeOption)}
-                variant="primary"
+                onClick={() => onSelect(pkg)}
+                isLoading={creatingId === `pkg-${pkg.id}`}
+                variant={pkg.isPopular ? 'primary' : 'secondary'}
                 className="w-full mt-4 !rounded-xl !py-2.5 !text-sm"
               >
-                Nâng cấp gói
+                Mua ngay
               </Button>
-            ) : (
-              <Button
-                onClick={() => onSelect(plan)}
-                isLoading={creatingId === `plan-${plan.id}`}
-                variant={plan.isPopular ? 'primary' : 'secondary'}
-                className="w-full mt-4 !rounded-xl !py-2.5 !text-sm"
-              >
-                {/* Đang có gói mà bấm thẻ khác thì không phải đổi gói — server nối
-                    thêm đúng số tháng của thẻ đó vào ngày hết hạn hiện tại. Ghi rõ
-                    "+N tháng" để khách không hiểu nhầm là chuyển sang gói đó. */}
-                {upgrade?.currentPlan ? `Gia hạn thêm ${plan.months} tháng` : 'Chọn gói'}
-              </Button>
-            )}
-          </Card>
-        );
-      })}
+            </Card>
+          );
+        })}
       </div>
 
       {referenceModel && (
         <p className="text-[11px] text-gray-600 mt-3">
           {/* Số điểm lấy từ bảng giá, không gõ tay — gõ tay là sớm muộn cũng
               lệch với con số thật khi bảng giá đổi. */}
-          Số ảnh tính theo <strong className="text-gray-500">{modelShortName}</strong> (
-          {formatNumber(referenceModel.tokenCost)} điểm/ảnh). Chọn ảnh 1K sẽ được nhiều ảnh hơn, chọn 4K thì ít hơn;
-          xem bảng điểm tiêu hao bên dưới. Hạn mức tính theo từng tháng và không cộng dồn.
+          Số ảnh tính theo <strong className="text-gray-500">{modelShortName}</strong> ở {referenceModel.resolution} (
+          {formatNumber(referenceModel.tokenCost)} điểm/ảnh). Chọn ảnh 1K sẽ được nhiều ảnh hơn, chọn 4K thì ít hơn; xem
+          bảng quy đổi bên dưới. Điểm đã mua không hết hạn.
         </p>
       )}
     </>
   );
 };
-
-/**
- * Hộp thoại xác nhận nâng gói.
- *
- * Bày rõ ba con số — giá gói mới, phần được trừ, số phải bù — để khách tự cộng
- * lại kiểm chứng được, rồi mới cho bấm thanh toán.
- */
-const UpgradeDialog: React.FC<{
-  option: UpgradeOption;
-  currentPlanName: string;
-  isSubmitting: boolean;
-  /** Lỗi tạo đơn — phải hiện trong hộp thoại, banner ở trang bị lớp phủ che mất. */
-  error: string | null;
-  onClose: () => void;
-  onConfirm: () => void;
-}> = ({ option, currentPlanName, isSubmitting, error, onClose, onConfirm }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-    <Card className="w-full max-w-md p-6">
-      <h3 className="text-xl font-bold text-gray-100">Nâng lên {option.name}</h3>
-      <p className="text-sm text-gray-500 mt-1">Từ {currentPlanName}</p>
-
-      <div className="mt-5 bg-dark-850 rounded-xl px-4 divide-y divide-dark-800">
-        <div className="flex justify-between items-center py-3">
-          <span className="text-sm text-gray-400">Giá {option.name}</span>
-          <span className="text-sm text-gray-200">{formatVnd(option.listPriceVnd)}</span>
-        </div>
-        <div className="flex justify-between items-center py-3">
-          <div>
-            <span className="text-sm text-gray-400">Trừ phần chưa dùng</span>
-            <span className="block text-[11px] text-gray-600 mt-0.5">
-              Gói hiện tại còn {option.remainingDays}/{option.totalDays} ngày
-            </span>
-          </div>
-          <span className="text-sm text-green-400">−{formatVnd(option.creditVnd)}</span>
-        </div>
-        <div className="flex justify-between items-center py-3">
-          <span className="text-sm font-bold text-gray-100">Số tiền cần thanh toán</span>
-          <span className="text-lg font-bold text-brand-500">{formatVnd(option.payableVnd)}</span>
-        </div>
-      </div>
-
-      {error && <Alert tone="error">{error}</Alert>}
-
-      <Alert tone="info">
-        Sau khi thanh toán thành công, gói {option.months} tháng bắt đầu tính từ thời điểm đó và hạn mức được cấp lại{' '}
-        {formatNumber(option.monthlyTokenAllowance)} điểm/tháng. Hạn mức chưa dùng của gói cũ đã được quy thành tiền
-        trừ vào đơn này.
-      </Alert>
-
-      <div className="flex justify-end gap-3 mt-5">
-        <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>
-          Để sau
-        </Button>
-        <Button onClick={onConfirm} isLoading={isSubmitting} className="!rounded-xl">
-          Bắt đầu thanh toán
-        </Button>
-      </div>
-    </Card>
-  </div>
-);
-
-const PackageGrid: React.FC<{
-  packages: TokenPackage[];
-  creatingId: string | null;
-  onSelect: (pkg: TokenPackage) => void;
-  /** Hạn mức tháng, dùng làm mốc so sánh cho khách dễ hình dung */
-  allowance: number;
-}> = ({ packages, creatingId, onSelect, allowance }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-    {packages.map((pkg) => {
-      const ratio = allowance > 0 ? pkg.totalTokens / allowance : 0;
-
-      return (
-        <Card key={pkg.id} className={`p-5 flex flex-col ${pkg.isPopular ? 'border-brand-500/60' : ''}`}>
-          <div className="flex items-baseline justify-between gap-2">
-            <h3 className="font-bold text-gray-100">{pkg.name}</h3>
-            {ratio > 0 && (
-              <span className="text-[10px] text-gray-500 whitespace-nowrap">
-                {ratio >= 1 ? `${ratio}×` : `${Math.round(ratio * 100)}%`} hạn mức
-              </span>
-            )}
-          </div>
-
-          <p className="text-brand-500 font-bold text-lg mt-2">{formatNumber(pkg.totalTokens)} điểm</p>
-          <p className="text-[11px] text-gray-500 mt-1 flex-1">{pkg.description}</p>
-
-          <Button
-            onClick={() => onSelect(pkg)}
-            isLoading={creatingId === `pkg-${pkg.id}`}
-            variant="secondary"
-            className="w-full mt-4 !rounded-xl !py-2.5 !text-sm"
-          >
-            Mua {formatVnd(pkg.priceVnd)}
-          </Button>
-        </Card>
-      );
-    })}
-  </div>
-);
 
 const PaidPanel: React.FC<{ order: Order; onContinue: () => void }> = ({ order, onContinue }) => (
   <Card className="p-6 border-green-900/50 bg-green-500/5">
@@ -549,7 +340,7 @@ const PaidPanel: React.FC<{ order: Order; onContinue: () => void }> = ({ order, 
         <Button className="!rounded-xl">Bắt đầu tạo ảnh</Button>
       </Link>
       <Button variant="ghost" onClick={onContinue}>
-        Quay lại bảng giá
+        Mua thêm điểm
       </Button>
     </div>
   </Card>
@@ -615,7 +406,7 @@ const PaymentPanel: React.FC<{
           </p>
         </div>
         <button onClick={onBack} className="text-xs text-gray-500 hover:text-gray-100 whitespace-nowrap">
-          ← Chọn gói khác
+          ← Chọn gói điểm khác
         </button>
       </div>
 
@@ -686,12 +477,16 @@ const PaymentPanel: React.FC<{
   );
 };
 
-/** Bảng điểm tiêu hao mỗi ảnh, để khách ước lượng hạn mức dùng được bao nhiêu ảnh. */
+/** Bảng điểm tiêu hao mỗi ảnh, để khách ước lượng một gói điểm dùng được bao nhiêu ảnh. */
 const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
-  // Các gói có thể có hạn mức khác nhau, nên phải nói rõ bảng đang tính theo gói nào.
-  // Gói không có hạn mức (gói miễn phí) không dùng làm mốc được — bảng sẽ ra 0 ảnh.
-  const basePlan = catalog.plans.find((plan) => plan.monthlyTokenAllowance > 0) ?? catalog.plans[0] ?? null;
-  const allowance = basePlan?.monthlyTokenAllowance ?? 0;
+  /*
+   * Cột "số ảnh" tính theo gói ĐANG ĐƯỢC ĐÁNH DẤU PHỔ BIẾN, và bảng nói rõ tên
+   * gói đó. Lấy gói lớn nhất thì con số đẹp nhưng không phải thứ đa số khách
+   * mua; lấy gói nhỏ nhất thì trông như dịch vụ tạo được rất ít ảnh.
+   */
+  const basePackage =
+    catalog.packages.find((pkg) => pkg.isPopular) ?? catalog.packages[catalog.packages.length - 1] ?? null;
+  const baseTokens = basePackage?.totalTokens ?? 0;
 
   /**
    * Đơn giá điểm để quy ảnh ra tiền, lấy từ chính các gói điểm lẻ đang bán.
@@ -717,8 +512,10 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
               <th className="text-left font-bold py-2">Model</th>
               <th className="text-left font-bold py-2">Chất lượng</th>
               <th className="text-right font-bold py-2">Điểm / ảnh</th>
-              {pricePerToken > 0 && <th className="text-right font-bold py-2">Quy đổi theo mệnh giá</th>}
-              <th className="text-right font-bold py-2">Số ảnh trong hạn mức tháng</th>
+              {pricePerToken > 0 && <th className="text-right font-bold py-2">Tiền / ảnh</th>}
+              {baseTokens > 0 && (
+                <th className="text-right font-bold py-2">Số ảnh với {basePackage?.name ?? 'gói mẫu'}</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -732,24 +529,28 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
                     {model.tokenCost > 0 ? formatVnd(equivalentPrice(model.tokenCost)) : '—'}
                   </td>
                 )}
-                <td className="py-2.5 text-right text-gray-500 text-xs">
-                  {model.tokenCost > 0 ? `~${formatNumber(Math.floor(allowance / model.tokenCost))} ảnh` : '—'}
-                </td>
+                {baseTokens > 0 && (
+                  <td className="py-2.5 text-right text-gray-500 text-xs">
+                    {model.tokenCost > 0 ? `~${formatNumber(Math.floor(baseTokens / model.tokenCost))} ảnh` : '—'}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </TableWrap>
         <p className="text-[11px] text-gray-600 mt-3">
-          Cột cuối tính trên hạn mức {formatNumber(allowance)} điểm/tháng
-          {basePlan && ` của ${basePlan.name}`}, nếu chỉ dùng một loại ảnh duy nhất. Gói có hạn mức cao hơn thì số ảnh
-          tăng tương ứng.
+          {baseTokens > 0 && (
+            <>
+              Cột cuối tính trên {formatNumber(baseTokens)} điểm
+              {basePackage && ` của ${basePackage.name}`}, nếu chỉ dùng một loại ảnh duy nhất. Mua gói lớn hơn thì số ảnh
+              tăng tương ứng.{' '}
+            </>
+          )}
           {pricePerToken > 0 && (
             <>
-              {' '}
-              Cột <strong className="text-gray-500">tiền tương đương</strong> là số tiền bạn phải bỏ ra cho mỗi ảnh nếu
-              mua điểm lẻ, tính theo đơn giá tốt nhất trong các gói điểm đang bán (
-              {pricePerToken.toLocaleString('vi-VN', { maximumFractionDigits: 2 })}đ/điểm). Điểm trong gói dịch vụ đã
-              bao gồm sẵn, không phải trả thêm.
+              Cột <strong className="text-gray-500">tiền / ảnh</strong> là số tiền thực tế bạn bỏ ra cho mỗi ảnh, tính
+              theo đơn giá tốt nhất trong các gói đang bán (
+              {pricePerToken.toLocaleString('vi-VN', { maximumFractionDigits: 2 })}đ/điểm).
             </>
           )}
         </p>

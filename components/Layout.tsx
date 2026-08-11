@@ -9,7 +9,7 @@ const navItems = [
   { to: APP_HOME, label: 'Tạo ảnh' },
   { to: '/lich-su', label: 'Lịch sử' },
   { to: '/vi-diem', label: 'Ví điểm' },
-  { to: '/nap-tien', label: 'Gói dịch vụ' },
+  { to: '/nap-tien', label: 'Mua điểm' },
 ];
 
 // Bấm logo trong ứng dụng về bàn làm việc, không về trang bán hàng: khách đã
@@ -60,13 +60,21 @@ export const Layout: React.FC = () => {
         </nav>
 
         <div className="ml-auto flex items-center gap-3">
-          {user?.isSubscribed ? (
+          {/*
+            Còn điểm thì hiện số dư; hết sạch thì đổi thành nút mua nổi bật —
+            một con số "0" mờ nhạt không nói cho khách biết phải làm gì tiếp.
+          */}
+          {user && user.tokenBalance > 0 ? (
             <Link
               to="/nap-tien"
               className="flex items-center gap-2 bg-dark-850 hover:bg-dark-800 border border-dark-700 rounded-full pl-3 pr-2 py-1.5 transition-colors group"
               title={
-                `Hạn mức tháng: ${formatNumber(user.monthlyTokens)} điểm\n` +
-                `Đã mua thêm: ${formatNumber(user.purchasedTokens)} điểm`
+                // Chỉ tách nguồn khi khách còn hạn mức của gói tháng cũ. Khách
+                // mua điểm thuần không biết "hạn mức tháng" là gì.
+                user.monthlyTokens > 0
+                  ? `Hạn mức tháng: ${formatNumber(user.monthlyTokens)} điểm\n` +
+                    `Đã mua thêm: ${formatNumber(user.purchasedTokens)} điểm`
+                  : `${formatNumber(user.tokenBalance)} điểm — bấm để mua thêm`
               }
             >
               <span className="text-sm font-bold text-brand-500">{formatNumber(user.tokenBalance)}</span>
@@ -80,7 +88,7 @@ export const Layout: React.FC = () => {
               to="/nap-tien"
               className="bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-full px-4 py-2 transition-colors"
             >
-              Đăng ký gói
+              Mua điểm
             </Link>
           )}
 

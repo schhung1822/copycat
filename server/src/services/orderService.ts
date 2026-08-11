@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { execute, query, queryOne, withTransaction, type PoolConnection, type ResultSetHeader, type RowDataPacket } from '../db.js';
 import { env } from '../env.js';
 import { badRequest, conflict, notFound } from '../lib/errors.js';
-import { activateSubscription, computeUpgradeQuote, type PlanRow } from './subscriptionService.js';
+import { activateSubscription, type PlanRow } from './subscriptionService.js';
 import { creditPurchasedTokens } from './tokenService.js';
 
 export interface PackageRow extends RowDataPacket {
@@ -113,87 +113,19 @@ export async function listActivePackages(): Promise<PackageRow[]> {
   return query<PackageRow>('SELECT * FROM token_packages WHERE is_active = 1 ORDER BY sort_order, price_vnd');
 }
 
-/** Tạo đơn nạp ở trạng thái chờ chuyển khoản. */
+/**
+ * Tạo đơn mua điểm ở trạng thái chờ chuyển khoản.
+ *
+ * Đây là loại đơn DUY NHẤT khách còn tạo được — gói tháng đã ngừng bán. Đơn
+ * `subscription` chỉ còn tồn tại ở dạng dữ liệu cũ; xem `fulfillOrder`.
+ */
 export async function createOrder(userId: number, packageId: number): Promise<OrderRow> {
   const pkg = await queryOne<PackageRow>('SELECT * FROM token_packages WHERE id = ? AND is_active = 1', [packageId]);
-  if (!pkg) throw badRequest('Gói nạp không tồn tại hoặc đã ngừng bán.');
+  if (!pkg) throw badRequest('Gói điểm không tồn tại hoặc đã ngừng bán.');
 
-  return insertOrder({
-    userId,
-    orderType: 'token_package',
-    packageId: pkg.id,
-    packageCode: pkg.code,
-    itemName: pkg.name,
-    amountVnd: pkg.price_vnd,
-    baseTokens: pkg.base_tokens,
-    bonusTokens: pkg.bonus_tokens,
-  });
-}
-
-/** Tạo đơn mua / gia hạn gói thuê bao tháng. */
-export async function createSubscriptionOrder(userId: number, planId: number): Promise<OrderRow> {
-  const plan = await queryOne<PlanRow>('SELECT * FROM subscription_plans WHERE id = ? AND is_active = 1', [planId]);
-  if (!plan) throw badRequest('Gói dịch vụ không tồn tại hoặc đã ngừng bán.');
-
-  // Gói 0đ (gói miễn phí) không đi qua đường chuyển khoản được: đơn sinh ra sẽ có
-  // mã QR 0đ mà ngân hàng không bao giờ báo có, khách ngồi chờ vĩnh viễn. Gói loại
-  // này do admin cấp tay trong Quản trị → Khách hàng → "Gói".
-  if (plan.price_vnd <= 0) {
-    throw badRequest(`${plan.name} không mua được qua chuyển khoản. Vui lòng liên hệ hỗ trợ để được cấp gói.`);
-  }
-
-  return insertOrder({
-    userId,
-    orderType: 'subscription',
-    planId: plan.id,
-    packageCode: plan.code,
-    itemName: plan.name,
-    amountVnd: plan.price_vnd,
-    subscriptionMonths: plan.months,
-    // Thuê bao không cộng điểm ngay; hạn mức được cấp khi kích hoạt.
-    baseTokens: 0,
-    bonusTokens: 0,
-  });
-}
-
-/** Tạo đơn nâng lên gói cao hơn, đã trừ phần chưa dùng của gói hiện tại. */
-export async function createUpgradeOrder(userId: number, planId: number): Promise<OrderRow> {
-  const quote = await computeUpgradeQuote(userId, planId);
-
-  return insertOrder({
-    userId,
-    orderType: 'subscription',
-    planId: quote.plan.id,
-    packageCode: quote.plan.code,
-    itemName: `Nâng lên ${quote.plan.name}`,
-    amountVnd: quote.payableVnd,
-    creditVnd: quote.creditVnd,
-    isUpgrade: true,
-    subscriptionMonths: quote.plan.months,
-    baseTokens: 0,
-    bonusTokens: 0,
-  });
-}
-
-interface InsertOrderInput {
-  userId: number;
-  orderType: 'subscription' | 'token_package';
-  itemName: string;
-  amountVnd: number;
-  baseTokens: number;
-  bonusTokens: number;
-  packageId?: number | null;
-  planId?: number | null;
-  packageCode?: string | null;
-  subscriptionMonths?: number | null;
-  creditVnd?: number;
-  isUpgrade?: boolean;
-}
-
-async function insertOrder(input: InsertOrderInput): Promise<OrderRow> {
   const pending = await queryOne<RowDataPacket & { total: number }>(
     `SELECT COUNT(*) AS total FROM orders WHERE user_id = ? AND status = 'pending'`,
-    [input.userId],
+    [userId],
   );
   if ((pending?.total ?? 0) >= 5) {
     throw conflict('Bạn đang có quá nhiều đơn chờ thanh toán. Vui lòng hoàn tất hoặc huỷ bớt.', 'too_many_pending');
@@ -205,24 +137,19 @@ async function insertOrder(input: InsertOrderInput): Promise<OrderRow> {
     try {
       const result = await execute(
         `INSERT INTO orders
-           (code, user_id, order_type, plan_id, subscription_months, package_id, package_code,
-            package_name, amount_vnd, credit_vnd, is_upgrade, base_tokens, bonus_tokens, total_tokens, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE))`,
+           (code, user_id, order_type, package_id, package_code,
+            package_name, amount_vnd, base_tokens, bonus_tokens, total_tokens, expires_at)
+         VALUES (?, ?, 'token_package', ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE))`,
         [
           code,
-          input.userId,
-          input.orderType,
-          input.planId ?? null,
-          input.subscriptionMonths ?? null,
-          input.packageId ?? null,
-          input.packageCode ?? null,
-          input.itemName,
-          input.amountVnd,
-          input.creditVnd ?? 0,
-          input.isUpgrade ? 1 : 0,
-          input.baseTokens,
-          input.bonusTokens,
-          input.baseTokens + input.bonusTokens,
+          userId,
+          pkg.id,
+          pkg.code,
+          pkg.name,
+          pkg.price_vnd,
+          pkg.base_tokens,
+          pkg.bonus_tokens,
+          pkg.base_tokens + pkg.bonus_tokens,
           env.orderExpireMinutes,
         ],
       );
@@ -305,11 +232,16 @@ export async function markOrderPaid(orderCode: string, input: MarkPaidInput): Pr
 }
 
 /**
- * "Giao hàng" cho một đơn đã thanh toán: kích hoạt gói tháng hoặc cộng điểm lẻ.
+ * "Giao hàng" cho một đơn đã thanh toán: cộng điểm vào ví khách.
  *
  * Tách riêng khỏi `markOrderPaid` để cả hai đường vào đều dùng chung một bản
  * nghiệp vụ: đường trong ứng dụng (webhook, admin duyệt) và đường đối soát cho
  * các đơn bị hệ thống ngoài đổi `status` thẳng trong database.
+ *
+ * NHÁNH `subscription` LÀ DÀNH CHO ĐƠN CŨ, không phải chức năng đang bán. Gói
+ * tháng đã ngừng bán nhưng vẫn có thể còn đơn `pending` sinh ra trước đó mà
+ * khách chuyển khoản muộn — từ chối giao là thu tiền mà không giao hàng. Chỉ
+ * xoá nhánh này khi bảng `orders` không còn đơn subscription nào chưa giao.
  *
  * Bắt buộc gọi trong transaction đã khoá dòng đơn bằng FOR UPDATE.
  */

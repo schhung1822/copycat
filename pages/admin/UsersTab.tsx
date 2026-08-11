@@ -366,13 +366,15 @@ const EditUserModal: React.FC<{
 // ---------------------------------------------------------------------------
 
 /**
- * Cấp gói dịch vụ thẳng cho một khách, không qua đơn chuyển khoản.
+ * Cấp gói tháng thẳng cho một khách, không qua đơn chuyển khoản.
  *
- * Dùng khi khách trả tiền ngoài luồng, khi tặng gói dùng thử, hoặc khi bật gói
- * miễn phí (0 điểm/tháng) để khách được phép mua điểm lẻ.
+ * Gói tháng ĐÃ NGỪNG BÁN — hệ thống nay chỉ bán điểm. Đường này giữ lại cho
+ * trường hợp tặng hạn mức tháng cho khách VIP hoặc khách trả tiền ngoài luồng.
+ * Muốn cộng điểm thường thì dùng nút "Điểm" (nguồn `purchased`) chứ không phải
+ * ở đây: hạn mức tháng sẽ bị thu hồi khi hết hạn gói, còn điểm mua thì không.
  *
- * Danh sách gói lấy nguyên bảng `/admin/plans` chứ không lọc theo trạng thái bán:
- * gói miễn phí và các gói đã ngừng bán vẫn phải cấp tay được.
+ * Danh sách gói lấy nguyên bảng `/admin/plans` chứ không lọc theo trạng thái
+ * bán — từ khi ngừng bán thì mọi gói đều `is_active = 0`.
  */
 const GrantPlanModal: React.FC<{
   user: AdminUser;
@@ -395,9 +397,14 @@ const GrantPlanModal: React.FC<{
       try {
         const data = await api.get<{ plans: AdminPlan[] }>('/admin/plans');
         setPlans(data.plans);
-        // Chọn sẵn gói đang bán chứ không phải dòng đầu bảng: gói miễn phí xếp trước
-        // các gói trả tiền, để nó làm mặc định thì dễ bấm nhầm thành cấp gói 0đ.
-        const preselected = data.plans.find((plan) => plan.isActive) ?? data.plans[0];
+        /*
+         * Chọn sẵn gói CÓ HẠN MỨC chứ không phải dòng đầu bảng: gói miễn phí
+         * (0 điểm/tháng) xếp trước các gói còn lại, để nó làm mặc định thì admin
+         * bấm lưu là cấp một gói chẳng cho khách thêm điểm nào.
+         *
+         * Không lọc theo `isActive` được nữa — từ khi ngừng bán, mọi gói đều tắt.
+         */
+        const preselected = data.plans.find((plan) => plan.monthlyTokenAllowance > 0) ?? data.plans[0];
         if (preselected) {
           setPlanId(preselected.id);
           setMonths(String(preselected.months));

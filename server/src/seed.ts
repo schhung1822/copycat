@@ -160,25 +160,15 @@ const MODEL_PRICING = [
 ] as const;
 
 /**
- * GÓI THUÊ BAO THÁNG — khách bắt buộc mua trước khi tạo ảnh.
+ * GÓI THUÊ BAO THÁNG — ĐÃ NGỪNG BÁN.
  *
- * Giá gốc 1.500.000đ/tháng, đã bao gồm chi phí duy trì, nhân sự và hạn mức
- * 500.000 điểm/tháng (tương đương 500.000đ tiền điểm theo giá vốn nhà cung cấp).
- * Chu kỳ dài hơn được chiết khấu để khuyến khích trả trước.
+ * Sản phẩm nay chỉ bán điểm (xem `TOKEN_PACKAGES`): mua điểm là dùng được ngay.
+ * Toàn bộ gói ở đây để `is_active = 0` nên không xuất hiện ở bất kỳ đâu trên
+ * giao diện khách — chúng chỉ còn để admin cấp tay cho khách VIP trong Quản trị
+ * → Khách hàng → nút "Gói", và để những gói đã bán trước đây chạy hết hạn.
  *
- *   Chu kỳ    Giá niêm yết   Thực trả       Quy ra mỗi tháng   Chiết khấu
- *   1 tháng   1.500.000đ     1.500.000đ     1.500.000đ         0%
- *   3 tháng   4.500.000đ     4.275.000đ     1.425.000đ         5%
- *   6 tháng   9.000.000đ     8.100.000đ     1.350.000đ         10%
- *   12 tháng  18.000.000đ    15.300.000đ    1.275.000đ         15%
- *
- * Hạn mức 500.000 điểm được cấp lại MỖI THÁNG kể cả khi mua chu kỳ dài, và
- * KHÔNG cộng dồn nếu tháng đó dùng không hết.
- *
- * Riêng gói MIỄN PHÍ nằm ngoài bảng trên: 0đ và KHÔNG có hạn mức tháng, chỉ để mở
- * khoá tài khoản cho khách mua điểm lẻ (mua điểm lẻ bắt buộc phải có gói). Gói này
- * đặt `is_active = 0` nên không hiện trên trang bảng giá — admin cấp tay cho từng
- * khách trong Quản trị → Khách hàng → nút "Gói".
+ * Giữ nguyên giá cũ trong danh sách này là có chủ đích: đó là giá của các bản
+ * ghi `subscriptions` đang tồn tại, sửa đi thì báo cáo doanh thu cũ lệch.
  */
 const MONTHLY_TOKEN_ALLOWANCE = 500_000;
 
@@ -199,8 +189,9 @@ const SUBSCRIPTION_PLANS = [
     name: 'Gói 1 tháng',
     months: 1,
     price_vnd: 1_500_000,
-    description: 'Dùng thử trọn vẹn một tháng.',
+    description: 'Đã ngừng bán — chỉ admin cấp tay.',
     is_popular: 0,
+    is_active: 0,
     sort_order: 10,
   },
   {
@@ -208,8 +199,9 @@ const SUBSCRIPTION_PLANS = [
     name: 'Gói 3 tháng',
     months: 3,
     price_vnd: 4_275_000,
-    description: 'Tiết kiệm 5% — còn 1.425.000đ/tháng.',
+    description: 'Đã ngừng bán — chỉ admin cấp tay.',
     is_popular: 0,
+    is_active: 0,
     sort_order: 20,
   },
   {
@@ -217,8 +209,9 @@ const SUBSCRIPTION_PLANS = [
     name: 'Gói 6 tháng',
     months: 6,
     price_vnd: 8_100_000,
-    description: 'Tiết kiệm 10% — còn 1.350.000đ/tháng.',
-    is_popular: 1,
+    description: 'Đã ngừng bán — chỉ admin cấp tay.',
+    is_popular: 0,
+    is_active: 0,
     sort_order: 30,
   },
   {
@@ -226,30 +219,28 @@ const SUBSCRIPTION_PLANS = [
     name: 'Gói 1 năm',
     months: 12,
     price_vnd: 15_300_000,
-    description: 'Tiết kiệm 15% — còn 1.275.000đ/tháng. Ưu đãi tốt nhất.',
+    description: 'Đã ngừng bán — chỉ admin cấp tay.',
     is_popular: 0,
+    is_active: 0,
     sort_order: 40,
   },
 ] as const;
 
 /**
- * GÓI TOKEN LẺ — mua thêm khi đã dùng hết hạn mức tháng.
+ * GÓI ĐIỂM — sản phẩm duy nhất đang bán.
  *
- * Quy tắc: khách chỉ nhận được **một nửa** lượng điểm so với số tiền bỏ ra tính
- * theo giá vốn (tức bán gấp đôi giá vốn). Vì 1 điểm = 1đ giá vốn, gói X đồng cho
- * khoảng X/2 điểm.
+ * Quy tắc: khách nhận được **một nửa** lượng điểm so với số tiền bỏ ra tính theo
+ * giá vốn (tức bán gấp đôi giá vốn). Vì 1 điểm = 1đ giá vốn, gói X đồng cho
+ * khoảng X/2 điểm. Giá bán làm tròn xuống mốc x99.000đ:
  *
- * Số điểm của mỗi gói được neo theo hạn mức tháng cho dễ hình dung, còn giá bán
- * làm tròn xuống mốc x99.000đ:
+ *   Gói          Điểm nhận     Đơn giá
+ *   99.000đ      50.000        1,98đ/điểm
+ *   199.000đ     100.000       1,99đ/điểm
+ *   499.000đ     250.000       2,00đ/điểm
+ *   999.000đ     500.000       2,00đ/điểm
+ *   1.999.000đ   1.000.000     2,00đ/điểm
  *
- *   Gói          Điểm nhận              So với hạn mức tháng   Đơn giá
- *   99.000đ      50.000                  1/10                   1,98đ/điểm
- *   199.000đ     100.000                 1/5                    1,99đ/điểm
- *   499.000đ     250.000                 1/2                    2,00đ/điểm
- *   999.000đ     500.000                 bằng đúng              2,00đ/điểm
- *   1.999.000đ   1.000.000               gấp đôi                2,00đ/điểm
- *
- * Điểm mua thêm KHÔNG hết hạn theo chu kỳ tháng.
+ * Điểm KHÔNG hết hạn — mua bao nhiêu dùng dần bấy nhiêu.
  */
 const TOKEN_PACKAGES = [
   {
@@ -258,7 +249,7 @@ const TOKEN_PACKAGES = [
     price_vnd: 99_000,
     base_tokens: MONTHLY_TOKEN_ALLOWANCE / 10,
     bonus_tokens: 0,
-    description: 'Bằng 1/10 hạn mức một tháng — mua nhanh khi sắp cạn.',
+    description: 'Mua nhanh để dùng thử.',
     is_popular: 0,
     sort_order: 5,
   },
@@ -268,7 +259,7 @@ const TOKEN_PACKAGES = [
     price_vnd: 199_000,
     base_tokens: MONTHLY_TOKEN_ALLOWANCE / 5,
     bonus_tokens: 0,
-    description: 'Bằng 1/5 hạn mức một tháng.',
+    description: 'Hợp cho nhu cầu vài chục ảnh mỗi tháng.',
     is_popular: 0,
     sort_order: 10,
   },
@@ -278,7 +269,7 @@ const TOKEN_PACKAGES = [
     price_vnd: 499_000,
     base_tokens: MONTHLY_TOKEN_ALLOWANCE / 2,
     bonus_tokens: 0,
-    description: 'Bằng một nửa hạn mức một tháng.',
+    description: 'Lựa chọn phổ biến nhất cho shop bán hàng.',
     is_popular: 1,
     sort_order: 20,
   },
@@ -288,7 +279,7 @@ const TOKEN_PACKAGES = [
     price_vnd: 999_000,
     base_tokens: MONTHLY_TOKEN_ALLOWANCE,
     bonus_tokens: 0,
-    description: 'Bằng đúng hạn mức của một tháng.',
+    description: 'Đủ dùng cho cả một chiến dịch.',
     is_popular: 0,
     sort_order: 30,
   },
@@ -298,7 +289,7 @@ const TOKEN_PACKAGES = [
     price_vnd: 1_999_000,
     base_tokens: MONTHLY_TOKEN_ALLOWANCE * 2,
     bonus_tokens: 0,
-    description: 'Gấp đôi hạn mức tháng, hợp cho đợt chạy chiến dịch lớn.',
+    description: 'Cho đội chạy nội dung số lượng lớn.',
     is_popular: 0,
     sort_order: 40,
   },
@@ -317,6 +308,8 @@ const DEFAULT_SETTINGS: Record<string, string> = {
 export async function seed(): Promise<void> {
   await repairKnownBadModelSlugs();
   await migratePricingToCostUnits();
+  await retireSubscriptionPlans();
+  await refreshStalePackageDescriptions();
 
   for (const model of MODEL_PRICING) {
     await execute(
@@ -383,6 +376,78 @@ export async function seed(): Promise<void> {
   await syncAdminRoles();
   await bootstrapAdminAccount();
   await warnUnpricedModels();
+}
+
+/**
+ * Ngừng bán toàn bộ gói thuê bao tháng. CHẠY ĐÚNG MỘT LẦN.
+ *
+ * `INSERT IGNORE` ở trên không đụng tới dòng đã tồn tại, nên với database đang
+ * chạy thật thì các gói MONTHLY_* vẫn giữ `is_active = 1` từ đời trước. Không có
+ * câu này thì chúng biến mất khỏi giao diện khách (do catalog không trả về plans
+ * nữa) nhưng vẫn hiện "Đang bán" trong Quản trị → Bảng giá, đọc rất khó hiểu.
+ *
+ * Cột mốc lưu trong bảng `settings` chứ không chạy lại mỗi lần khởi động: admin
+ * vẫn có quyền bật lại một gói trong trang Quản trị, chạy lại vô điều kiện thì
+ * lần restart sau lại âm thầm tắt đi.
+ *
+ * Chỉ tắt cờ bán, KHÔNG xoá dòng: các bản ghi `subscriptions` đã bán tham chiếu
+ * tới chúng, và trang Quản trị vẫn cần danh sách này để cấp gói tay cho khách VIP.
+ */
+const SUBSCRIPTION_RETIRED_KEY = 'subscription_plans_retired_at';
+
+async function retireSubscriptionPlans(): Promise<void> {
+  const done = await queryOne<RowDataPacket & { setting_value: string | null }>(
+    'SELECT setting_value FROM settings WHERE setting_key = ?',
+    [SUBSCRIPTION_RETIRED_KEY],
+  );
+  if (done) return;
+
+  const result = await execute('UPDATE subscription_plans SET is_active = 0 WHERE is_active = 1');
+  await execute('INSERT IGNORE INTO settings (setting_key, setting_value) VALUES (?, NOW())', [
+    SUBSCRIPTION_RETIRED_KEY,
+  ]);
+
+  if (result.affectedRows > 0) {
+    console.log(`[seed] Đã ngừng bán ${result.affectedRows} gói thuê bao tháng — hệ thống nay chỉ bán điểm.`);
+  }
+}
+
+/**
+ * Thay mô tả gói điểm đời cũ — chúng còn nhắc tới "hạn mức tháng".
+ *
+ * `INSERT IGNORE` ở trên không đụng tới dòng đã tồn tại, nên khi gói tháng ngừng
+ * bán thì mô tả cũ vẫn nằm nguyên trong database và hiện ra trên trang bán hàng:
+ * khách đọc "Bằng 1/10 hạn mức một tháng" mà không biết hạn mức tháng là gì.
+ *
+ * CHỈ sửa dòng còn giữ ĐÚNG NGUYÊN VĂN mô tả cũ. Admin đã tự viết lại thì để
+ * nguyên — ghi đè chữ do người vận hành đặt là mất công họ gõ lại.
+ */
+const LEGACY_PACKAGE_DESCRIPTIONS: Record<string, string> = {
+  EXTRA_99: 'Bằng 1/10 hạn mức một tháng — mua nhanh khi sắp cạn.',
+  EXTRA_199: 'Bằng 1/5 hạn mức một tháng.',
+  EXTRA_499: 'Bằng một nửa hạn mức một tháng.',
+  EXTRA_999: 'Bằng đúng hạn mức của một tháng.',
+  EXTRA_1999: 'Gấp đôi hạn mức tháng, hợp cho đợt chạy chiến dịch lớn.',
+};
+
+async function refreshStalePackageDescriptions(): Promise<void> {
+  let updated = 0;
+
+  for (const pkg of TOKEN_PACKAGES) {
+    const stale = LEGACY_PACKAGE_DESCRIPTIONS[pkg.code];
+    if (!stale) continue;
+
+    const result = await execute('UPDATE token_packages SET description = ? WHERE code = ? AND description = ?', [
+      pkg.description,
+      pkg.code,
+      stale,
+    ]);
+    updated += result.affectedRows;
+  }
+
+  if (updated > 0) {
+    console.log(`[seed] Đã thay mô tả của ${updated} gói điểm còn nhắc tới hạn mức tháng.`);
+  }
 }
 
 /**

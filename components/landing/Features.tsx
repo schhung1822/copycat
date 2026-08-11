@@ -46,7 +46,7 @@ const FEATURES = [
   },
   {
     title: 'Ví điểm minh bạch từng lượt',
-    body: 'Mỗi lần tạo ảnh đều có dòng sao kê riêng: model nào, hết bao nhiêu điểm, trừ từ hạn mức tháng hay điểm mua thêm.',
+    body: 'Mỗi lần tạo ảnh đều có dòng sao kê riêng: model nào, hết bao nhiêu điểm, còn lại bao nhiêu. Ảnh lỗi hoàn điểm cũng ghi rõ.',
     icon: 'M3 8a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm13 4h2',
     span: 'lg:col-span-2',
   },

@@ -5,7 +5,7 @@ import { AppError, badRequest, notFound } from '../lib/errors.js';
 import { getProvider } from '../providers/index.js';
 import { downloadResult, readAsDataUri, saveBase64Image, toPublicUrl } from './storageService.js';
 import { refundTokens, spendTokens } from './tokenService.js';
-import { lockAccountState, requireSubscription } from './subscriptionService.js';
+import { lockAccountState } from './subscriptionService.js';
 
 export interface ModelPricingRow extends RowDataPacket {
   id: number;
@@ -155,7 +155,6 @@ export async function createGenerations(
     // Kiểm tra đủ điểm cho CẢ LÔ trước khi tạo dòng nào, để không rơi vào cảnh
     // vẽ được nửa lô rồi hết điểm giữa chừng.
     const opening = await lockAccountState(conn, userId);
-    requireSubscription(opening);
     if (opening.availableTokens < totalCost) {
       throw new AppError(
         402,

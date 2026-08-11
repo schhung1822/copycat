@@ -18,7 +18,7 @@ const COLUMNS: { title: string; links: { label: string; to?: string; href?: stri
     links: [
       { label: 'Đăng ký', to: '/dang-ky' },
       { label: 'Đăng nhập', to: '/dang-nhap' },
-      { label: 'Gói dịch vụ', to: '/nap-tien' },
+      { label: 'Mua điểm', to: '/nap-tien' },
       { label: 'Ví điểm', to: '/vi-diem' },
     ],
   },

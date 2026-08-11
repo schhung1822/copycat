@@ -23,8 +23,8 @@ export const FinalCta: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => (
               Ảnh mẫu bạn thích đang mở sẵn trong tab kia rồi.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-gray-400">
-              Tạo tài khoản, chọn gói và dựng tấm ảnh đầu tiên ngay hôm nay. Thanh toán trực tuyến và hệ thống kích hoạt tự
-              động trong vài phút.
+              Tạo tài khoản, mua điểm và dựng tấm ảnh đầu tiên ngay hôm nay. Chuyển khoản xong là điểm vào ví tự động
+              trong vài phút.
             </p>
 
             <div className="mt-9 flex flex-col items-stretch justify-center gap-3 sm:flex-row">
@@ -52,7 +52,9 @@ export const FinalCta: React.FC<{ isLoggedIn: boolean }> = ({ isLoggedIn }) => (
               </a>
             </div>
 
-            <p className="mt-5 text-xs text-gray-500">Tạo tài khoản không mất phí — chỉ trả tiền khi bạn chọn gói.</p>
+            <p className="mt-5 text-xs text-gray-500">
+              Tạo tài khoản không mất phí — không thuê bao tháng, chỉ trả tiền cho số điểm bạn mua.
+            </p>
           </div>
         </div>
       </div>

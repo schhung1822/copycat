@@ -1,7 +1,7 @@
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from '../db.js';
 import { withTransaction } from '../db.js';
 import { AppError, badRequest } from '../lib/errors.js';
-import { lockAccountState, requireSubscription, type AccountState } from './subscriptionService.js';
+import { lockAccountState, type AccountState } from './subscriptionService.js';
 
 export type LedgerType = 'topup' | 'spend' | 'refund' | 'adjust' | 'grant' | 'expire';
 export type Bucket = 'monthly' | 'purchased';
@@ -68,6 +68,10 @@ export interface SpendResult {
  * khi sang chu kỳ mới nên tiêu trước là có lợi cho khách; điểm mua thêm không hết
  * hạn nên để dành.
  *
+ * Hệ thống nay chỉ bán điểm lẻ, nên với khách mới `monthlyTokens` luôn bằng 0 và
+ * mọi thứ chảy qua nhánh `purchased`. Nhánh hạn mức tháng vẫn còn cho tới khi
+ * những gói tháng bán trước đây hết hạn hẳn.
+ *
  * Bắt buộc gọi trong transaction. `lockAccountState` đã khoá dòng users và cấp lại
  * hạn mức nếu vừa sang tháng mới.
  */
@@ -81,13 +85,21 @@ export async function spendTokens(
   if (!Number.isInteger(amount) || amount <= 0) throw badRequest('Số điểm không hợp lệ.');
 
   const state = await lockAccountState(conn, userId);
-  requireSubscription(state);
 
   if (state.availableTokens < amount) {
+    /*
+     * Chỉ tách rõ hai nguồn khi khách thật sự còn hạn mức tháng của gói cũ. Khách
+     * mua điểm lẻ đọc "hạn mức tháng 0 + đã mua thêm 1.000" chỉ thấy rối, vì họ
+     * không hề biết tới khái niệm hạn mức tháng.
+     */
+    const breakdown =
+      state.monthlyTokens > 0
+        ? ` (hạn mức tháng ${state.monthlyTokens.toLocaleString('vi-VN')} + đã mua thêm ${state.purchasedTokens.toLocaleString('vi-VN')})`
+        : '';
+
     throw new AppError(
       402,
-      `Không đủ điểm. Cần ${amount.toLocaleString('vi-VN')}, hiện có ${state.availableTokens.toLocaleString('vi-VN')} ` +
-        `(hạn mức tháng ${state.monthlyTokens.toLocaleString('vi-VN')} + đã mua thêm ${state.purchasedTokens.toLocaleString('vi-VN')}).`,
+      `Không đủ điểm. Cần ${amount.toLocaleString('vi-VN')}, hiện có ${state.availableTokens.toLocaleString('vi-VN')}${breakdown}.`,
       'insufficient_tokens',
       {
         required: amount,

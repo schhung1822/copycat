@@ -1,5 +1,23 @@
+/**
+ * =====================================================================
+ *  HẠN MỨC THÁNG — DI SẢN CỦA MÔ HÌNH THUÊ BAO ĐÃ NGỪNG BÁN
+ * =====================================================================
+ *
+ * Sản phẩm nay bán ĐIỂM LẺ: mua điểm là dùng được ngay, không phải mua gói
+ * tháng, không có cửa nào chặn khách tạo ảnh nữa.
+ *
+ * File này vẫn còn vì hai lý do, KHÔNG phải vì quên dọn:
+ *
+ *   1. Những gói tháng đã bán trước đây phải được chạy hết hạn tử tế — khách
+ *      đã trả tiền cho chúng. Chừng nào còn một gói còn hạn thì `monthly_tokens`
+ *      vẫn phải được cấp lại, tiêu và thu hồi đúng như cũ.
+ *   2. Admin vẫn cấp gói tay cho khách VIP trong Quản trị → Khách hàng → "Gói".
+ *
+ * Phần đã gỡ hẳn: bán gói qua chuyển khoản, nâng gói (khấu trừ theo ngày), và
+ * hàm chặn `requireSubscription`.
+ */
 import { execute, query, queryOne, type PoolConnection, type ResultSetHeader, type RowDataPacket } from '../db.js';
-import { AppError, badRequest } from '../lib/errors.js';
+import { badRequest } from '../lib/errors.js';
 
 export interface PlanRow extends RowDataPacket {
   id: number;
@@ -48,105 +66,6 @@ interface UserStateRow extends RowDataPacket {
   monthly_allowance: number;
   monthly_tokens: number;
   monthly_period_end: Date | null;
-}
-
-export const NO_SUBSCRIPTION_MESSAGE =
-  'Bạn cần mua gói dịch vụ theo tháng trước khi tạo ảnh. Vào mục "Gói dịch vụ" để đăng ký.';
-
-export const listActivePlans = (): Promise<PlanRow[]> =>
-  query<PlanRow>('SELECT * FROM subscription_plans WHERE is_active = 1 ORDER BY sort_order, months');
-
-/** Số tiền tối thiểu của một đơn nâng gói — dưới mức này thì chuyển khoản không đáng. */
-const MIN_UPGRADE_PAYMENT_VND = 10_000;
-
-/** Thuê bao đang có hiệu lực của một tài khoản (bản ghi mới nhất còn hạn). */
-export const getActiveSubscription = (userId: number): Promise<SubscriptionRow | null> =>
-  queryOne<SubscriptionRow>(
-    `SELECT * FROM subscriptions
-      WHERE user_id = ? AND expires_at > NOW() AND status <> 'cancelled'
-      ORDER BY id DESC LIMIT 1`,
-    [userId],
-  );
-
-export interface UpgradeQuote {
-  plan: PlanRow;
-  /** Giá niêm yết của gói mới */
-  listPriceVnd: number;
-  /** Phần khấu trừ từ gói cũ */
-  creditVnd: number;
-  /** Số tiền khách thực trả */
-  payableVnd: number;
-  remainingDays: number;
-  totalDays: number;
-}
-
-/**
- * Tính tiền nâng gói.
- *
- * Khấu trừ theo **số ngày còn lại** của gói hiện tại:
- *
- *     khấu trừ = giá gói cũ × (số ngày còn lại / tổng số ngày)
- *
- * Đây là cách tính chuẩn của ngành (Stripe, Google Workspace… đều làm vậy) và
- * khách tự kiểm chứng được bằng phép chia đơn giản.
- *
- * Chỉ cho nâng lên gói ĐẮT HƠN gói hiện tại. Hạ gói không hỗ trợ vì sẽ phát sinh
- * nghĩa vụ hoàn tiền mặt — nằm ngoài luồng thanh toán một chiều hiện tại.
- */
-export async function computeUpgradeQuote(userId: number, planId: number): Promise<UpgradeQuote> {
-  const current = await getActiveSubscription(userId);
-  if (!current) throw badRequest('Bạn chưa có gói dịch vụ nào đang hoạt động để nâng cấp.', 'no_subscription');
-
-  const plan = await queryOne<PlanRow>('SELECT * FROM subscription_plans WHERE id = ? AND is_active = 1', [planId]);
-  if (!plan) throw badRequest('Gói dịch vụ không tồn tại hoặc đã ngừng bán.');
-
-  if (plan.price_vnd <= current.price_vnd) {
-    throw badRequest(
-      `Chỉ nâng lên được gói có giá cao hơn gói hiện tại (${current.plan_name}). Vui lòng chọn gói khác.`,
-      'not_an_upgrade',
-    );
-  }
-
-  // Tính bằng SQL để dùng đúng đồng hồ của database, tránh lệch múi giờ với server.
-  const span = await queryOne<RowDataPacket & { total_days: number; remaining_days: number }>(
-    `SELECT TIMESTAMPDIFF(DAY, ?, ?) AS total_days,
-            GREATEST(TIMESTAMPDIFF(DAY, NOW(), ?), 0) AS remaining_days`,
-    [current.started_at, current.expires_at, current.expires_at],
-  );
-
-  const totalDays = Math.max(Number(span?.total_days ?? 0), 1);
-  const remainingDays = Math.min(Number(span?.remaining_days ?? 0), totalDays);
-
-  const creditVnd = Math.round((current.price_vnd * remainingDays) / totalDays);
-  const payableVnd = plan.price_vnd - creditVnd;
-
-  if (payableVnd < MIN_UPGRADE_PAYMENT_VND) {
-    throw badRequest(
-      `Số tiền cần bù chỉ ${payableVnd.toLocaleString('vi-VN')}đ, quá nhỏ để tạo đơn chuyển khoản. ` +
-        'Vui lòng chọn gói cao hơn hoặc đợi gói hiện tại gần hết hạn rồi gia hạn.',
-      'upgrade_too_small',
-    );
-  }
-
-  return { plan, listPriceVnd: plan.price_vnd, creditVnd, payableVnd, remainingDays, totalDays };
-}
-
-/** Danh sách các gói có thể nâng lên, kèm số tiền phải bù cho từng gói. */
-export async function listUpgradeOptions(userId: number): Promise<UpgradeQuote[]> {
-  const current = await getActiveSubscription(userId);
-  if (!current) return [];
-
-  const plans = await listActivePlans();
-  const quotes: UpgradeQuote[] = [];
-  for (const plan of plans) {
-    if (plan.price_vnd <= current.price_vnd) continue;
-    try {
-      quotes.push(await computeUpgradeQuote(userId, plan.id));
-    } catch {
-      // Gói nào không đủ điều kiện (vd tiền bù quá nhỏ) thì lặng lẽ bỏ qua.
-    }
-  }
-  return quotes;
 }
 
 /**
@@ -302,10 +221,6 @@ export async function readAccountState(userId: number): Promise<AccountState> {
   };
 }
 
-export function requireSubscription(state: AccountState): void {
-  if (!state.isSubscribed) throw new AppError(403, NO_SUBSCRIPTION_MESSAGE, 'no_subscription');
-}
-
 /**
  * Kích hoạt (hoặc gia hạn) thuê bao sau khi đơn được thanh toán.
  *
@@ -423,19 +338,4 @@ export async function expireStaleSubscriptions(): Promise<number> {
     `UPDATE subscriptions SET status = 'expired' WHERE status = 'active' AND expires_at < NOW()`,
   );
   return result.affectedRows;
-}
-
-export function serializePlan(plan: PlanRow) {
-  const perMonth = Math.round(plan.price_vnd / plan.months);
-  return {
-    id: plan.id,
-    code: plan.code,
-    name: plan.name,
-    months: plan.months,
-    priceVnd: plan.price_vnd,
-    pricePerMonthVnd: perMonth,
-    monthlyTokenAllowance: plan.monthly_token_allowance,
-    description: plan.description,
-    isPopular: Boolean(plan.is_popular),
-  };
 }

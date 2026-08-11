@@ -10,7 +10,7 @@ import type { Catalog } from '../types';
 /**
  * Trang Chính sách & Điều khoản.
  *
- * Mọi con số nghiệp vụ (hạn mức tháng, chu kỳ gói, giá, thời hạn đơn) đều đọc từ
+ * Mọi con số nghiệp vụ (giá gói điểm, số điểm mỗi ảnh, thời hạn đơn) đều đọc từ
  * API bảng giá chứ không viết cứng, để chính sách không bao giờ mâu thuẫn với giá
  * đang bán thật khi admin chỉnh bảng giá.
  *
@@ -29,8 +29,8 @@ const Section: React.FC<{ id: string; title: string; children: React.ReactNode }
 const SECTIONS = [
   { id: 'dich-vu', label: 'Về dịch vụ' },
   { id: 'tai-khoan', label: 'Tài khoản' },
-  { id: 'goi-cuoc', label: 'Gói dịch vụ & hạn mức' },
-  { id: 'diem-le', label: 'Điểm mua thêm' },
+  { id: 'goi-cuoc', label: 'Điểm và cách tính' },
+  { id: 'diem-le', label: 'Mua điểm' },
   { id: 'thanh-toan', label: 'Thanh toán' },
   { id: 'hoan-tra', label: 'Hoàn điểm & hoàn tiền' },
   { id: 'noi-dung', label: 'Nội dung & bản quyền' },
@@ -82,10 +82,7 @@ export const PolicyPage: React.FC = () => {
 
   if (!catalog) return <PageLoader label="Đang tải chính sách..." />;
 
-  const { site, plans, packages, models } = catalog;
-  // Bỏ qua gói không có hạn mức (gói miễn phí) — câu văn đang nói về hạn mức tháng.
-  const allowance = (plans.find((plan) => plan.monthlyTokenAllowance > 0) ?? plans[0])?.monthlyTokenAllowance ?? 0;
-  const cycles = plans.map((plan) => plan.months).join(', ');
+  const { site, packages, models } = catalog;
   const cheapest = models.reduce<(typeof models)[number] | null>(
     (best, model) => (model.tokenCost > 0 && (!best || model.tokenCost < best.tokenCost) ? model : best),
     null,
@@ -106,7 +103,7 @@ export const PolicyPage: React.FC = () => {
 
         <div className="ml-auto flex items-center gap-3">
           <Link to={user ? '/nap-tien' : '/dang-nhap'} className="text-sm text-brand-500 hover:underline whitespace-nowrap">
-            {user ? 'Gói dịch vụ' : 'Đăng nhập'}
+            {user ? 'Mua điểm' : 'Đăng nhập'}
           </Link>
           <ThemeToggle />
         </div>
@@ -184,33 +181,34 @@ export const PolicyPage: React.FC = () => {
             </p>
           </Section>
 
-          <Section id="goi-cuoc" title="3. Gói dịch vụ & hạn mức điểm">
+          <Section id="goi-cuoc" title="3. Điểm và cách tính">
             <p>
-              Bạn cần mua gói dịch vụ theo tháng trước khi sử dụng chức năng tạo ảnh. Các chu kỳ hiện có:{' '}
-              <strong className="text-gray-300">{cycles} tháng</strong>. Chu kỳ dài hơn có đơn giá mỗi tháng thấp hơn.
+              Dịch vụ hoạt động theo mô hình <strong className="text-gray-300">trả trước bằng điểm</strong>: bạn mua
+              điểm và dùng dần. Không có phí thuê bao, không phí duy trì, không cam kết thời hạn và không tự động gia
+              hạn.
             </p>
             <p>
-              Mỗi tháng trong thời hạn gói, tài khoản được cấp hạn mức{' '}
-              <strong className="text-gray-300">Tương ứng với gói đăng ký</strong> để tạo ảnh. Số điểm tiêu hao
-              cho mỗi ảnh phụ thuộc mô hình và độ phân giải bạn chọn
-              {cheapest && ` (thấp nhất là ${formatNumber(cheapest.tokenCost)} điểm/ảnh với ${cheapest.label})`}.
+              Số điểm tiêu hao cho mỗi ảnh phụ thuộc mô hình và độ phân giải bạn chọn
+              {cheapest && ` (thấp nhất là ${formatNumber(cheapest.tokenCost)} điểm/ảnh với ${cheapest.label})`}. Số
+              điểm sẽ trừ luôn được hiển thị trước khi bạn bấm tạo.
             </p>
             <p className="text-gray-300">
-              <strong>Hạn mức tháng không được cộng dồn.</strong> Phần hạn mức chưa dùng hết trong một chu kỳ tháng sẽ
-              bị xoá khi sang chu kỳ tháng tiếp theo. Mua gói chu kỳ dài không làm tăng hạn mức của từng tháng.
+              <strong>Điểm đã mua không hết hạn.</strong> Số dư được giữ trong tài khoản cho tới khi bạn dùng hết, kể cả
+              khi bạn ngừng sử dụng dịch vụ một thời gian dài.
             </p>
             <p>
-              Gia hạn khi gói cũ còn hiệu lực sẽ được cộng nối tiếp vào ngày hết hạn cũ, bạn không mất những ngày còn
-              lại.
+              Điểm không quy đổi ngược thành tiền mặt và không chuyển nhượng được sang tài khoản khác.
             </p>
-            <p>
-              Khi gói hết hạn, hạn mức tháng chưa dùng sẽ bị thu hồi và bạn không tạo ảnh được cho tới khi gia hạn.
+            <p className="text-gray-500">
+              Các gói thuê bao theo tháng đã ngừng bán. Tài khoản đã mua gói trước đây vẫn được sử dụng hạn mức tháng
+              cho tới hết thời hạn đã thanh toán; sau đó tài khoản chuyển hoàn toàn sang dùng điểm như mọi tài khoản
+              khác. Phần điểm đã mua thêm không bị ảnh hưởng.
             </p>
           </Section>
 
-          <Section id="diem-le" title="4. Điểm mua thêm">
+          <Section id="diem-le" title="4. Mua điểm">
             <p>
-              Khi đã dùng hết hạn mức của tháng, bạn có thể mua thêm điểm lẻ.
+              Bạn mua điểm theo các gói mệnh giá cố định.
               {packages.length > 0 && (
                 <>
                   {' '}
@@ -221,14 +219,10 @@ export const PolicyPage: React.FC = () => {
               )}
             </p>
             <p>
-              Điểm mua thêm <strong className="text-gray-300">không hết hạn theo chu kỳ tháng</strong> và được giữ lại
-              kể cả khi gói dịch vụ hết hạn.
+              Điểm được cộng vào tài khoản ngay sau khi hệ thống ghi nhận chuyển khoản thành công. Không cần đăng ký gói
+              hay điều kiện gì khác trước đó.
             </p>
-            <p>
-              Khi tạo ảnh, hệ thống trừ hạn mức tháng trước, hết mới dùng tới điểm đã mua thêm — để phần sắp hết hạn
-              được tiêu trước.
-            </p>
-            <p>Việc mua điểm lẻ yêu cầu tài khoản đang có gói dịch vụ còn hiệu lực.</p>
+            <p>Bạn mua thêm điểm bất cứ lúc nào, kể cả khi số dư vẫn còn.</p>
           </Section>
 
           <Section id="thanh-toan" title="5. Thanh toán">
@@ -258,8 +252,8 @@ export const PolicyPage: React.FC = () => {
               phát sinh thực tế.
             </p>
             <p>
-              Gói dịch vụ và điểm đã mua không quy đổi thành tiền mặt và không hoàn lại sau khi đã kích hoạt. Trường
-              hợp bị trừ tiền mà không nhận được gói hoặc điểm, vui lòng liên hệ theo mục 12 để được đối soát và xử lý.
+              Điểm đã mua không quy đổi thành tiền mặt và không hoàn lại sau khi đã cộng vào tài khoản. Trường hợp bị
+              trừ tiền mà không nhận được điểm, vui lòng liên hệ theo mục 12 để được đối soát và xử lý.
             </p>
           </Section>
 
@@ -318,12 +312,12 @@ export const PolicyPage: React.FC = () => {
 
           <Section id="thay-doi" title="11. Thay đổi điều khoản">
             <p>
-              Chúng tôi có thể điều chỉnh giá gói, số điểm tiêu hao mỗi ảnh, danh sách mô hình và các điều khoản này
+              Chúng tôi có thể điều chỉnh giá gói điểm, số điểm tiêu hao mỗi ảnh, danh sách mô hình và các điều khoản này
               khi chi phí từ nhà cung cấp thay đổi.
             </p>
             <p>
-              Thay đổi <strong className="text-gray-300">không áp dụng ngược</strong> cho chu kỳ bạn đã thanh toán:
-              gói đang có hiệu lực vẫn giữ nguyên hạn mức đã cam kết cho tới hết hạn.
+              Thay đổi <strong className="text-gray-300">không áp dụng ngược</strong> cho số điểm bạn đã mua: điểm đang
+              có trong tài khoản giữ nguyên giá trị, chỉ số điểm trừ mỗi ảnh của lần tạo sau mới theo bảng giá mới.
             </p>
           </Section>
 
@@ -355,7 +349,7 @@ export const PolicyPage: React.FC = () => {
             </Card>
 
             <p className="text-[11px] text-gray-600 text-center pb-4">
-              Các con số về hạn mức, chu kỳ và giá trong trang này được lấy trực tiếp từ bảng giá đang áp dụng.
+              Các con số về giá và số điểm trong trang này được lấy trực tiếp từ bảng giá đang áp dụng.
             </p>
           </div>
         </div>

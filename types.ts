@@ -21,7 +21,12 @@ export interface User {
   role: 'user' | 'admin';
   createdAt: string;
 
-  /** Đang có gói dịch vụ còn hiệu lực hay không — quyết định có được tạo ảnh */
+  /*
+   * --- Di sản gói tháng ---
+   * Gói tháng đã ngừng bán. Các trường dưới đây chỉ còn khác 0 với những khách
+   * mua gói từ trước (hoặc được admin cấp tay) và đang trong thời hạn — giao
+   * diện phải xử lý được cả hai trường hợp cho tới khi gói cuối cùng hết hạn.
+   */
   isSubscribed: boolean;
   subscriptionExpiresAt: string | null;
   /** Hạn mức điểm được cấp mỗi tháng theo gói */
@@ -30,22 +35,11 @@ export interface User {
   monthlyTokens: number;
   /** Thời điểm hạn mức được cấp lại */
   monthlyPeriodEnd: string | null;
-  /** Điểm mua thêm từ gói lẻ — không hết hạn */
+
+  /** Điểm đã mua — không hết hạn. Đây là nguồn điểm duy nhất của khách mới. */
   purchasedTokens: number;
   /** Tổng dùng được ngay = monthlyTokens + purchasedTokens */
   tokenBalance: number;
-}
-
-export interface SubscriptionPlan {
-  id: number;
-  code: string;
-  name: string;
-  months: number;
-  priceVnd: number;
-  pricePerMonthVnd: number;
-  monthlyTokenAllowance: number;
-  description: string | null;
-  isPopular: boolean;
 }
 
 export interface ModelOption {
@@ -71,26 +65,6 @@ export interface TokenPackage {
   isPopular: boolean;
 }
 
-export interface UpgradeOption {
-  planId: number;
-  name: string;
-  months: number;
-  monthlyTokenAllowance: number;
-  /** Giá niêm yết của gói mới */
-  listPriceVnd: number;
-  /** Phần khấu trừ từ gói hiện tại */
-  creditVnd: number;
-  /** Số tiền thực phải trả */
-  payableVnd: number;
-  remainingDays: number;
-  totalDays: number;
-}
-
-export interface UpgradeInfo {
-  currentPlan: { planId: number | null; name: string; priceVnd: number; expiresAt: string } | null;
-  options: UpgradeOption[];
-}
-
 export interface BankInfo {
   bankCode: string;
   bankName: string;
@@ -110,7 +84,6 @@ export interface SiteInfo {
 }
 
 export interface Catalog {
-  plans: SubscriptionPlan[];
   models: ModelOption[];
   packages: TokenPackage[];
   bank: BankInfo;

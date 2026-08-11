@@ -58,7 +58,7 @@ export const LandingPage: React.FC = () => {
         <Features />
         <Models models={catalog?.models} />
         <UseCases />
-        <Pricing plans={catalog?.plans} packages={catalog?.packages} />
+        <Pricing packages={catalog?.packages} models={catalog?.models} />
         <Testimonials />
         <Faq />
         <FinalCta isLoggedIn={Boolean(user)} />

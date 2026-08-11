@@ -77,28 +77,33 @@ export const OverviewTab: React.FC = () => {
 
       {/* ---- Thuê bao ---- */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/*
+          Ba ô dưới đây là DI SẢN của mô hình gói tháng đã ngừng bán. Giữ lại vì
+          doanh thu cũ vẫn phải đối soát được, và vì còn khách đang dùng dở gói.
+          Xoá được khi ô "Gói tháng còn hạn" về 0 và không cần tra doanh thu cũ nữa.
+        */}
         <StatCard
-          label="Thuê bao đang chạy"
+          label="Gói tháng còn hạn"
           value={formatNumber(overview.subscribers.active)}
-          sub={`${overview.subscribers.expiringIn7Days} gói hết hạn trong 7 ngày`}
+          sub={`đã ngừng bán · ${overview.subscribers.expiringIn7Days} hết hạn trong 7 ngày`}
           tone={overview.subscribers.expiringIn7Days > 0 ? 'warning' : 'positive'}
+        />
+        <StatCard
+          label="Doanh thu bán điểm"
+          value={formatVnd(overview.revenue.extraTokenRevenue)}
+          sub={`${Math.round(
+            (overview.revenue.extraTokenRevenue / Math.max(overview.revenue.total, 1)) * 100,
+          )}% tổng doanh thu`}
         />
         <StatCard
           label="Doanh thu gói tháng"
           value={formatVnd(overview.revenue.subscriptionRevenue)}
-          sub={`${Math.round(
-            (overview.revenue.subscriptionRevenue / Math.max(overview.revenue.total, 1)) * 100,
-          )}% tổng doanh thu`}
-        />
-        <StatCard
-          label="Doanh thu điểm lẻ"
-          value={formatVnd(overview.revenue.extraTokenRevenue)}
-          sub="khách mua thêm ngoài hạn mức"
+          sub="di sản, không còn phát sinh mới"
         />
         <StatCard
           label="Hạn mức chưa dùng"
           value={formatNumber(overview.subscribers.monthlyTokensRemaining)}
-          sub="điểm, sẽ mất khi sang chu kỳ mới"
+          sub="điểm của gói cũ, mất khi sang chu kỳ mới"
         />
       </div>
 
