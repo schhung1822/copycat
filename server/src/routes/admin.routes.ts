@@ -75,6 +75,31 @@ adminRouter.get(
        FROM users`,
     );
 
+    /*
+     * Điểm khách đã tiêu — đọc từ SỔ CÁI chứ không từ bảng `generations`.
+     *
+     * Sổ cái là chứng từ duy nhất ghi mọi biến động điểm, kể cả những khoản
+     * không sinh ra từ một dòng generations (admin điều chỉnh tay, hoàn điểm
+     * lệch ngày với ảnh gốc). Đếm theo `generations.token_cost` sẽ bỏ sót các
+     * khoản đó và lệch dần với số dư thật của khách.
+     *
+     * `spend` ghi số ÂM, `refund` ghi số DƯƠNG, nên đảo dấu tổng của cả hai loại
+     * là ra đúng phần đã tiêu ròng — ảnh lỗi được hoàn tự khấu trừ luôn.
+     */
+    const spending = await queryOne<RowDataPacket & Record<string, number>>(
+      `SELECT
+         COALESCE(-SUM(CASE WHEN type IN ('spend','refund') THEN amount END), 0)          AS used_total,
+         COALESCE(-SUM(CASE WHEN type IN ('spend','refund') AND DATE(created_at) = CURDATE()
+                            THEN amount END), 0)                                          AS used_today,
+         COALESCE(-SUM(CASE WHEN type IN ('spend','refund')
+                             AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                            THEN amount END), 0)                                          AS used_30d,
+         COALESCE(-SUM(CASE WHEN type IN ('spend','refund') AND bucket = 'purchased'
+                            THEN amount END), 0)                                          AS used_purchased,
+         COALESCE(SUM(CASE WHEN type = 'refund' THEN amount END), 0)                      AS refunded
+       FROM token_transactions`,
+    );
+
     const generations = await queryOne<RowDataPacket & Record<string, number>>(
       `SELECT
          COUNT(*)                                                                       AS total,
@@ -118,8 +143,16 @@ adminRouter.get(
         outstandingLiabilityVnd: Math.round(num(users?.outstanding_tokens) * 2),
       },
       tokens: {
+        /** Điểm đã bán ra qua các đơn đã thanh toán */
         sold: num(revenue?.tokens_sold),
-        spent: num(generations?.tokens_spent),
+        /** Đã tiêu ròng (đã trừ phần hoàn cho ảnh lỗi) */
+        used: num(spending?.used_total),
+        usedToday: num(spending?.used_today),
+        usedLast30Days: num(spending?.used_30d),
+        /** Phần tiêu từ nguồn điểm khách BỎ TIỀN MUA, không tính hạn mức tháng cũ */
+        usedPurchased: num(spending?.used_purchased),
+        /** Đã hoàn lại vì ảnh lỗi */
+        refunded: num(spending?.refunded),
       },
       generations: {
         total: num(generations?.total),
@@ -180,10 +213,22 @@ adminRouter.get(
       [days],
     );
 
+    // Điểm tiêu mỗi ngày đọc từ sổ cái, cùng nguồn với ô "Điểm khách đã dùng" ở
+    // Tổng quan. Đếm theo generations.token_cost sẽ cho tổng biểu đồ lệch với con
+    // số trên ô thống kê ngay phía trên nó.
+    const spending = await query<RowDataPacket & { day: string; used: number }>(
+      `SELECT DATE(created_at) AS day, -SUM(amount) AS used
+         FROM token_transactions
+        WHERE type IN ('spend','refund') AND created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+        GROUP BY DATE(created_at)`,
+      [days],
+    );
+
     const key = (value: unknown) => new Date(value as string).toISOString().slice(0, 10);
     const revenueMap = new Map(revenue.map((row) => [key(row.day), row]));
     const imageMap = new Map(images.map((row) => [key(row.day), row]));
     const signupMap = new Map(signups.map((row) => [key(row.day), row]));
+    const spendMap = new Map(spending.map((row) => [key(row.day), row]));
 
     // Bù các ngày không có dữ liệu để biểu đồ không bị đứt đoạn.
     const series: unknown[] = [];
@@ -201,7 +246,7 @@ adminRouter.get(
         newUsers: num(signupMap.get(day)?.total),
         images: num(imageMap.get(day)?.total),
         successImages: num(imageMap.get(day)?.success),
-        tokensSpent: num(imageMap.get(day)?.tokens),
+        tokensSpent: num(spendMap.get(day)?.used),
         apiCostVnd: Math.round(apiCostUsd * env.usdToVnd),
       });
     }

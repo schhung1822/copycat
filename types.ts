@@ -195,7 +195,18 @@ export interface AdminOverview {
     outstandingTokens: number;
     outstandingLiabilityVnd: number;
   };
-  tokens: { sold: number; spent: number };
+  tokens: {
+    /** Điểm đã bán ra qua các đơn đã thanh toán */
+    sold: number;
+    /** Đã tiêu ròng, đọc từ sổ cái và đã trừ phần hoàn cho ảnh lỗi */
+    used: number;
+    usedToday: number;
+    usedLast30Days: number;
+    /** Phần tiêu từ nguồn điểm khách bỏ tiền mua, không tính hạn mức tháng cũ */
+    usedPurchased: number;
+    /** Đã hoàn lại vì ảnh lỗi */
+    refunded: number;
+  };
   generations: {
     total: number;
     success: number;

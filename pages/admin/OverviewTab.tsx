@@ -107,6 +107,47 @@ export const OverviewTab: React.FC = () => {
         />
       </div>
 
+      {/* ---- Dòng chảy điểm ----
+          Bốn ô đọc theo thứ tự là toàn bộ vòng đời của điểm: bán ra → khách tiêu
+          → phần hoàn lại vì ảnh lỗi → phần còn nằm trong ví. Số "đã dùng" lấy từ
+          sổ cái token_transactions, đã trừ phần hoàn nên là con số tiêu THẬT. */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Điểm đã bán"
+          value={formatNumber(overview.tokens.sold)}
+          sub={`qua ${formatNumber(overview.revenue.paidOrders)} đơn đã thanh toán`}
+        />
+        <StatCard
+          label="Điểm khách đã dùng"
+          value={formatNumber(overview.tokens.used)}
+          sub={
+            `${formatNumber(overview.tokens.usedToday)} hôm nay · ` +
+            `${formatNumber(overview.tokens.usedLast30Days)} trong 30 ngày`
+          }
+          tone="positive"
+        />
+        <StatCard
+          label="Đã hoàn vì ảnh lỗi"
+          value={formatNumber(overview.tokens.refunded)}
+          sub={
+            overview.tokens.used + overview.tokens.refunded > 0
+              ? `${
+                  Math.round(
+                    (overview.tokens.refunded / (overview.tokens.used + overview.tokens.refunded)) * 1000,
+                  ) / 10
+                }% số điểm đã trừ`
+              : 'chưa có ảnh lỗi nào'
+          }
+          tone={overview.tokens.refunded > 0 ? 'warning' : 'default'}
+        />
+        <StatCard
+          label="Điểm chưa dùng"
+          value={formatNumber(overview.users.outstandingTokens)}
+          sub={`Khách đã trả ~${formatVnd(overview.users.outstandingLiabilityVnd)} cho số này`}
+          tone="warning"
+        />
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Khách hàng"
@@ -119,10 +160,13 @@ export const OverviewTab: React.FC = () => {
           sub={`${overview.generations.today} hôm nay · tỉ lệ thành công ${overview.generations.successRate}%`}
         />
         <StatCard
-          label="Điểm lẻ chưa dùng"
-          value={formatNumber(overview.users.outstandingTokens)}
-          sub={`Khách đã trả ~${formatVnd(overview.users.outstandingLiabilityVnd)} cho số này`}
-          tone="warning"
+          label="Điểm trung bình mỗi ảnh"
+          value={
+            overview.generations.success > 0
+              ? formatNumber(Math.round(overview.tokens.used / overview.generations.success))
+              : '—'
+          }
+          sub={`trên ${formatNumber(overview.generations.success)} ảnh thành công`}
         />
         <StatCard
           label="Hàng đợi"
@@ -173,7 +217,7 @@ export const OverviewTab: React.FC = () => {
         />
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="p-5">
           <h2 className="font-bold text-gray-100 mb-4">Số ảnh tạo mỗi ngày</h2>
           <BarChart
@@ -186,6 +230,27 @@ export const OverviewTab: React.FC = () => {
                 label: 'Ảnh',
                 color: CHART_COLORS.primary,
                 values: daily.map((point) => point.images),
+              },
+            ]}
+          />
+        </Card>
+
+        <Card className="p-5">
+          <h2 className="font-bold text-gray-100 mb-4">Điểm khách dùng mỗi ngày</h2>
+          {/*
+            Trục dọc rút gọn giống biểu đồ doanh thu: số điểm hằng ngày lên tới
+            hàng chục nghìn, in đủ chữ số thì nhãn trục đè lên nhau.
+          */}
+          <BarChart
+            labels={labels}
+            format={(value) => compactVnd(value)}
+            height={160}
+            series={[
+              {
+                key: 'tokens',
+                label: 'Điểm',
+                color: CHART_COLORS.primary,
+                values: daily.map((point) => point.tokensSpent),
               },
             ]}
           />
@@ -260,6 +325,7 @@ export const OverviewTab: React.FC = () => {
               <tr className="text-[11px] uppercase tracking-wider text-gray-500 border-b border-dark-800">
                 <th className="text-left font-bold py-2">Khách hàng</th>
                 <th className="text-right font-bold py-2">Đã nạp</th>
+                <th className="text-right font-bold py-2">Điểm đã dùng</th>
                 <th className="text-right font-bold py-2">Còn lại</th>
                 <th className="text-right font-bold py-2">Ảnh</th>
               </tr>
@@ -267,7 +333,7 @@ export const OverviewTab: React.FC = () => {
             <tbody>
               {topUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-6 text-center text-gray-600 text-xs">
+                  <td colSpan={5} className="py-6 text-center text-gray-600 text-xs">
                     Chưa có dữ liệu.
                   </td>
                 </tr>
@@ -276,6 +342,7 @@ export const OverviewTab: React.FC = () => {
                   <tr key={user.id} className="border-b border-dark-850 last:border-0">
                     <td className="py-2.5 text-gray-300 truncate max-w-[200px]">{user.fullName || user.email}</td>
                     <td className="py-2.5 text-right text-gray-300">{formatVnd(user.totalTopupVnd)}</td>
+                    <td className="py-2.5 text-right text-gray-300">{formatNumber(user.tokensSpent)}</td>
                     <td className="py-2.5 text-right text-brand-500">{formatNumber(user.tokenBalance)}</td>
                     <td className="py-2.5 text-right text-gray-500">{formatNumber(user.images)}</td>
                   </tr>
