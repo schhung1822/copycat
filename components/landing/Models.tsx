@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatNumber } from '../../lib/format';
-import type { ModelOption } from '../../types';
+import { pickBasisPackage, roundedImageCount } from '../../lib/imageEstimate';
+import type { ModelOption, TokenPackage } from '../../types';
 import { Reveal } from './Reveal';
 import { SectionHeading } from './SectionHeading';
 
@@ -34,10 +35,14 @@ const FAMILY_COPY: { family: string; name: string; tagline: string; best: string
   },
 ];
 
-/** Hạn mức tháng dùng để ước lượng "tạo được bao nhiêu ảnh". */
-const MONTHLY_ALLOWANCE = 500_000;
-
-/** Bảng giá dự phòng, dùng khi không gọi được API — trang vẫn phải đọc được. */
+/**
+ * Bảng giá dự phòng, dùng khi không gọi được API — trang vẫn phải đọc được.
+ *
+ * Số ở đây là giá trị khởi tạo trong `server/src/seed.ts`, KHÔNG phải giá đang
+ * bán thật: admin chỉnh giá trong trang Quản trị thì chỉ database đổi, danh sách
+ * này đứng yên. Chấp nhận được vì nó chỉ hiện khi API chết — lúc đó có số cũ vẫn
+ * hơn là khu bảng giá trống trơn.
+ */
 const FALLBACK: ModelOption[] = [
   { code: 'nano-banana-pro-1k', label: '', family: 'nano-banana-pro', resolution: '1K', tokenCost: 2520, isEstimateReference: false, notes: null },
   { code: 'nano-banana-pro-2k', label: '', family: 'nano-banana-pro', resolution: '2K', tokenCost: 2520, isEstimateReference: false, notes: null },
@@ -52,8 +57,17 @@ const FALLBACK: ModelOption[] = [
 
 const RESOLUTION_ORDER = ['1K', '2K', '4K'];
 
-export const Models: React.FC<{ models?: ModelOption[] }> = ({ models }) => {
+export const Models: React.FC<{ models?: ModelOption[]; packages?: TokenPackage[] }> = ({ models, packages }) => {
   const source = models && models.length > 0 ? models : FALLBACK;
+
+  /*
+   * Mốc quy "điểm/ảnh" ra "số ảnh" là một GÓI ĐIỂM đang bán, không phải hằng số.
+   *
+   * Trước đây chỗ này chia cho 500.000 — hạn mức tháng của gói thuê bao đã ngừng
+   * bán. Con số ra không còn ứng với thứ gì khách mua được, và cũng không đổi
+   * theo khi admin chỉnh bảng giá.
+   */
+  const basis = pickBasisPackage(packages);
 
   const cards = FAMILY_COPY.map((copy) => {
     const tiers = source
@@ -68,7 +82,11 @@ export const Models: React.FC<{ models?: ModelOption[] }> = ({ models }) => {
         <SectionHeading
           eyebrow="Model AI"
           title="Chọn model theo việc, không phải theo lời quảng cáo"
-          description="Điểm trừ theo đúng model và độ phân giải bạn chọn, hiện rõ trước khi bấm tạo. Cột bên phải là số ảnh ước tính nếu dùng trọn hạn mức 500.000 điểm một tháng."
+          description={
+            basis
+              ? `Điểm trừ theo đúng model và độ phân giải bạn chọn, hiện rõ trước khi bấm tạo. Số ảnh bên phải là ước tính nếu dùng trọn ${formatNumber(basis.totalTokens)} điểm của ${basis.name}.`
+              : 'Điểm trừ theo đúng model và độ phân giải bạn chọn, hiện rõ trước khi bấm tạo.'
+          }
         />
 
         <div className="mt-10 grid sm:mt-14 gap-5 lg:grid-cols-3">
@@ -100,8 +118,12 @@ export const Models: React.FC<{ models?: ModelOption[] }> = ({ models }) => {
                     <span className="font-semibold text-gray-200">{tier.resolution}</span>
                     <span className="text-xs text-gray-500">
                       <span className="font-semibold text-gray-300">{formatNumber(tier.tokenCost)}</span> điểm
-                      <span className="mx-1.5 text-gray-600">·</span>~
-                      {formatNumber(Math.floor(MONTHLY_ALLOWANCE / Math.max(tier.tokenCost, 1)))} ảnh
+                      {basis && (
+                        <>
+                          <span className="mx-1.5 text-gray-600">·</span>~
+                          {formatNumber(roundedImageCount(basis.totalTokens, tier.tokenCost))} ảnh
+                        </>
+                      )}
                     </span>
                   </div>
                 ))}

@@ -56,7 +56,7 @@ export const LandingPage: React.FC = () => {
         <StatsStrip />
         <HowItWorks />
         <Features />
-        <Models models={catalog?.models} />
+        <Models models={catalog?.models} packages={catalog?.packages} />
         <UseCases />
         <Pricing packages={catalog?.packages} models={catalog?.models} />
         <Testimonials />

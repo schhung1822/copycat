@@ -5,7 +5,7 @@ import { Alert, Badge, Card, EmptyState, PageLoader, TableWrap } from '../compon
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
 import { countdown, formatDateTime, formatNumber, formatVnd, STATUS_LABEL } from '../lib/format';
-import { modelShortName, pickReferenceModel, roundedImageCount } from '../lib/imageEstimate';
+import { modelShortName, pickBasisPackage, pickReferenceModel, roundedImageCount } from '../lib/imageEstimate';
 import { APP_HOME } from '../lib/routes';
 import type { BankInfo, Catalog, ModelOption, Order, TokenPackage } from '../types';
 
@@ -435,13 +435,9 @@ const PaymentPanel: React.FC<{
 
 /** Bảng điểm tiêu hao mỗi ảnh, để khách ước lượng một gói điểm dùng được bao nhiêu ảnh. */
 const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
-  /*
-   * Cột "số ảnh" tính theo gói ĐANG ĐƯỢC ĐÁNH DẤU PHỔ BIẾN, và bảng nói rõ tên
-   * gói đó. Lấy gói lớn nhất thì con số đẹp nhưng không phải thứ đa số khách
-   * mua; lấy gói nhỏ nhất thì trông như dịch vụ tạo được rất ít ảnh.
-   */
-  const basePackage =
-    catalog.packages.find((pkg) => pkg.isPopular) ?? catalog.packages[catalog.packages.length - 1] ?? null;
+  // Cột "số ảnh" tính theo gói mốc, và bảng nói rõ tên gói đó. Cách chọn gói mốc
+  // nằm ở lib/imageEstimate để bảng model ở trang giới thiệu dùng đúng gói này.
+  const basePackage = pickBasisPackage(catalog.packages);
   const baseTokens = basePackage?.totalTokens ?? 0;
 
   /**
@@ -487,7 +483,10 @@ const PricingReference: React.FC<{ catalog: Catalog }> = ({ catalog }) => {
                 )}
                 {baseTokens > 0 && (
                   <td className="py-2.5 text-right text-gray-500 text-xs">
-                    {model.tokenCost > 0 ? `~${formatNumber(Math.floor(baseTokens / model.tokenCost))} ảnh` : '—'}
+                    {/* Dùng chung roundedImageCount với thẻ gói phía trên: cùng
+                        một trang mà thẻ ghi "tới 140 ảnh" còn bảng ghi "~147 ảnh"
+                        thì khách không biết tin con số nào. */}
+                    {model.tokenCost > 0 ? `~${formatNumber(roundedImageCount(baseTokens, model.tokenCost))} ảnh` : '—'}
                   </td>
                 )}
               </tr>

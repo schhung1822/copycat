@@ -1,4 +1,4 @@
-import type { ModelOption } from '../types';
+import type { ModelOption, TokenPackage } from '../types';
 
 /**
  * Quy số điểm ra số ảnh — dùng CHUNG cho trang giới thiệu và trang Mua điểm.
@@ -74,3 +74,18 @@ export function roundedImageCount(tokens: number, costPerImage: number): number 
 
 /** "GPT Image 2 — 2K" -> "GPT Image 2", để ghép vào câu chú thích. */
 export const modelShortName = (model: ModelOption | null): string => model?.label.split('—')[0].trim() ?? '';
+
+/**
+ * Gói điểm dùng làm mốc khi cần nói "model này tạo được bao nhiêu ảnh".
+ *
+ * Lấy gói đang được đánh dấu nổi bật, vì đó là gói đa số khách mua. Gói lớn nhất
+ * cho con số đẹp nhưng không phản ánh thực tế; gói nhỏ nhất thì trông như dịch vụ
+ * tạo được rất ít ảnh.
+ *
+ * Trước đây bảng model ở trang giới thiệu neo vào hằng số 500.000 điểm/tháng của
+ * gói thuê bao — gói đó đã ngừng bán nên con số ấy không còn nghĩa gì.
+ */
+export function pickBasisPackage(packages: TokenPackage[] | undefined): TokenPackage | null {
+  if (!packages || packages.length === 0) return null;
+  return packages.find((pkg) => pkg.isPopular) ?? packages[packages.length - 1] ?? null;
+}

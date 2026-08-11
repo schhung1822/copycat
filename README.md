@@ -487,6 +487,10 @@ giờ nên bỏ qua `timezone: 'Z'`, và `new Date(chuỗi)` lại đọc theo g
 | Nano Banana Pro — 4K | `nano-banana-pro` | $0.12 | 3.360 | ~74 |
 | Nano Banana 2 Lite | `nano-banana-2-lite` | *chưa rõ* | — | **đang tắt bán** |
 
+> Bảng trên là **giá trị khởi tạo** trong [seed.ts](server/src/seed.ts), không phải giá đang
+> bán. Admin chỉnh `Điểm thu` trong trang Quản trị thì chỉ database đổi — bảng này đứng yên.
+> Muốn xem số thật thì vào Quản trị → Bảng giá.
+
 Dòng in đậm là **mốc quy đổi**: model dùng để tính "Tạo được tới N ảnh" trên thẻ gói điểm,
 ở cả trang giới thiệu lẫn trang Mua điểm. Đổi mốc ở Quản trị → Bảng giá, cột **Mốc quy đổi**
 (radio, chỉ một model được chọn, model đã tắt bán thì không chọn được). Sửa **Điểm thu** của
