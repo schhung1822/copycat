@@ -29,6 +29,8 @@ catalogRouter.get(
         family: model.family,
         resolution: model.resolution,
         tokenCost: model.token_cost,
+        // Model admin chọn làm mốc quy số điểm ra số ảnh trên thẻ gói điểm.
+        isEstimateReference: Boolean(model.is_estimate_reference),
         notes: model.notes,
       })),
       packages: packages.map((pkg) => ({

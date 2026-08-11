@@ -5,6 +5,7 @@ import { Alert, Badge, Card, EmptyState, PageLoader, TableWrap } from '../compon
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
 import { countdown, formatDateTime, formatNumber, formatVnd, STATUS_LABEL } from '../lib/format';
+import { modelShortName, pickReferenceModel, roundedImageCount } from '../lib/imageEstimate';
 import { APP_HOME } from '../lib/routes';
 import type { BankInfo, Catalog, ModelOption, Order, TokenPackage } from '../types';
 
@@ -15,34 +16,6 @@ const ORDER_POLL_MS = 5000;
  * chuyển khoản muộn, webhook vẫn xử lý nên phải để khách nhìn thấy kết quả.
  */
 const isAwaitingPayment = (order: Order) => order.status === 'pending' || order.status === 'expired';
-
-/** Bội số làm tròn số ảnh hiển thị trên thẻ gói. */
-const IMAGE_COUNT_STEP = 10;
-
-/**
- * Model dùng làm mốc quy đổi số điểm ra số ảnh trên thẻ gói.
- *
- * Phải trùng với model ghi ở dòng chú thích dưới lưới, nếu không số ảnh hiển thị
- * sẽ không khớp với lời giải thích — khách đọc "tính theo Nano Banana 2" nhưng
- * con số lại tính bằng model rẻ hơn là thành hứa quá.
- *
- * Nếu bảng giá không còn model này thì lùi về model rẻ nhất cùng độ phân giải.
- */
-const REFERENCE_MODEL = { family: 'nano-banana-2', resolution: '2K' };
-
-/**
- * Quy số điểm ra số ảnh, làm tròn XUỐNG cho số gọn mắt.
- *
- * Luôn làm tròn xuống chứ không làm tròn gần nhất: làm tròn lên sẽ hứa nhiều ảnh
- * hơn số điểm thật sự cho phép (vd 357 ảnh mà ghi 400), khách tạo tới ảnh thứ
- * 358 là hết điểm và có cơ sở khiếu nại.
- */
-function roundedImageCount(tokens: number, tokenCostPerImage: number): number {
-  const exact = Math.floor(tokens / tokenCostPerImage);
-  // Số điểm quá nhỏ để làm tròn thì giữ nguyên con số thật, tránh hiển thị 0.
-  if (exact < IMAGE_COUNT_STEP) return exact;
-  return Math.floor(exact / IMAGE_COUNT_STEP) * IMAGE_COUNT_STEP;
-}
 
 export const TopUpPage: React.FC = () => {
   const { refreshUser } = useAuth();
@@ -118,23 +91,9 @@ export const TopUpPage: React.FC = () => {
   if (!catalog) return <PageLoader />;
 
   // Quy số điểm ra số ảnh — con số này dễ hình dung hơn nhiều so với "500.000
-  // điểm". Mốc quy đổi lấy đúng model ghi trên thẻ (REFERENCE_MODEL), nếu không
-  // số hiển thị sẽ không khớp với dòng chú thích bên dưới.
-  const cheapestOf = (list: ModelOption[]) =>
-    list.reduce<ModelOption | null>(
-      (cheapest, model) =>
-        model.tokenCost > 0 && (!cheapest || model.tokenCost < cheapest.tokenCost) ? model : cheapest,
-      null,
-    );
-  const referenceModel =
-    catalog.models.find(
-      (model) =>
-        model.family === REFERENCE_MODEL.family &&
-        model.resolution === REFERENCE_MODEL.resolution &&
-        model.tokenCost > 0,
-    ) ??
-    cheapestOf(catalog.models.filter((model) => model.resolution === REFERENCE_MODEL.resolution)) ??
-    cheapestOf(catalog.models);
+  // điểm". Model mốc và cách làm tròn nằm ở lib/imageEstimate để trang này và
+  // bảng giá ở trang giới thiệu luôn ra cùng một con số cho cùng một gói.
+  const referenceModel = pickReferenceModel(catalog.models);
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
@@ -210,7 +169,7 @@ const BalanceStatus: React.FC<{ referenceModel: ModelOption | null }> = ({ refer
           {images > 0 && (
             <p className="text-[11px] text-gray-500 mt-1">
               Tạo được khoảng {formatNumber(images)} ảnh {referenceModel?.resolution} với{' '}
-              {referenceModel?.label.split('—')[0].trim()}
+              {modelShortName(referenceModel)}
             </p>
           )}
         </div>
@@ -244,10 +203,6 @@ const PackageGrid: React.FC<{
   /** Model dùng làm mốc quy số điểm ra số ảnh */
   referenceModel: ModelOption | null;
 }> = ({ packages, creatingId, onSelect, referenceModel }) => {
-  // "Nano Banana 2 — 2K" -> "Nano Banana 2". Lấy từ bảng giá chứ không gõ tay,
-  // để đổi model mốc là chữ trên thẻ tự đổi theo.
-  const modelShortName = referenceModel?.label.split('—')[0].trim() ?? '';
-
   return (
     <>
       {/*
@@ -312,7 +267,8 @@ const PackageGrid: React.FC<{
         <p className="text-[11px] text-gray-600 mt-3">
           {/* Số điểm lấy từ bảng giá, không gõ tay — gõ tay là sớm muộn cũng
               lệch với con số thật khi bảng giá đổi. */}
-          Số ảnh tính theo <strong className="text-gray-500">{modelShortName}</strong> ở {referenceModel.resolution} (
+          Số ảnh tính theo <strong className="text-gray-500">{modelShortName(referenceModel)}</strong> ở{' '}
+          {referenceModel.resolution} (
           {formatNumber(referenceModel.tokenCost)} điểm/ảnh). Chọn ảnh 1K sẽ được nhiều ảnh hơn, chọn 4K thì ít hơn; xem
           bảng quy đổi bên dưới. Điểm đã mua không hết hạn.
         </p>

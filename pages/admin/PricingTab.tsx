@@ -191,6 +191,11 @@ export const PricingTab: React.FC = () => {
             <strong>Giá vốn</strong> là giá nhà cung cấp thu mỗi ảnh (theo bảng giá Kie.ai).{' '}
             <strong>Điểm thu</strong> là số điểm trừ của khách. Sửa trực tiếp trong ô rồi bấm ra ngoài để lưu.
           </p>
+          <p className="text-xs text-gray-500 mt-1.5">
+            <strong>Mốc quy đổi</strong> chọn model dùng để tính dòng "Tạo được tới N ảnh" trên thẻ gói điểm — ở cả
+            trang giới thiệu lẫn trang Mua điểm. Công thức: <em>số điểm của gói ÷ Điểm thu của model này</em>, làm tròn
+            xuống. Đổi Điểm thu ở đây là số ảnh trên thẻ gói tự đổi theo. Chỉ một model được chọn.
+          </p>
         </div>
 
         <TableWrap>
@@ -204,6 +209,7 @@ export const PricingTab: React.FC = () => {
               <th className="text-right font-bold py-2">Điểm thu</th>
               <th className="text-right font-bold py-2">Giá bán</th>
               <th className="text-right font-bold py-2">Biên</th>
+              <th className="text-center font-bold py-2">Mốc quy đổi</th>
               <th className="text-center font-bold py-2">Bán</th>
             </tr>
           </thead>
@@ -242,6 +248,32 @@ export const PricingTab: React.FC = () => {
                   }`}
                 >
                   {model.marginPercent}%
+                </td>
+                <td className="py-2 text-center">
+                  {/*
+                    Radio chứ không phải checkbox: chỉ MỘT model được làm mốc, và
+                    radio nói đúng điều đó cho người dùng ngay từ hình dáng. Cùng
+                    một `name` nên trình duyệt tự bỏ chọn dòng cũ; server cũng tự
+                    tắt cờ ở các dòng còn lại trong cùng transaction.
+
+                    Khoá ở model đã tắt bán: bảng giá công khai chỉ trả về model
+                    đang bán, nên chọn model tắt thì phía khách không thấy nó và
+                    số ảnh lặng lẽ rơi về model dự phòng — admin sửa Điểm thu mãi
+                    mà con số ngoài trang không nhúc nhích, không hiểu vì sao.
+                  */}
+                  <input
+                    type="radio"
+                    name="estimate-reference"
+                    checked={model.isEstimateReference}
+                    disabled={!model.isActive}
+                    title={
+                      model.isActive
+                        ? 'Dùng model này để tính "Tạo được tới N ảnh" trên thẻ gói điểm'
+                        : 'Phải bật Bán trước thì mới chọn làm mốc quy đổi được'
+                    }
+                    onChange={() => updateModel(model.id, { isEstimateReference: true })}
+                    className="accent-brand-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                  />
                 </td>
                 <td className="py-2 text-center">
                   <input

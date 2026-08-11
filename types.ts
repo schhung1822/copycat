@@ -48,6 +48,8 @@ export interface ModelOption {
   family: string;
   resolution: string;
   tokenCost: number;
+  /** Model admin chọn làm mốc quy số điểm ra số ảnh trên thẻ gói điểm */
+  isEstimateReference: boolean;
   notes: string | null;
 }
 
@@ -273,6 +275,8 @@ export interface AdminModelPricing {
   sellPriceVnd: number;
   marginPercent: number;
   isActive: boolean;
+  /** Model làm mốc quy số điểm ra số ảnh trên thẻ gói điểm — chỉ một model được bật */
+  isEstimateReference: boolean;
   sortOrder: number;
   notes: string | null;
 }

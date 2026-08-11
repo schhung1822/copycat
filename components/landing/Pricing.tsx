@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { formatNumber, formatVnd } from '../../lib/format';
+import { modelShortName, pickReferenceModel, roundedImageCount } from '../../lib/imageEstimate';
 import type { ModelOption, TokenPackage } from '../../types';
 import { Reveal } from './Reveal';
 import { SectionHeading } from './SectionHeading';
@@ -30,28 +31,12 @@ const INCLUDED = [
   'Ảnh lỗi được hoàn điểm tự động',
 ];
 
-/**
- * Làm tròn số ảnh xuống mốc dễ đọc, để khách hình dung "mua chừng này được bao
- * nhiêu ảnh" mà không bị con số lẻ (vd 127 ảnh) làm rối.
- */
-function roundedImageCount(tokens: number, costPerImage: number): number {
-  const exact = Math.floor(tokens / costPerImage);
-  if (exact >= 100) return Math.floor(exact / 10) * 10;
-  if (exact >= 20) return Math.floor(exact / 5) * 5;
-  return exact;
-}
-
 export const Pricing: React.FC<{ packages?: TokenPackage[]; models?: ModelOption[] }> = ({ packages, models }) => {
   const packageList = packages && packages.length > 0 ? packages : FALLBACK_PACKAGES;
 
-  /*
-   * Quy đổi số điểm ra số ảnh theo model RẺ NHẤT đang bán, và nói rõ là "tới …
-   * ảnh". Lấy model đắt nhất thì con số bé đến mức trông như đắt vô lý; lấy
-   * trung bình thì không kiểm chứng được vì khách không biết trung bình của cái
-   * gì. Rẻ nhất là mốc duy nhất khách tự đối chiếu được với bảng giá model.
-   */
-  const cheapestCost = models?.reduce((min, model) => (model.tokenCost > 0 ? Math.min(min, model.tokenCost) : min), Infinity);
-  const referenceCost = cheapestCost && Number.isFinite(cheapestCost) ? cheapestCost : null;
+  // Model mốc và cách làm tròn nằm ở lib/imageEstimate để trang này và trang Mua
+  // điểm luôn ra cùng một con số cho cùng một gói.
+  const referenceModel = pickReferenceModel(models);
 
   return (
     <section id="bang-gia" className="scroll-mt-20 py-14 sm:py-20 lg:py-28">
@@ -76,7 +61,7 @@ export const Pricing: React.FC<{ packages?: TokenPackage[]; models?: ModelOption
         */}
         <div className="mt-10 flex flex-wrap justify-center gap-4 sm:mt-14">
           {packageList.map((pkg, index) => {
-            const images = referenceCost ? roundedImageCount(pkg.totalTokens, referenceCost) : 0;
+            const images = referenceModel ? roundedImageCount(pkg.totalTokens, referenceModel.tokenCost) : 0;
 
             return (
               <Reveal
@@ -122,7 +107,19 @@ export const Pricing: React.FC<{ packages?: TokenPackage[]; models?: ModelOption
           })}
         </div>
 
-        <Reveal delay={120} className="mt-6 rounded-2xl border border-dark-800 bg-dark-900 p-5 sm:p-6">
+        {referenceModel && (
+          <Reveal delay={120}>
+            <p className="mt-4 text-center text-[11px] text-gray-600">
+              {/* Số điểm đọc từ bảng giá chứ không gõ tay — gõ tay là sớm muộn
+                  cũng lệch với con số thật khi admin chỉnh bảng giá. */}
+              Số ảnh tính theo <strong className="text-gray-500">{modelShortName(referenceModel)}</strong> ở{' '}
+              {referenceModel.resolution} ({formatNumber(referenceModel.tokenCost)} điểm/ảnh). Chọn ảnh 1K được nhiều
+              hơn, chọn 4K thì ít hơn.
+            </p>
+          </Reveal>
+        )}
+
+        <Reveal delay={140} className="mt-6 rounded-2xl border border-dark-800 bg-dark-900 p-5 sm:p-6">
           <h3 className="text-sm font-bold text-gray-100">Gói nào cũng có đủ</h3>
           <ul className="mt-4 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {INCLUDED.map((item) => (

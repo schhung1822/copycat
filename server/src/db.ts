@@ -159,6 +159,10 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   // xem chú thích ở schema.sql. Ảnh cũ để NULL nghĩa là chưa ai xoá.
   await ensureColumn(conn, 'generations', 'deleted_at', 'DATETIME NULL');
 
+  // Model được chọn làm mốc quy "số điểm" ra "số ảnh" trên các thẻ gói điểm.
+  // Admin bật cờ này ở tab Bảng giá; chỉ một model được bật tại một thời điểm.
+  await ensureColumn(conn, 'model_pricing', 'is_estimate_reference', 'TINYINT(1) NOT NULL DEFAULT 0');
+
   // Sổ cái tách hai nguồn điểm
   await ensureColumn(conn, 'token_transactions', 'bucket', "ENUM('monthly','purchased') NOT NULL DEFAULT 'purchased'");
   // MODIFY chạy lại vô hại, dùng để bổ sung giá trị enum mới.

@@ -472,20 +472,28 @@ giờ nên bỏ qua `timezone: 'Z'`, và `new Date(chuỗi)` lại đọc theo g
 
 ### Điểm tiêu hao mỗi ảnh
 
-`token_cost = api_cost_usd × USD_TO_VND` (1 điểm = 1đ giá vốn). Cột cuối tính trên hạn mức
-500.000 điểm/tháng nếu chỉ dùng một loại ảnh duy nhất.
+`token_cost = api_cost_usd × USD_TO_VND` (1 điểm = 1đ giá vốn). Cột cuối tính trên gói
+499.000đ (250.000 điểm) nếu chỉ dùng một loại ảnh duy nhất.
 
-| Model | Slug gửi API | Giá vốn (Kie.ai) | Điểm/ảnh | Số ảnh trong hạn mức tháng |
+| Model | Slug gửi API | Giá vốn (Kie.ai) | Điểm/ảnh | Số ảnh với gói 499.000đ |
 |---|---|---|---|---|
-| GPT Image 2 — 1K | `gpt-image-2-image-to-image` | $0.03 | 840 | ~595 |
-| GPT Image 2 — 2K | `gpt-image-2-image-to-image` | $0.05 | 1.400 | ~357 |
-| GPT Image 2 — 4K | `gpt-image-2-image-to-image` | $0.08 | 2.240 | ~223 |
-| Nano Banana 2 — 1K | `nano-banana-2` | $0.04 | 1.120 | ~446 |
-| Nano Banana 2 — 2K | `nano-banana-2` | $0.06 | 1.680 | ~297 |
-| Nano Banana 2 — 4K | `nano-banana-2` | $0.09 | 2.520 | ~198 |
-| Nano Banana Pro — 1K/2K | `nano-banana-pro` | $0.09 | 2.520 | ~198 |
-| Nano Banana Pro — 4K | `nano-banana-pro` | $0.12 | 3.360 | ~148 |
+| GPT Image 2 — 1K | `gpt-image-2-image-to-image` | $0.03 | 840 | ~297 |
+| **GPT Image 2 — 2K** | `gpt-image-2-image-to-image` | $0.05 | **1.400** | ~178 |
+| GPT Image 2 — 4K | `gpt-image-2-image-to-image` | $0.08 | 2.240 | ~111 |
+| Nano Banana 2 — 1K | `nano-banana-2` | $0.04 | 1.120 | ~223 |
+| Nano Banana 2 — 2K | `nano-banana-2` | $0.06 | 1.680 | ~148 |
+| Nano Banana 2 — 4K | `nano-banana-2` | $0.09 | 2.520 | ~99 |
+| Nano Banana Pro — 1K/2K | `nano-banana-pro` | $0.09 | 2.520 | ~99 |
+| Nano Banana Pro — 4K | `nano-banana-pro` | $0.12 | 3.360 | ~74 |
 | Nano Banana 2 Lite | `nano-banana-2-lite` | *chưa rõ* | — | **đang tắt bán** |
+
+Dòng in đậm là **mốc quy đổi**: model dùng để tính "Tạo được tới N ảnh" trên thẻ gói điểm,
+ở cả trang giới thiệu lẫn trang Mua điểm. Đổi mốc ở Quản trị → Bảng giá, cột **Mốc quy đổi**
+(radio, chỉ một model được chọn, model đã tắt bán thì không chọn được). Sửa **Điểm thu** của
+model đang làm mốc là số ảnh trên thẻ gói đổi theo ngay ở lần tải trang sau.
+
+Logic dùng chung nằm ở [lib/imageEstimate.ts](lib/imageEstimate.ts) — cả hai trang gọi cùng
+một hàm nên không bao giờ hiện hai con số khác nhau cho cùng một gói.
 
 **Nano Banana 2 Lite** đã được nối sẵn nhưng để trạng thái tắt: Kie.ai không công bố
 giá bản Lite trong tài liệu công khai. Vào Quản trị → Bảng giá điền `Giá vốn (USD)` và

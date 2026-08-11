@@ -289,7 +289,7 @@ const TOKEN_PACKAGES = [
     price_vnd: 1_999_000,
     base_tokens: MONTHLY_TOKEN_ALLOWANCE * 2,
     bonus_tokens: 0,
-    description: 'Cho đội chạy nội dung số lượng lớn.',
+    description: 'Cho team chạy nội dung số lượng lớn.',
     is_popular: 0,
     sort_order: 40,
   },
@@ -373,9 +373,53 @@ export async function seed(): Promise<void> {
     await execute('INSERT IGNORE INTO settings (setting_key, setting_value) VALUES (?, ?)', [key, value]);
   }
 
+  // Phải chạy SAU vòng chèn model ở trên: với database mới tinh, bảng
+  // model_pricing lúc đầu còn rỗng nên chạy sớm hơn thì không có gì để đánh dấu.
+  await ensureEstimateReferenceModel();
+
   await syncAdminRoles();
   await bootstrapAdminAccount();
   await warnUnpricedModels();
+}
+
+/**
+ * Đảm bảo luôn có đúng một model làm mốc quy "số điểm" ra "số ảnh".
+ *
+ * Con số "Tạo được tới N ảnh" trên thẻ gói điểm được tính bằng
+ * `số điểm của gói ÷ token_cost của model mốc`. Không có model nào được đánh dấu
+ * thì thẻ gói mất hẳn dòng đó — trang bán hàng thiếu mất con số dễ hiểu nhất.
+ *
+ * KHÔNG ghi đè lựa chọn của admin: chỉ chạy khi chưa có dòng nào được bật. Admin
+ * đổi mốc ở Quản trị → Bảng giá, cột "Mốc quy đổi".
+ */
+const DEFAULT_ESTIMATE_REFERENCE_CODE = 'gpt-image-2-2k';
+
+async function ensureEstimateReferenceModel(): Promise<void> {
+  const current = await queryOne<RowDataPacket & { code: string }>(
+    'SELECT code FROM model_pricing WHERE is_estimate_reference = 1 LIMIT 1',
+  );
+  if (current) return;
+
+  // Model mặc định có thể đã bị admin tắt bán hoặc xoá — lùi về model đang bán
+  // rẻ nhất để trang bán hàng luôn có số ảnh hiển thị.
+  /*
+   * Thứ tự ưu tiên: đang bán trước, rồi mới tới model mặc định, rồi rẻ nhất.
+   *
+   * `is_active DESC` phải đứng TRƯỚC `(code = ?) DESC`: catalog công khai chỉ trả
+   * về model đang bán, nên đánh dấu một model đã tắt bán thì phía khách không
+   * thấy nó và lại rơi vào nhánh dự phòng — coi như đánh dấu vô ích.
+   */
+  const target = await queryOne<RowDataPacket & { id: number; label: string }>(
+    `SELECT id, label FROM model_pricing
+      WHERE token_cost > 0 AND (code = ? OR is_active = 1)
+      ORDER BY is_active DESC, (code = ?) DESC, token_cost ASC
+      LIMIT 1`,
+    [DEFAULT_ESTIMATE_REFERENCE_CODE, DEFAULT_ESTIMATE_REFERENCE_CODE],
+  );
+  if (!target) return;
+
+  await execute('UPDATE model_pricing SET is_estimate_reference = 1 WHERE id = ?', [target.id]);
+  console.log(`[seed] Đã chọn "${target.label}" làm mốc quy đổi số ảnh trên thẻ gói điểm.`);
 }
 
 /**

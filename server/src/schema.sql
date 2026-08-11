@@ -130,6 +130,9 @@ CREATE TABLE IF NOT EXISTS model_pricing (
   api_cost_usd   DECIMAL(10,4) NOT NULL,  -- giá vốn/ảnh theo bảng giá nhà cung cấp
   token_cost     INT          NOT NULL,   -- số token trừ của khách mỗi ảnh
   is_active      TINYINT(1)   NOT NULL DEFAULT 1,
+  -- Model làm mốc quy "số điểm" ra "số ảnh" trên thẻ gói điểm (trang giới thiệu
+  -- và trang Mua điểm). Chỉ MỘT dòng được bật; admin đổi ở tab Bảng giá.
+  is_estimate_reference TINYINT(1) NOT NULL DEFAULT 0,
   sort_order     INT          NOT NULL DEFAULT 0,
   notes          VARCHAR(255) NULL,
   created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,

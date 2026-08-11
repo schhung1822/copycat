@@ -39,15 +39,15 @@ const MONTHLY_ALLOWANCE = 500_000;
 
 /** Bảng giá dự phòng, dùng khi không gọi được API — trang vẫn phải đọc được. */
 const FALLBACK: ModelOption[] = [
-  { code: 'nano-banana-pro-1k', label: '', family: 'nano-banana-pro', resolution: '1K', tokenCost: 2520, notes: null },
-  { code: 'nano-banana-pro-2k', label: '', family: 'nano-banana-pro', resolution: '2K', tokenCost: 2520, notes: null },
-  { code: 'nano-banana-pro-4k', label: '', family: 'nano-banana-pro', resolution: '4K', tokenCost: 3360, notes: null },
-  { code: 'nano-banana-2-1k', label: '', family: 'nano-banana-2', resolution: '1K', tokenCost: 1120, notes: null },
-  { code: 'nano-banana-2-2k', label: '', family: 'nano-banana-2', resolution: '2K', tokenCost: 1680, notes: null },
-  { code: 'nano-banana-2-4k', label: '', family: 'nano-banana-2', resolution: '4K', tokenCost: 2520, notes: null },
-  { code: 'gpt-image-2-1k', label: '', family: 'gpt-image-2', resolution: '1K', tokenCost: 840, notes: null },
-  { code: 'gpt-image-2-2k', label: '', family: 'gpt-image-2', resolution: '2K', tokenCost: 1400, notes: null },
-  { code: 'gpt-image-2-4k', label: '', family: 'gpt-image-2', resolution: '4K', tokenCost: 2240, notes: null },
+  { code: 'nano-banana-pro-1k', label: '', family: 'nano-banana-pro', resolution: '1K', tokenCost: 2520, isEstimateReference: false, notes: null },
+  { code: 'nano-banana-pro-2k', label: '', family: 'nano-banana-pro', resolution: '2K', tokenCost: 2520, isEstimateReference: false, notes: null },
+  { code: 'nano-banana-pro-4k', label: '', family: 'nano-banana-pro', resolution: '4K', tokenCost: 3360, isEstimateReference: false, notes: null },
+  { code: 'nano-banana-2-1k', label: '', family: 'nano-banana-2', resolution: '1K', tokenCost: 1120, isEstimateReference: false, notes: null },
+  { code: 'nano-banana-2-2k', label: '', family: 'nano-banana-2', resolution: '2K', tokenCost: 1680, isEstimateReference: false, notes: null },
+  { code: 'nano-banana-2-4k', label: '', family: 'nano-banana-2', resolution: '4K', tokenCost: 2520, isEstimateReference: false, notes: null },
+  { code: 'gpt-image-2-1k', label: '', family: 'gpt-image-2', resolution: '1K', tokenCost: 840, isEstimateReference: false, notes: null },
+  { code: 'gpt-image-2-2k', label: '', family: 'gpt-image-2', resolution: '2K', tokenCost: 1400, isEstimateReference: true, notes: null },
+  { code: 'gpt-image-2-4k', label: '', family: 'gpt-image-2', resolution: '4K', tokenCost: 2240, isEstimateReference: false, notes: null },
 ];
 
 const RESOLUTION_ORDER = ['1K', '2K', '4K'];

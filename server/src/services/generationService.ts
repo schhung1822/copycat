@@ -18,6 +18,8 @@ export interface ModelPricingRow extends RowDataPacket {
   api_cost_usd: number;
   token_cost: number;
   is_active: number;
+  /** Model làm mốc quy số điểm ra số ảnh trên thẻ gói điểm — chỉ một dòng được bật. */
+  is_estimate_reference: number;
   sort_order: number;
   notes: string | null;
 }

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { execute, query, queryOne, withTransaction, type RowDataPacket } from '../db.js';
+import { execute, query, queryOne, withTransaction, type ResultSetHeader, type RowDataPacket } from '../db.js';
 import { env } from '../env.js';
 import { hashPassword, isAdminEmail, requireAdmin } from '../lib/auth.js';
 import { asyncHandler, badRequest, notFound } from '../lib/errors.js';
@@ -706,6 +706,7 @@ adminRouter.get(
           return Math.round(((sell - Number(row.api_cost_usd) * env.usdToVnd) / sell) * 1000) / 10;
         })(),
         isActive: Boolean(row.is_active),
+        isEstimateReference: Boolean(row.is_estimate_reference),
         sortOrder: row.sort_order,
         notes: row.notes,
       })),
@@ -761,11 +762,80 @@ adminRouter.patch(
       sets.push(`${column} = ?`);
       params.push(key === 'isActive' ? (req.body[key] ? 1 : 0) : req.body[key]);
     }
-    if (sets.length === 0) throw badRequest('Không có trường nào để cập nhật.');
 
-    params.push(Number(req.params.id));
-    const result = await execute(`UPDATE model_pricing SET ${sets.join(', ')} WHERE id = ?`, params);
-    if (result.affectedRows === 0) throw notFound('Không tìm thấy model.');
+    /*
+     * Mốc quy đổi số ảnh là cờ ĐỘC NHẤT: bật ở một model thì phải tắt ở mọi model
+     * khác. Để hai dòng cùng bật thì `pickReferenceModel` lấy dòng nào tuỳ thứ tự
+     * trả về của database — số ảnh trên thẻ gói đổi thất thường mà không ai hiểu
+     * vì sao. Vì vậy chạy trong transaction chung với câu UPDATE chính.
+     */
+    const setsReference = req.body.isEstimateReference !== undefined;
+    const makeReference = Boolean(req.body.isEstimateReference);
+
+    if (sets.length === 0 && !setsReference) throw badRequest('Không có trường nào để cập nhật.');
+
+    const id = Number(req.params.id);
+    const affected = await withTransaction(async (conn) => {
+      if (setsReference && makeReference) {
+        await conn.query('UPDATE model_pricing SET is_estimate_reference = 0 WHERE id <> ?', [id]);
+      }
+
+      const columns = [...sets];
+      const values = [...params];
+      if (setsReference) {
+        columns.push('is_estimate_reference = ?');
+        values.push(makeReference ? 1 : 0);
+      }
+
+      const [result] = await conn.query<ResultSetHeader>(
+        `UPDATE model_pricing SET ${columns.join(', ')} WHERE id = ?`,
+        [...values, id],
+      );
+
+      /*
+       * Tắt bán chính model đang làm mốc thì phải chuyển mốc sang model khác.
+       *
+       * Bảng giá công khai chỉ trả về model đang bán, nên để mốc nằm ở một model
+       * đã tắt là phía khách không thấy nó và số ảnh lặng lẽ rơi về model dự
+       * phòng — admin sửa "Điểm thu" của model mốc mãi mà con số ngoài trang
+       * không nhúc nhích, không có cách nào đoán ra vì sao.
+       *
+       * Chuyển sang model đang bán RẺ NHẤT: nó cho con số ảnh lớn nhất, tức là
+       * lựa chọn ít gây hụt hẫng nhất cho khách đang xem dở trang bán hàng.
+       */
+      const turnedOff = req.body.isActive !== undefined && !req.body.isActive;
+      if (turnedOff && !makeReference) {
+        const [stranded] = await conn.query<RowDataPacket[]>(
+          'SELECT 1 FROM model_pricing WHERE id = ? AND is_estimate_reference = 1',
+          [id],
+        );
+
+        if (stranded.length > 0) {
+          const [heir] = await conn.query<(RowDataPacket & { id: number })[]>(
+            `SELECT id FROM model_pricing
+              WHERE is_active = 1 AND token_cost > 0 AND id <> ?
+              ORDER BY token_cost ASC LIMIT 1`,
+            [id],
+          );
+
+          // Không còn model nào đang bán thì giữ nguyên mốc cũ: xoá đi cũng chẳng
+          // có gì thay thế, mà còn mất lựa chọn của admin khi họ bật bán trở lại.
+          if (heir[0]) {
+            await conn.query('UPDATE model_pricing SET is_estimate_reference = 0 WHERE id = ?', [id]);
+            await conn.query('UPDATE model_pricing SET is_estimate_reference = 1 WHERE id = ?', [heir[0].id]);
+          }
+        }
+      }
+
+      return result.affectedRows;
+    });
+
+    // affectedRows = 0 cũng xảy ra khi admin lưu lại đúng giá trị cũ, nên phải
+    // hỏi lại database chứ không kết luận ngay là không tìm thấy model.
+    if (affected === 0) {
+      const exists = await queryOne<RowDataPacket>('SELECT 1 FROM model_pricing WHERE id = ?', [id]);
+      if (!exists) throw notFound('Không tìm thấy model.');
+    }
     res.json({ ok: true });
   }),
 );
