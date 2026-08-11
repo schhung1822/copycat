@@ -38,6 +38,14 @@ export const Pricing: React.FC<{ packages?: TokenPackage[]; models?: ModelOption
   // điểm luôn ra cùng một con số cho cùng một gói.
   const referenceModel = pickReferenceModel(models);
 
+  /*
+   * Mốc so sánh mức tiết kiệm: gói có đơn giá mỗi điểm ĐẮT nhất, thường là gói
+   * nhỏ nhất. Tính theo đơn giá mỗi điểm chứ không theo số ảnh đã làm tròn — số
+   * ảnh làm tròn tới bội của 5/10 nên phần trăm suy ra từ nó nhảy lung tung.
+   */
+  const unitPrice = (pkg: TokenPackage) => (pkg.totalTokens > 0 ? pkg.priceVnd / pkg.totalTokens : 0);
+  const baseUnitPrice = packageList.reduce((max, pkg) => Math.max(max, unitPrice(pkg)), 0);
+
   return (
     <section id="bang-gia" className="scroll-mt-20 py-14 sm:py-20 lg:py-28">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
@@ -62,6 +70,13 @@ export const Pricing: React.FC<{ packages?: TokenPackage[]; models?: ModelOption
         <div className="mt-10 flex flex-wrap justify-center gap-4 sm:mt-14">
           {packageList.map((pkg, index) => {
             const images = referenceModel ? roundedImageCount(pkg.totalTokens, referenceModel.tokenCost) : 0;
+            // Tiền mỗi ảnh, làm tròn tới trăm đồng — đây là con số khách so sánh
+            // giữa các gói nhanh nhất, nhanh hơn cả so số điểm.
+            const pricePerImage = referenceModel
+              ? Math.round((unitPrice(pkg) * referenceModel.tokenCost) / 100) * 100
+              : 0;
+            const savedPercent =
+              baseUnitPrice > 0 ? Math.round((1 - unitPrice(pkg) / baseUnitPrice) * 100) : 0;
 
             return (
               <Reveal
@@ -79,27 +94,48 @@ export const Pricing: React.FC<{ packages?: TokenPackage[]; models?: ModelOption
                   </span>
                 )}
 
-                <p className="text-3xl font-bold tracking-tight text-gray-100">{formatVnd(pkg.priceVnd)}</p>
-
-                {/*
-                  Số to LUÔN là tổng điểm nhận được, phần thưởng ghi rõ là "đã
-                  gồm". Để "(+50.000 thưởng)" ngay sau tổng thì đọc ra thành cộng
-                  thêm một lần nữa — hứa gấp đôi phần thưởng thật.
-                */}
-                <p className="mt-4 rounded-lg bg-dark-850 px-3 py-2 text-xs text-gray-400">
-                  <span className="font-bold text-brand-500">{formatNumber(pkg.totalTokens)}</span> điểm
-                  {pkg.bonusTokens > 0 && (
-                    <span className="mt-0.5 block text-[11px] text-green-400">
-                      Đã gồm {formatNumber(pkg.bonusTokens)} điểm thưởng
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-3xl font-bold tracking-tight text-gray-100">{formatVnd(pkg.priceVnd)}</p>
+                  {/* Chỉ gắn nhãn khi mức tiết kiệm đủ lớn để đáng nói. Dưới 5%
+                      thì con số vừa nhỏ vừa làm rối bốn thẻ đứng cạnh nhau. */}
+                  {savedPercent >= 5 && (
+                    <span className="mt-1 shrink-0 rounded-md bg-green-500/10 px-2 py-0.5 text-[10px] font-bold text-green-400">
+                      −{savedPercent}%
                     </span>
                   )}
-                </p>
+                </div>
 
-                {images > 0 && (
-                  <p className="mt-2 text-xs text-gray-500">Tạo được khoảng {formatNumber(images)} ảnh</p>
-                )}
+                {/*
+                  Khối điểm khoá chiều cao tối thiểu: thẻ có thưởng cao hơn thẻ
+                  không có đúng một dòng, không khoá thì mọi thứ bên dưới lệch
+                  nhau và bốn thẻ trông như xếp ẩu.
 
-                {pkg.description && <p className="mt-2 text-xs leading-relaxed text-gray-600">{pkg.description}</p>}
+                  Số to LUÔN là tổng nhận được, phần thưởng ghi rõ "đã gồm" —
+                  để "+50.000" ngay sau tổng thì đọc ra thành cộng thêm lần nữa.
+                */}
+                <div className="mt-4 min-h-[3.25rem] rounded-lg bg-dark-850 px-3 py-2">
+                  <p className="text-xs text-gray-400">
+                    <span className="font-bold text-brand-500">{formatNumber(pkg.totalTokens)}</span> điểm
+                  </p>
+                  {pkg.bonusTokens > 0 && (
+                    <p className="mt-0.5 text-[11px] leading-tight text-green-400">
+                      Đã gồm {formatNumber(pkg.bonusTokens)} điểm thưởng
+                    </p>
+                  )}
+                </div>
+
+                {/* Vùng co giãn: mô tả dài ngắn khác nhau nhưng nút vẫn thẳng hàng đáy */}
+                <div className="mt-4 flex-1">
+                  {images > 0 && (
+                    <p className="text-sm font-bold text-gray-100">≈ {formatNumber(images)} ảnh</p>
+                  )}
+                  {pricePerImage > 0 && (
+                    <p className="mt-0.5 text-[11px] text-gray-500">chỉ {formatVnd(pricePerImage)}/ảnh</p>
+                  )}
+                  {pkg.description && (
+                    <p className="mt-2.5 text-xs leading-relaxed text-gray-600">{pkg.description}</p>
+                  )}
+                </div>
 
                 <Link
                   to="/dang-ky"

@@ -239,14 +239,19 @@ const PackageGrid: React.FC<{
                 550.000 cộng thêm 50.000 nữa = 600.000 — hứa nhiều gấp đôi phần
                 thưởng thật, khách nạp xong thấy thiếu là mất tin ngay.
               */}
-              <p className="text-brand-500 font-bold text-lg mt-2">{formatNumber(pkg.totalTokens)} điểm</p>
-              {pkg.bonusTokens > 0 && (
-                <p className="text-[11px] text-green-400 mt-0.5">
-                  Đã gồm {formatNumber(pkg.bonusTokens)} điểm thưởng
-                </p>
-              )}
+              {/* Khoá chiều cao tối thiểu: thẻ có thưởng cao hơn thẻ không có
+                  đúng một dòng, không khoá thì nét kẻ ngang bên dưới mỗi thẻ một
+                  độ cao, cả hàng trông như xếp ẩu. */}
+              <div className="mt-2 min-h-[3.25rem]">
+                <p className="text-brand-500 font-bold text-lg">{formatNumber(pkg.totalTokens)} điểm</p>
+                {pkg.bonusTokens > 0 && (
+                  <p className="text-[11px] text-green-400 mt-0.5 leading-tight">
+                    Đã gồm {formatNumber(pkg.bonusTokens)} điểm thưởng
+                  </p>
+                )}
+              </div>
 
-              <div className="mt-3 pt-3 border-t border-dark-800 flex-1">
+              <div className="pt-3 border-t border-dark-800 flex-1">
                 {images > 0 && (
                   <p className="text-gray-200 font-semibold text-sm leading-tight">
                     Tạo được khoảng {formatNumber(images)} ảnh
