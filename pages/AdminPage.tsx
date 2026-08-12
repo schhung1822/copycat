@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AffiliateTab } from './admin/AffiliateTab';
 import { OrdersTab } from './admin/OrdersTab';
 import { OverviewTab } from './admin/OverviewTab';
 import { PricingTab } from './admin/PricingTab';
@@ -8,6 +9,7 @@ const TABS = [
   { key: 'overview', label: 'Tổng quan', render: () => <OverviewTab /> },
   { key: 'orders', label: 'Đơn nạp', render: () => <OrdersTab /> },
   { key: 'users', label: 'Khách hàng', render: () => <UsersTab /> },
+  { key: 'affiliate', label: 'Affiliate', render: () => <AffiliateTab /> },
   { key: 'pricing', label: 'Bảng giá & gói nạp', render: () => <PricingTab /> },
 ] as const;
 

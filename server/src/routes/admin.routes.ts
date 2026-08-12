@@ -5,6 +5,16 @@ import { hashPassword, isAdminEmail, requireAdmin } from '../lib/auth.js';
 import { asyncHandler, badRequest, notFound } from '../lib/errors.js';
 import { optionalString, parsePaging, requireEmail, requireInt, requireString } from '../lib/validate.js';
 import { providerStatus } from '../providers/index.js';
+import {
+  buildReferralLink,
+  computeCommission,
+  readAffiliateSettings,
+  readAffiliateStats,
+  saveAffiliateSettings,
+  serializeCommission,
+  setAffiliateRole,
+  type CommissionRow,
+} from '../services/affiliateService.js';
 import { queueStatus, serializeGeneration, type GenerationRow, type ModelPricingRow } from '../services/generationService.js';
 import { markOrderPaid, serializeOrder, type OrderRow, type PackageRow } from '../services/orderService.js';
 import {
@@ -334,6 +344,8 @@ adminRouter.get(
       `SELECT u.id, u.email, u.full_name, u.phone, u.role, u.status, u.token_balance,
               u.subscription_expires_at, u.monthly_allowance, u.monthly_tokens, u.monthly_period_end,
               u.total_topup_vnd, u.total_tokens_in, u.total_tokens_out, u.last_login_at, u.created_at,
+              u.is_affiliate, u.affiliate_code,
+              (SELECT r.email FROM users r WHERE r.id = u.referred_by) AS referrer_email,
               (SELECT s.plan_name FROM subscriptions s
                  WHERE s.user_id = u.id AND s.status <> 'cancelled'
                  ORDER BY s.id DESC LIMIT 1) AS plan_name
@@ -353,6 +365,10 @@ adminRouter.get(
         phone: row.phone,
         role: row.role,
         status: row.status,
+        isAffiliate: row.is_affiliate === 1,
+        affiliateCode: row.affiliate_code,
+        /** Email của người đã giới thiệu khách này, null nếu khách tự tìm đến. */
+        referrerEmail: row.referrer_email ?? null,
         // Số dư hiển thị gộp cả hai nguồn, nhưng vẫn trả riêng từng nguồn vì thao
         // tác cộng/trừ của admin phải chọn đúng nguồn.
         tokenBalance: num(row.token_balance) + num(row.monthly_tokens),
@@ -619,6 +635,221 @@ adminRouter.post(
       expiresAt: activated.expiresAt,
       isRenewal: activated.isRenewal,
     });
+  }),
+);
+
+/**
+ * Cấp / thu hồi vai trò cộng tác viên tiếp thị liên kết.
+ *
+ * Khác hẳn quyền admin: quyền admin gắn với `ADMIN_EMAILS` trong `.env` và không
+ * sửa được từ giao diện, còn vai trò affiliate là một cờ trong cơ sở dữ liệu nên
+ * cấp phát ngay tại đây. Thu hồi chỉ dừng phát sinh hoa hồng MỚI — các khoản đã
+ * ghi nhận vẫn còn nguyên và vẫn phải chi trả.
+ */
+adminRouter.post(
+  '/users/:id/affiliate',
+  asyncHandler(async (req, res) => {
+    const enabled = Boolean(req.body?.enabled);
+    const userId = Number(req.params.id);
+
+    const user = await queryOne<RowDataPacket & { email: string }>('SELECT email FROM users WHERE id = ?', [userId]);
+    if (!user) throw notFound('Không tìm thấy tài khoản.');
+
+    const { code } = await setAffiliateRole(userId, enabled);
+    res.json({
+      ok: true,
+      email: user.email,
+      isAffiliate: enabled,
+      affiliateCode: code,
+      referralLink: enabled && code ? buildReferralLink(code) : null,
+    });
+  }),
+);
+
+// ---------------------------------------------------------------------------
+//  TIẾP THỊ LIÊN KẾT
+// ---------------------------------------------------------------------------
+
+/**
+ * Cấu hình chương trình + một ví dụ tính trên gói điểm đang bán.
+ *
+ * Ví dụ do server tính chứ không phải giao diện tự nhân chia: chỉ có một công
+ * thức duy nhất (`computeCommission`) nên con số admin nhìn thấy trước khi lưu
+ * luôn đúng bằng con số sẽ được ghi vào sổ.
+ */
+adminRouter.get(
+  '/affiliate/settings',
+  asyncHandler(async (_req, res) => {
+    const settings = await readAffiliateSettings();
+    const sample = await queryOne<PackageRow>(
+      'SELECT * FROM token_packages WHERE is_active = 1 ORDER BY is_popular DESC, sort_order, price_vnd LIMIT 1',
+    );
+
+    res.json({
+      settings,
+      example: sample
+        ? {
+            packageName: sample.name,
+            tokens: sample.base_tokens + sample.bonus_tokens,
+            ...computeCommission(
+              { revenueVnd: sample.price_vnd, tokensDelivered: sample.base_tokens + sample.bonus_tokens },
+              settings,
+            ),
+          }
+        : null,
+    });
+  }),
+);
+
+adminRouter.patch(
+  '/affiliate/settings',
+  asyncHandler(async (req, res) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const number = (field: string) => (body[field] === undefined ? undefined : Number(body[field]));
+
+    const settings = await saveAffiliateSettings({
+      enabled: body.enabled === undefined ? undefined : Boolean(body.enabled),
+      commissionPercent: number('commissionPercent'),
+      fixedCostVnd: number('fixedCostVnd'),
+      fixedCostPercent: number('fixedCostPercent'),
+    });
+
+    res.json({ ok: true, settings });
+  }),
+);
+
+/** Danh sách cộng tác viên kèm số liệu tích luỹ. */
+adminRouter.get(
+  '/affiliate/affiliates',
+  asyncHandler(async (_req, res) => {
+    const rows = await query<RowDataPacket & Record<string, any>>(
+      `SELECT id, email, full_name, affiliate_code, status, created_at
+         FROM users WHERE is_affiliate = 1 ORDER BY id DESC`,
+    );
+
+    // Vòng lặp tuần tự thay vì Promise.all: danh sách cộng tác viên luôn nhỏ, và
+    // mỗi lượt `readAffiliateStats` chạy hai câu tổng hợp — bắn song song hàng
+    // chục lượt chỉ để tiết kiệm vài mili giây là chiếm hết pool kết nối.
+    const affiliates: unknown[] = [];
+    for (const row of rows) {
+      affiliates.push({
+        id: row.id,
+        email: row.email,
+        fullName: row.full_name,
+        status: row.status,
+        code: row.affiliate_code,
+        referralLink: row.affiliate_code ? buildReferralLink(row.affiliate_code) : null,
+        createdAt: row.created_at,
+        stats: await readAffiliateStats(row.id),
+      });
+    }
+
+    res.json({ affiliates });
+  }),
+);
+
+/** Sổ hoa hồng toàn hệ thống. Lọc theo trạng thái chi trả hoặc theo một cộng tác viên. */
+adminRouter.get(
+  '/affiliate/commissions',
+  asyncHandler(async (req, res) => {
+    const { limit, offset, page } = parsePaging(req.query as Record<string, unknown>, 25);
+    const status = typeof req.query.status === 'string' ? req.query.status : '';
+    const affiliateId = Number(req.query.affiliateId) || 0;
+
+    const filters: string[] = [];
+    const params: unknown[] = [];
+    if (['pending', 'paid', 'cancelled'].includes(status)) {
+      filters.push('c.status = ?');
+      params.push(status);
+    }
+    if (affiliateId > 0) {
+      filters.push('c.affiliate_user_id = ?');
+      params.push(affiliateId);
+    }
+    const where = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
+
+    const rows = await query<CommissionRow & { affiliate_email: string; customer_email: string }>(
+      `SELECT c.*, a.email AS affiliate_email, b.email AS customer_email
+         FROM affiliate_commissions c
+         JOIN users a ON a.id = c.affiliate_user_id
+         JOIN users b ON b.id = c.referred_user_id
+         ${where} ORDER BY c.id DESC LIMIT ? OFFSET ?`,
+      [...params, limit, offset],
+    );
+    const totals = await queryOne<RowDataPacket & Record<string, number>>(
+      `SELECT COUNT(*) AS total,
+              COALESCE(SUM(CASE WHEN c.status = 'pending' THEN c.commission_vnd END), 0) AS pending,
+              COALESCE(SUM(CASE WHEN c.status = 'paid'    THEN c.commission_vnd END), 0) AS paid
+         FROM affiliate_commissions c ${where}`,
+      params,
+    );
+
+    res.json({
+      commissions: rows.map((row) => ({
+        ...serializeCommission(row),
+        affiliate: { id: row.affiliate_user_id, email: row.affiliate_email },
+        customer: { id: row.referred_user_id, email: row.customer_email },
+      })),
+      page,
+      limit,
+      total: num(totals?.total),
+      pendingVnd: num(totals?.pending),
+      paidVnd: num(totals?.paid),
+    });
+  }),
+);
+
+/**
+ * Đổi trạng thái chi trả của một khoản hoa hồng.
+ *
+ * `cancelled` dùng cho đơn bị hoàn tiền hoặc gian lận (tự đăng ký bằng link của
+ * chính mình); khoản đã huỷ bị loại khỏi mọi con số tổng hợp nhưng dòng ghi vẫn
+ * còn để tra soát.
+ */
+adminRouter.post(
+  '/affiliate/commissions/:id/status',
+  asyncHandler(async (req, res) => {
+    const status = requireString(req.body, 'status', { label: 'Trạng thái' });
+    if (!['pending', 'paid', 'cancelled'].includes(status)) {
+      throw badRequest('Trạng thái chỉ nhận "pending", "paid" hoặc "cancelled".');
+    }
+
+    const result = await execute(
+      `UPDATE affiliate_commissions
+          SET status = ?,
+              paid_at = ${status === 'paid' ? 'COALESCE(paid_at, NOW())' : 'NULL'},
+              paid_by = ?,
+              note = COALESCE(?, note)
+        WHERE id = ?`,
+      [status, status === 'paid' ? req.user!.id : null, optionalString(req.body, 'note', 255), Number(req.params.id)],
+    );
+    if (result.affectedRows === 0) throw notFound('Không tìm thấy khoản hoa hồng.');
+
+    res.json({ ok: true, status });
+  }),
+);
+
+/** Chốt sổ: đánh dấu đã trả toàn bộ khoản đang chờ của một cộng tác viên. */
+adminRouter.post(
+  '/affiliate/affiliates/:id/pay',
+  asyncHandler(async (req, res) => {
+    const affiliateId = Number(req.params.id);
+
+    const pending = await queryOne<RowDataPacket & { total: number; amount: number }>(
+      `SELECT COUNT(*) AS total, COALESCE(SUM(commission_vnd), 0) AS amount
+         FROM affiliate_commissions WHERE affiliate_user_id = ? AND status = 'pending'`,
+      [affiliateId],
+    );
+    if (num(pending?.total) === 0) throw badRequest('Cộng tác viên này không có khoản nào đang chờ chi trả.');
+
+    await execute(
+      `UPDATE affiliate_commissions
+          SET status = 'paid', paid_at = NOW(), paid_by = ?, note = COALESCE(?, note)
+        WHERE affiliate_user_id = ? AND status = 'pending'`,
+      [req.user!.id, optionalString(req.body, 'note', 255), affiliateId],
+    );
+
+    res.json({ ok: true, count: num(pending?.total), amountVnd: num(pending?.amount) });
   }),
 );
 

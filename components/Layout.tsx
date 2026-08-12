@@ -26,7 +26,7 @@ const Logo: React.FC = () => (
 );
 
 export const Layout: React.FC = () => {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isAffiliate, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -52,6 +52,12 @@ export const Layout: React.FC = () => {
               {item.label}
             </NavLink>
           ))}
+          {/* Chỉ hiện với người đã được cấp vai trò cộng tác viên — xem AffiliatePage. */}
+          {isAffiliate && (
+            <NavLink to="/affiliate" className={linkClass}>
+              Affiliate
+            </NavLink>
+          )}
           {isAdmin && (
             <NavLink to="/quan-tri" className={linkClass}>
               <span className="text-brand-500">●</span> Quản trị

@@ -4,9 +4,11 @@ import { Layout } from './components/Layout';
 import { PageLoader } from './components/ui';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { captureReferralFromUrl } from './lib/referral';
 import { APP_HOME } from './lib/routes';
 import { AccountPage } from './pages/AccountPage';
 import { AdminPage } from './pages/AdminPage';
+import { AffiliatePage } from './pages/AffiliatePage';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
 import { HistoryPage } from './pages/HistoryPage';
 import { LandingPage } from './pages/LandingPage';
@@ -17,8 +19,12 @@ import { TopUpPage } from './pages/TopUpPage';
 import { WalletPage } from './pages/WalletPage';
 
 /** Chặn các trang cần đăng nhập; nhớ đường dẫn cũ để quay lại sau khi đăng nhập. */
-const RequireAuth: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({ children, adminOnly }) => {
-  const { user, isLoading, isAdmin } = useAuth();
+const RequireAuth: React.FC<{ children: React.ReactNode; adminOnly?: boolean; affiliateOnly?: boolean }> = ({
+  children,
+  adminOnly,
+  affiliateOnly,
+}) => {
+  const { user, isLoading, isAdmin, isAffiliate } = useAuth();
   const location = useLocation();
 
   if (isLoading) return <PageLoader label="Đang kiểm tra phiên đăng nhập..." />;
@@ -33,6 +39,10 @@ const RequireAuth: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> 
   // Đã đăng nhập nhưng không phải quản trị viên: trả về bàn làm việc, không phải
   // trang bán hàng — họ là khách đang dùng dịch vụ chứ không phải người đi xem.
   if (adminOnly && !isAdmin) return <Navigate to={APP_HOME} replace />;
+
+  // Vai trò affiliate do admin cấp trong bảng điều khiển; ai chưa được cấp thì
+  // trang này không tồn tại với họ.
+  if (affiliateOnly && !isAffiliate) return <Navigate to={APP_HOME} replace />;
 
   return <>{children}</>;
 };
@@ -71,6 +81,14 @@ const AppRoutes: React.FC = () => (
       <Route path="nap-tien" element={<TopUpPage />} />
       <Route path="tai-khoan" element={<AccountPage />} />
       <Route
+        path="affiliate"
+        element={
+          <RequireAuth affiliateOnly>
+            <AffiliatePage />
+          </RequireAuth>
+        }
+      />
+      <Route
         path="quan-tri"
         element={
           <RequireAuth adminOnly>
@@ -84,12 +102,28 @@ const AppRoutes: React.FC = () => (
   </Routes>
 );
 
-const App: React.FC = () => (
-  <ThemeProvider>
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
-  </ThemeProvider>
-);
+const App: React.FC = () => {
+  /*
+   * Bắt mã giới thiệu `?ref=` NGAY khi ứng dụng mở, trước cả khi biết khách sẽ
+   * đi tới trang nào. Link của cộng tác viên có thể trỏ vào bất kỳ trang nào
+   * (trang chủ, bảng giá, trang đăng ký), nên đặt ở đúng một chỗ duy nhất này là
+   * bao được hết mà không phải nhớ gắn vào từng trang.
+   *
+   * Chạy trong hàm khởi tạo của `useState` chứ KHÔNG phải `useEffect`: effect
+   * chạy từ dưới lên, tức là sau khi các trang con đã render xong. Khách vào
+   * thẳng `/dang-ky?ref=MÃ` thì trang Đăng ký đọc kho lưu trước khi mã kịp được
+   * cất vào, và dòng "bạn đang đăng ký qua link giới thiệu" không hiện ra ở lần
+   * render đầu. Hàm này gọi lại vô hại nên StrictMode chạy hai lần cũng không sao.
+   */
+  React.useState(captureReferralFromUrl);
+
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </ThemeProvider>
+  );
+};
 
 export default App;

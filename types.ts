@@ -22,6 +22,17 @@ export interface User {
   createdAt: string;
 
   /*
+   * --- Tiếp thị liên kết ---
+   * Vai trò affiliate tách khỏi `role`: quyền admin suy ra từ ADMIN_EMAILS trong
+   * .env, còn affiliate do admin cấp trong trang quản trị, và một người có thể
+   * vừa là admin vừa là affiliate.
+   */
+  isAffiliate: boolean;
+  affiliateCode: string | null;
+  /** Link đầy đủ để chia sẻ; null khi tài khoản chưa được cấp vai trò affiliate. */
+  referralLink: string | null;
+
+  /*
    * --- Di sản gói tháng ---
    * Gói tháng đã ngừng bán. Các trường dưới đây chỉ còn khác 0 với những khách
    * mua gói từ trước (hoặc được admin cấp tay) và đang trong thời hạn — giao
@@ -249,6 +260,10 @@ export interface AdminUser {
   phone: string | null;
   role: 'user' | 'admin';
   status: 'active' | 'banned';
+  isAffiliate: boolean;
+  affiliateCode: string | null;
+  /** Email người đã giới thiệu khách này, null nếu khách tự tìm đến. */
+  referrerEmail: string | null;
   /** Tổng dùng được ngay = monthlyTokens + purchasedTokens */
   tokenBalance: number;
   /** Điểm mua thêm — không hết hạn */
@@ -335,6 +350,105 @@ export interface ModelReport {
   tokenValueVnd: number;
   apiCostVnd: number;
   marginPercent: number;
+}
+
+// ---------------------------------------------------------------------------
+//  Tiếp thị liên kết
+// ---------------------------------------------------------------------------
+
+export type CommissionStatus = 'pending' | 'paid' | 'cancelled';
+
+/**
+ * Một khoản hoa hồng, chụp lại toàn bộ cách tính tại thời điểm ghi nhận:
+ *
+ *     lợi nhuận = doanh thu − giá vốn điểm đã bán − chi phí cố định
+ *     hoa hồng  = lợi nhuận × commissionPercent
+ *
+ * Nhờ chụp lại mà admin đổi tỉ lệ về sau không làm sai lệch các khoản đã chốt.
+ */
+export interface AffiliateCommission {
+  id: number;
+  orderCode: string;
+  revenueVnd: number;
+  tokenCostVnd: number;
+  fixedCostVnd: number;
+  profitVnd: number;
+  commissionPercent: number;
+  commissionVnd: number;
+  status: CommissionStatus;
+  paidAt: string | null;
+  note: string | null;
+  createdAt: string;
+  /** Email khách đã che bớt (trang của cộng tác viên) */
+  customer: string;
+}
+
+export interface AffiliateStats {
+  referrals: number;
+  payingReferrals: number;
+  orders: number;
+  revenueVnd: number;
+  profitVnd: number;
+  commissionVnd: number;
+  pendingVnd: number;
+  /** Số khoản đang chờ — đơn không có lãi cho hoa hồng 0đ nên tiền và số lượng không suy ra nhau. */
+  pendingCount: number;
+  paidVnd: number;
+}
+
+export interface AffiliateSummary {
+  isAffiliate: boolean;
+  /** Chương trình có đang chạy không — admin tắt được ở trang quản trị. */
+  enabled: boolean;
+  commissionPercent: number;
+  code: string | null;
+  referralLink: string | null;
+  stats: AffiliateStats;
+}
+
+export interface AffiliateReferral {
+  id: number;
+  customer: string;
+  joinedAt: string;
+  revenueVnd: number;
+  commissionVnd: number;
+}
+
+export interface AffiliateSettings {
+  enabled: boolean;
+  commissionPercent: number;
+  /** Chi phí cố định trừ thẳng mỗi đơn (phí cổng thanh toán, phí xử lý...) */
+  fixedCostVnd: number;
+  /** Chi phí cố định phân bổ theo % doanh thu (hạ tầng, nhân sự, marketing...) */
+  fixedCostPercent: number;
+}
+
+/** Ví dụ tính trên một gói điểm đang bán, do server tính để khớp đúng công thức thật. */
+export interface AffiliateExample {
+  packageName: string;
+  tokens: number;
+  revenueVnd: number;
+  tokenCostVnd: number;
+  fixedCostVnd: number;
+  profitVnd: number;
+  commissionPercent: number;
+  commissionVnd: number;
+}
+
+export interface AdminAffiliate {
+  id: number;
+  email: string;
+  fullName: string | null;
+  status: 'active' | 'banned';
+  code: string | null;
+  referralLink: string | null;
+  createdAt: string;
+  stats: AffiliateStats;
+}
+
+export interface AdminCommission extends Omit<AffiliateCommission, 'customer'> {
+  affiliate: { id: number; email: string };
+  customer: { id: number; email: string };
 }
 
 // Tab "Webhook ngân hàng" đã bỏ khỏi bảng điều khiển nên không còn kiểu PaymentEvent

@@ -7,6 +7,7 @@ import { checkEnv, env, ROOT_DIR } from './env.js';
 import { attachUser } from './lib/auth.js';
 import { errorHandler } from './lib/errors.js';
 import { adminRouter } from './routes/admin.routes.js';
+import { affiliateRouter } from './routes/affiliate.routes.js';
 import { authRouter } from './routes/auth.routes.js';
 import { catalogRouter } from './routes/catalog.routes.js';
 import { generationRouter } from './routes/generation.routes.js';
@@ -41,6 +42,7 @@ app.use('/api/catalog', catalogRouter);
 app.use('/api/orders', orderRouter);
 app.use('/api/wallet', walletRouter);
 app.use('/api/generations', generationRouter);
+app.use('/api/affiliate', affiliateRouter);
 app.use('/api/admin', adminRouter);
 
 // Ảnh đầu vào và ảnh kết quả đã tải về server.

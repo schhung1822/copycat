@@ -47,6 +47,38 @@ export const UsersTab: React.FC = () => {
     void load();
   }, [load]);
 
+  /**
+   * Cấp / thu hồi vai trò cộng tác viên tiếp thị liên kết.
+   *
+   * Khác quyền admin (gắn cứng với ADMIN_EMAILS trong .env), vai trò này là một
+   * cờ trong cơ sở dữ liệu nên bật tắt được ngay tại đây. Thu hồi chỉ dừng phát
+   * sinh hoa hồng mới — khoản đã ghi vẫn phải trả, và mã link được giữ lại để
+   * cấp lại thì link cũ sống nguyên.
+   */
+  const toggleAffiliate = async (user: AdminUser) => {
+    const enabled = !user.isAffiliate;
+    if (
+      !confirm(
+        enabled
+          ? `Cấp vai trò cộng tác viên tiếp thị liên kết cho ${user.email}?\n\nHọ sẽ thấy tab "Affiliate" kèm link giới thiệu riêng.`
+          : `Thu hồi vai trò cộng tác viên của ${user.email}?\n\nĐơn mới sẽ không sinh hoa hồng nữa. Các khoản đã ghi nhận vẫn giữ nguyên và vẫn phải chi trả.`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const data = await api.post<{ affiliateCode: string | null }>(`/admin/users/${user.id}/affiliate`, { enabled });
+      await afterChange(
+        enabled
+          ? `${user.email} đã trở thành cộng tác viên, mã giới thiệu: ${data.affiliateCode}.`
+          : `Đã thu hồi vai trò cộng tác viên của ${user.email}.`,
+      );
+    } catch (err) {
+      setMessage({ tone: 'error', text: err instanceof ApiError ? err.message : 'Thao tác thất bại.' });
+    }
+  };
+
   const toggleBan = async (user: AdminUser) => {
     const nextStatus = user.status === 'active' ? 'banned' : 'active';
     if (!confirm(`${nextStatus === 'banned' ? 'Khoá' : 'Mở khoá'} tài khoản ${user.email}?`)) return;
@@ -114,11 +146,23 @@ export const UsersTab: React.FC = () => {
                         {user.role === 'admin' && (
                           <span className="ml-1.5 text-[9px] font-bold text-brand-500 uppercase">Admin</span>
                         )}
+                        {user.isAffiliate && (
+                          <span
+                            className="ml-1.5 text-[9px] font-bold text-blue-400 uppercase"
+                            title={`Cộng tác viên · mã ${user.affiliateCode ?? '—'}`}
+                          >
+                            Affiliate
+                          </span>
+                        )}
                       </p>
                       <p className="text-[10px] text-gray-600">
                         {user.fullName || 'Chưa đặt tên'}
                         {user.phone ? ` · ${user.phone}` : ''}
                       </p>
+                      {/* Ai đã đưa khách này về — để biết đơn của họ đang chia hoa hồng cho ai. */}
+                      {user.referrerEmail && (
+                        <p className="text-[10px] text-gray-600">↳ giới thiệu bởi {user.referrerEmail}</p>
+                      )}
                     </td>
 
                     <td className="py-2.5">
@@ -173,6 +217,19 @@ export const UsersTab: React.FC = () => {
                         className="text-xs text-gray-400 hover:text-gray-100 px-2 transition-colors"
                       >
                         Điểm
+                      </button>
+                      <button
+                        onClick={() => toggleAffiliate(user)}
+                        className={`text-xs px-2 transition-colors ${
+                          user.isAffiliate ? 'text-blue-400 hover:text-blue-300' : 'text-gray-400 hover:text-gray-100'
+                        }`}
+                        title={
+                          user.isAffiliate
+                            ? `Đang là cộng tác viên (mã ${user.affiliateCode ?? '—'}) — bấm để thu hồi`
+                            : 'Cấp vai trò cộng tác viên tiếp thị liên kết'
+                        }
+                      >
+                        Affiliate
                       </button>
                       <button
                         onClick={() => toggleBan(user)}

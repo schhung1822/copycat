@@ -23,6 +23,20 @@ CREATE TABLE IF NOT EXISTS users (
   phone           VARCHAR(32)     NULL,
   role            ENUM('user','admin') NOT NULL DEFAULT 'user',
   status          ENUM('active','banned') NOT NULL DEFAULT 'active',
+
+  -- --- Tiếp thị liên kết (affiliate) ---
+  -- Vai trò affiliate là một CỜ RIÊNG chứ không phải một giá trị của cột `role`:
+  -- `role` được đồng bộ lại từ ADMIN_EMAILS mỗi lần đọc phiên đăng nhập (xem
+  -- lib/auth.ts), nên nhét 'affiliate' vào đó sẽ bị ghi đè ngay. Tách ra còn cho
+  -- phép một admin đồng thời là affiliate.
+  is_affiliate    TINYINT(1)      NOT NULL DEFAULT 0,
+  -- Mã trong link giới thiệu (…/?ref=MÃ). Sinh khi admin cấp quyền, giữ nguyên
+  -- kể cả khi bị thu hồi rồi cấp lại — link đã phát ra ngoài vẫn phải sống.
+  affiliate_code  VARCHAR(32)     NULL,
+  -- Người giới thiệu ra tài khoản này. Gán MỘT LẦN lúc đăng ký và không bao giờ
+  -- đổi: đổi về sau là chuyển hoa hồng của người này sang người khác.
+  referred_by     BIGINT UNSIGNED NULL,
+  referred_at     DATETIME        NULL,
   -- Token MUA THÊM (gói lẻ). Không hết hạn, chỉ dùng khi hạn mức tháng đã cạn.
   token_balance   INT             NOT NULL DEFAULT 0,
 
@@ -44,6 +58,8 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_email (email),
+  UNIQUE KEY uq_users_affiliate_code (affiliate_code),
+  KEY idx_users_referred_by (referred_by),
   KEY idx_users_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -300,6 +316,43 @@ CREATE TABLE IF NOT EXISTS password_resets (
   UNIQUE KEY uq_pwreset_token (token_hash),
   KEY idx_pwreset_user (user_id, created_at),
   CONSTRAINT fk_pwreset_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+-- 7c. HOA HỒNG TIẾP THỊ LIÊN KẾT
+--     Mỗi đơn đã thanh toán của một khách được giới thiệu sinh ra ĐÚNG MỘT dòng
+--     ở đây (khoá duy nhất trên order_id). Toàn bộ cách tính được CHỤP LẠI vào
+--     từng dòng — doanh thu, giá vốn điểm, chi phí cố định, % hoa hồng — để admin
+--     đổi tỉ lệ trong trang quản trị không làm sai lệch các khoản đã ghi nhận.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS affiliate_commissions (
+  id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  affiliate_user_id BIGINT UNSIGNED NOT NULL,   -- người hưởng hoa hồng
+  referred_user_id  BIGINT UNSIGNED NOT NULL,   -- khách đã mua
+  order_id          BIGINT UNSIGNED NOT NULL,
+  order_code        VARCHAR(32)     NOT NULL,
+  revenue_vnd       BIGINT          NOT NULL,   -- số tiền khách thực trả
+  -- Giá vốn của số điểm đã giao. Quy ước toàn hệ thống: 1 điểm = 1đ giá vốn.
+  token_cost_vnd    BIGINT          NOT NULL,
+  -- Chi phí cố định phân bổ cho đơn này (theo % doanh thu + số tiền cố định).
+  fixed_cost_vnd    BIGINT          NOT NULL DEFAULT 0,
+  profit_vnd        BIGINT          NOT NULL,   -- revenue − token_cost − fixed_cost
+  commission_percent DECIMAL(5,2)   NOT NULL,   -- tỉ lệ áp dụng lúc ghi nhận
+  commission_vnd    BIGINT          NOT NULL,   -- số tiền phải trả cho affiliate
+  status            ENUM('pending','paid','cancelled') NOT NULL DEFAULT 'pending',
+  paid_at           DATETIME        NULL,
+  paid_by           BIGINT UNSIGNED NULL,       -- admin đánh dấu đã chi trả
+  note              VARCHAR(255)    NULL,
+  created_at        DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at        DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  -- Chốt chặn chống ghi nhận trùng: webhook bắn hai lần hay bộ đối soát chạy lại
+  -- cũng chỉ có một dòng hoa hồng cho một đơn.
+  UNIQUE KEY uq_commission_order (order_id),
+  KEY idx_commission_affiliate (affiliate_user_id, created_at),
+  KEY idx_commission_status (status, created_at),
+  CONSTRAINT fk_commission_affiliate FOREIGN KEY (affiliate_user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_commission_referred FOREIGN KEY (referred_user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------

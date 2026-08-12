@@ -12,6 +12,7 @@ import {
 } from '../lib/auth.js';
 import { asyncHandler, conflict, forbidden, unauthorized } from '../lib/errors.js';
 import { optionalString, requireEmail, requireString } from '../lib/validate.js';
+import { attachReferrer, buildReferralLink, resolveReferrer } from '../services/affiliateService.js';
 import {
   checkResetToken,
   requestPasswordReset,
@@ -41,6 +42,11 @@ const publicUser = (user: PublicUser) => ({
   role: user.role,
   createdAt: user.created_at,
 
+  // Tiếp thị liên kết — giao diện dựa vào đây để hiện tab Affiliate.
+  isAffiliate: user.is_affiliate === 1,
+  affiliateCode: user.affiliate_code,
+  referralLink: user.is_affiliate === 1 && user.affiliate_code ? buildReferralLink(user.affiliate_code) : null,
+
   // Thuê bao và hạn mức — giao diện dựa vào đây để mở/khoá chức năng tạo ảnh.
   isSubscribed: user.state.isSubscribed,
   subscriptionExpiresAt: user.state.subscriptionExpiresAt,
@@ -53,7 +59,8 @@ const publicUser = (user: PublicUser) => ({
 
 async function loadPublicUser(userId: number): Promise<PublicUser> {
   const user = await queryOne<AuthUser>(
-    `SELECT id, email, full_name, phone, role, status, token_balance, created_at FROM users WHERE id = ?`,
+    `SELECT id, email, full_name, phone, role, status, is_affiliate, affiliate_code, token_balance, created_at
+       FROM users WHERE id = ?`,
     [userId],
   );
   if (!user) throw unauthorized();
@@ -68,6 +75,14 @@ authRouter.post(
     const password = requireString(req.body, 'password', { label: 'Mật khẩu', min: 6, max: 100 });
     const fullName = optionalString(req.body, 'fullName');
     const phone = optionalString(req.body, 'phone', 32);
+    /*
+     * Mã giới thiệu lấy từ link `…/?ref=MÃ` khách đã bấm vào.
+     *
+     * Tra người giới thiệu TRƯỚC khi tạo tài khoản, nhưng mã sai không chặn đăng
+     * ký: khách gõ tay thiếu một ký tự thì vẫn phải vào được hệ thống, chỉ là
+     * không ai được ghi công.
+     */
+    const referrerId = await resolveReferrer(optionalString(req.body, 'ref', 32));
 
     const existing = await queryOne<RowDataPacket & { id: number }>('SELECT id FROM users WHERE email = ?', [email]);
     if (existing) throw conflict('Email này đã được đăng ký.', 'email_taken');
@@ -83,6 +98,8 @@ authRouter.post(
       'INSERT INTO users (email, password_hash, full_name, phone, role) VALUES (?, ?, ?, ?, ?)',
       [email, await hashPassword(password), fullName, phone, role],
     );
+
+    await attachReferrer(result.insertId, referrerId);
 
     // Token tặng khi đăng ký (mặc định 0, admin bật trong bảng settings).
     if (Number.isFinite(freeTokens) && freeTokens > 0) {

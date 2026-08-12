@@ -425,6 +425,82 @@ mới gỡ được nốt phần này.
 
 ---
 
+## 3b. Tiếp thị liên kết (affiliate)
+
+Khách được cấp vai trò **cộng tác viên** sẽ có một link giới thiệu riêng. Ai đăng ký tài khoản
+mới từ link đó được ghi nhận là khách của họ, và **mọi đơn khách đó thanh toán** đều sinh ra một
+khoản hoa hồng.
+
+### Cách tính
+
+```
+lợi nhuận = số tiền khách trả − giá vốn số điểm đã bán − chi phí cố định
+hoa hồng  = lợi nhuận × tỉ lệ %          (lợi nhuận ≤ 0 thì hoa hồng = 0)
+```
+
+- **Giá vốn số điểm** dựa trên quy ước xuyên suốt hệ thống: 1 điểm = 1đ giá vốn nhà cung cấp.
+  Gói `EXTRA_199` bán 199.000đ / 100.000 điểm → giá vốn 100.000đ, lợi nhuận 99.000đ.
+- **Chi phí cố định** gồm hai phần cộng lại, cả hai đều chỉnh được: một số tiền cố định mỗi đơn
+  (phí cổng thanh toán, phí xử lý) và một tỉ lệ % doanh thu (hạ tầng, nhân sự, marketing). Mặc
+  định cả hai bằng 0 — chỉ chủ hệ thống mới biết mỗi đơn thực sự gánh thêm bao nhiêu.
+- Với cấu hình mặc định (40%, không chi phí cố định), đơn `EXTRA_199` cho cộng tác viên
+  **39.600đ**.
+
+Toàn bộ cách tính được **chụp lại vào từng dòng** trong `affiliate_commissions`. Đổi tỉ lệ về
+sau chỉ áp dụng cho đơn phát sinh từ đó trở đi; các khoản đã ghi giữ nguyên con số cũ.
+
+### Điều chỉnh ở đâu
+
+**Quản trị → Affiliate** có ô cấu hình tỉ lệ hoa hồng, hai khoản chi phí cố định, và công tắc
+bật/tắt cả chương trình. Ngay dưới form là ví dụ tính trên một gói điểm đang bán thật — do
+server tính bằng đúng hàm sẽ ghi vào sổ, nên con số nhìn thấy trước khi lưu không thể lệch với
+con số thực tế. Bốn giá trị này nằm trong bảng `settings`
+(`affiliate_enabled`, `affiliate_commission_percent`, `affiliate_fixed_cost_vnd`,
+`affiliate_fixed_cost_percent`), sửa nóng, không cần khởi động lại.
+
+### Cấp vai trò cộng tác viên
+
+**Quản trị → Khách hàng**, tìm tài khoản rồi bấm nút **Affiliate**. Mã giới thiệu được sinh
+ngay lúc cấp.
+
+Vai trò này là một **cờ riêng** (`users.is_affiliate`) chứ không phải một giá trị của cột
+`role`: `role` bị đồng bộ lại từ `ADMIN_EMAILS` mỗi lần đọc phiên đăng nhập nên nhét
+`'affiliate'` vào đó sẽ bị ghi đè ngay, và tách ra thì một admin vẫn có thể đồng thời là cộng
+tác viên.
+
+Thu hồi vai trò **chỉ dừng phát sinh hoa hồng mới**. Các khoản đã ghi vẫn còn nguyên và vẫn
+phải chi trả; mã giới thiệu cũng được giữ lại để nếu cấp lại thì mọi link đã phát ra ngoài sống
+lại nguyên vẹn.
+
+### Đường đi của một lượt giới thiệu
+
+1. Cộng tác viên chia sẻ link `https://tên-miền/?ref=MÃ` (lấy ở tab **Affiliate** của họ).
+2. Khách bấm link → mã được cất vào `localStorage` của trình duyệt và **gỡ khỏi thanh địa chỉ**
+   ngay (để nguyên thì khách copy link đang xem gửi cho bạn bè, lượt giới thiệu bị tính nhầm
+   người). Mã sống **60 ngày**, nên khách không cần đăng ký ngay hôm đó.
+3. Khách đăng ký → `users.referred_by` được gán **một lần duy nhất** và không bao giờ đổi.
+4. Khách thanh toán đơn → `fulfillOrder` ghi một dòng vào `affiliate_commissions`, **trong cùng
+   transaction** với việc cộng điểm. Khoá duy nhất trên `order_id` chặn ghi trùng khi webhook
+   bắn lại hoặc bộ đối soát chạy song song.
+5. Admin chi trả bằng tay ở ngân hàng rồi bấm **Chốt trả** để đánh dấu đã thanh toán.
+
+Mã sai không chặn được việc đăng ký — khách gõ thiếu một ký tự thì vẫn tạo được tài khoản, chỉ
+là không ai được ghi công. Mã của chính mình cũng không tự gán cho mình được.
+
+### Chi trả
+
+Sổ hoa hồng ở **Quản trị → Affiliate** lọc theo trạng thái và theo từng cộng tác viên. Mỗi khoản
+có ba trạng thái: `pending` (chờ chi trả) → `paid` (đã trả), hoặc `cancelled` cho đơn bị hoàn
+tiền / gian lận. Khoản đã huỷ bị loại khỏi mọi con số tổng hợp nhưng dòng ghi vẫn còn để tra
+soát. Nút **Chốt trả** đánh dấu toàn bộ khoản đang chờ của một người — **hệ thống không tự
+chuyển tiền**, đây chỉ là ghi nhận.
+
+Cộng tác viên xem báo cáo của mình ở tab **Affiliate**: link giới thiệu, số dư chờ chi trả, danh
+sách khách và bảng hoa hồng từng đơn. Email khách hiển thị ở dạng đã che (`ng********@gmail.com`)
+— họ nhận ra khách của mình là đủ, không cần cầm cả danh sách email của công ty.
+
+---
+
 ## 4. Cơ sở dữ liệu
 
 Toàn bộ định nghĩa nằm trong [server/src/schema.sql](server/src/schema.sql), chạy tự động khi
@@ -441,6 +517,7 @@ khởi động (`DB_AUTO_MIGRATE=true`).
 | `token_transactions` | Sổ cái điểm — mỗi dòng ghi rõ tác động vào nguồn nào (`bucket`) |
 | `generations` | Từng lệnh tạo ảnh, kèm chi phí vốn và điểm đã trừ từ mỗi nguồn |
 | `payment_events` | Nhật ký webhook ngân hàng, chống xử lý trùng |
+| `affiliate_commissions` | Hoa hồng tiếp thị liên kết, mỗi đơn đúng một dòng |
 | `settings` | Cấu hình sửa nóng không cần restart |
 
 Số tiền lưu dạng số nguyên VNĐ (`BIGINT`), không có phần thập phân.

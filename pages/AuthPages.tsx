@@ -6,6 +6,7 @@ import { ThemeToggle } from '../components/ThemeToggle';
 import { Alert, Field, inputClass } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../lib/api';
+import { getStoredReferral } from '../lib/referral';
 import { APP_HOME } from '../lib/routes';
 
 /** Khung chung của các màn hình ngoài ứng dụng; dùng lại ở trang quên mật khẩu. */
@@ -130,6 +131,12 @@ export const RegisterPage: React.FC = () => {
   const [form, setForm] = useState({ fullName: '', email: '', phone: '', password: '', confirm: '' });
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  /*
+   * Mã giới thiệu đã cất từ lúc khách bấm link của cộng tác viên. Chỉ để BÁO CHO
+   * KHÁCH BIẾT là link có tác dụng — mã thật sự được `register` trong AuthContext
+   * đọc lại và gửi lên, nên đọc một lần lúc dựng form là đủ.
+   */
+  const [referral] = useState(() => getStoredReferral());
 
   if (user) return <Navigate to={APP_HOME} replace />;
 
@@ -174,6 +181,12 @@ export const RegisterPage: React.FC = () => {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <Alert tone="error">{error}</Alert>}
+
+        {referral && (
+          <div className="rounded-xl border border-brand-500/30 bg-brand-500/10 px-4 py-2.5 text-xs text-brand-500">
+            Bạn đang đăng ký qua link giới thiệu <strong className="font-mono">{referral}</strong>.
+          </div>
+        )}
 
         <Field label="Họ và tên">
           <input type="text" className={inputClass} value={form.fullName} onChange={update('fullName')} placeholder="Nguyễn Văn A" />

@@ -107,6 +107,31 @@ async function ensureColumn(
   return true;
 }
 
+/**
+ * Thêm chỉ mục nếu bảng chưa có.
+ *
+ * Cùng lý do với `ensureColumn`: bảng đã tồn tại thì `CREATE TABLE IF NOT EXISTS`
+ * bỏ qua hoàn toàn, nên khoá duy nhất khai báo mới trong schema.sql sẽ không bao
+ * giờ được tạo trên cơ sở dữ liệu đang chạy.
+ */
+async function ensureIndex(
+  conn: mysql.Connection,
+  table: string,
+  indexName: string,
+  definition: string,
+): Promise<boolean> {
+  const [rows] = await conn.query<RowDataPacket[]>(
+    `SELECT 1 FROM information_schema.statistics
+      WHERE table_schema = ? AND table_name = ? AND index_name = ? LIMIT 1`,
+    [env.db.name, table, indexName],
+  );
+  if (rows.length > 0) return false;
+
+  await conn.query(`ALTER TABLE \`${table}\` ADD ${definition}`);
+  console.log(`[migrate] Đã thêm chỉ mục ${table}.${indexName}`);
+  return true;
+}
+
 /** Nâng cấp cấu trúc cho những cài đặt đã chạy từ phiên bản trước. */
 async function applyMigrations(conn: mysql.Connection): Promise<void> {
   // Thuê bao tháng
@@ -162,6 +187,17 @@ async function applyMigrations(conn: mysql.Connection): Promise<void> {
   // Model được chọn làm mốc quy "số điểm" ra "số ảnh" trên các thẻ gói điểm.
   // Admin bật cờ này ở tab Bảng giá; chỉ một model được bật tại một thời điểm.
   await ensureColumn(conn, 'model_pricing', 'is_estimate_reference', 'TINYINT(1) NOT NULL DEFAULT 0');
+
+  // Tiếp thị liên kết. Cờ riêng chứ không phải giá trị của cột `role` — xem
+  // chú thích trong schema.sql.
+  await ensureColumn(conn, 'users', 'is_affiliate', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await ensureColumn(conn, 'users', 'affiliate_code', 'VARCHAR(32) NULL');
+  await ensureColumn(conn, 'users', 'referred_by', 'BIGINT UNSIGNED NULL');
+  await ensureColumn(conn, 'users', 'referred_at', 'DATETIME NULL');
+  // Khoá duy nhất là thứ chặn hai affiliate cùng một mã link. Bắt buộc phải có
+  // trên cả cài đặt cũ, nếu không `resolveReferrer` chọn nhầm người hưởng hoa hồng.
+  await ensureIndex(conn, 'users', 'uq_users_affiliate_code', 'UNIQUE KEY uq_users_affiliate_code (affiliate_code)');
+  await ensureIndex(conn, 'users', 'idx_users_referred_by', 'KEY idx_users_referred_by (referred_by)');
 
   // Sổ cái tách hai nguồn điểm
   await ensureColumn(conn, 'token_transactions', 'bucket', "ENUM('monthly','purchased') NOT NULL DEFAULT 'purchased'");

@@ -14,6 +14,13 @@ export interface AuthUser extends RowDataPacket {
   phone: string | null;
   role: 'user' | 'admin';
   status: 'active' | 'banned';
+  /**
+   * Vai trò affiliate đứng riêng chứ không phải một giá trị của `role`: `role`
+   * bị ghi đè từ ADMIN_EMAILS mỗi lần đọc phiên (xem `loadUser`), và một admin
+   * cũng có thể đồng thời là affiliate.
+   */
+  is_affiliate: number;
+  affiliate_code: string | null;
   token_balance: number;
   created_at: Date;
 }
@@ -65,7 +72,7 @@ async function loadUser(req: Request): Promise<AuthUser | null> {
   if (!Number.isInteger(userId)) return null;
 
   const user = await queryOne<AuthUser>(
-    `SELECT id, email, full_name, phone, role, status, token_balance, created_at
+    `SELECT id, email, full_name, phone, role, status, is_affiliate, affiliate_code, token_balance, created_at
        FROM users WHERE id = ?`,
     [userId],
   );
@@ -103,6 +110,22 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
   await requireAuth(req, res, (error?: unknown) => {
     if (error) return next(error);
     if (req.user?.role !== 'admin') return next(forbidden('Khu vực này chỉ dành cho quản trị viên.'));
+    next();
+  });
+}
+
+/**
+ * Khu vực dành cho cộng tác viên tiếp thị liên kết.
+ *
+ * Admin đi qua được mà không cần cấp cờ affiliate cho chính mình — họ vẫn phải
+ * xem được trang này để hỗ trợ và kiểm chứng số liệu.
+ */
+export async function requireAffiliate(req: Request, res: Response, next: NextFunction): Promise<void> {
+  await requireAuth(req, res, (error?: unknown) => {
+    if (error) return next(error);
+    if (req.user?.role !== 'admin' && req.user?.is_affiliate !== 1) {
+      return next(forbidden('Khu vực này chỉ dành cho cộng tác viên tiếp thị liên kết.'));
+    }
     next();
   });
 }

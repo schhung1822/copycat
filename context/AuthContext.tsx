@@ -1,11 +1,14 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, ApiError, setStoredToken } from '../lib/api';
+import { clearStoredReferral, getStoredReferral } from '../lib/referral';
 import type { User } from '../types';
 
 interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   isAdmin: boolean;
+  /** Được cấp vai trò cộng tác viên tiếp thị liên kết — quyết định có hiện tab Affiliate. */
+  isAffiliate: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (input: { email: string; password: string; fullName?: string; phone?: string }) => Promise<void>;
   logout: () => Promise<void>;
@@ -64,7 +67,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = useCallback(
     async (input: { email: string; password: string; fullName?: string; phone?: string }) => {
-      const data = await api.post<{ user: User; token: string }>('/auth/register', input);
+      // Mã giới thiệu đã được cất từ lúc khách bấm link, có thể từ nhiều ngày
+      // trước — xem `lib/referral.ts`. Server tự bỏ qua nếu mã sai hoặc hết hiệu lực.
+      const data = await api.post<{ user: User; token: string }>('/auth/register', {
+        ...input,
+        ref: getStoredReferral() ?? undefined,
+      });
+      clearStoredReferral();
       setStoredToken(data.token);
       setUser(data.user);
     },
@@ -89,6 +98,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user,
       isLoading,
       isAdmin: user?.role === 'admin',
+      // Admin cũng vào được tab Affiliate (server cho qua) để hỗ trợ và đối chiếu
+      // số liệu, kể cả khi chưa tự cấp cờ affiliate cho mình.
+      isAffiliate: Boolean(user?.isAffiliate) || user?.role === 'admin',
       login,
       register,
       logout,

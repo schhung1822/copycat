@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { execute, query, queryOne, withTransaction, type PoolConnection, type ResultSetHeader, type RowDataPacket } from '../db.js';
 import { env } from '../env.js';
 import { badRequest, conflict, notFound } from '../lib/errors.js';
+import { recordOrderCommission } from './affiliateService.js';
 import { activateSubscription, type PlanRow } from './subscriptionService.js';
 import { creditPurchasedTokens } from './tokenService.js';
 
@@ -300,6 +301,16 @@ async function fulfillOrder(
     order.amount_vnd,
     order.user_id,
   ]);
+
+  /*
+   * Hoa hồng cho người đã giới thiệu khách này.
+   *
+   * Nằm trong cùng transaction với việc cộng điểm: hoặc khách nhận được hàng và
+   * affiliate được ghi công, hoặc cả hai cùng không xảy ra. Hàm tự bỏ qua khi
+   * khách không đến từ link giới thiệu nào, nên gọi vô điều kiện ở đây là đủ.
+   */
+  await recordOrderCommission(conn, order);
+
   await conn.query('UPDATE orders SET fulfilled_at = NOW() WHERE id = ?', [order.id]);
 
   return { subscriptionExpiresAt };

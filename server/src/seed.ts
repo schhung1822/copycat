@@ -299,6 +299,20 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   site_name: 'Design Copycat AI',
   topup_note: 'Chuyển khoản đúng số tiền và ghi đúng nội dung để hệ thống cộng điểm tự động.',
   free_tokens_on_signup: '0',
+
+  /*
+   * Tiếp thị liên kết. Sửa trong Quản trị → Affiliate, không phải ở đây —
+   * `INSERT IGNORE` bên dưới không ghi đè giá trị admin đã đặt.
+   *
+   * Hoa hồng = (doanh thu đơn − giá vốn số điểm đã bán − chi phí cố định) × tỉ lệ.
+   * Hai khoản chi phí cố định mặc định bằng 0: chỉ chủ hệ thống mới biết mỗi đơn
+   * thực sự gánh thêm bao nhiêu, đặt bừa một con số là tính sai hoa hồng ngay từ
+   * đơn đầu tiên.
+   */
+  affiliate_enabled: '1',
+  affiliate_commission_percent: '40',
+  affiliate_fixed_cost_vnd: '0',
+  affiliate_fixed_cost_percent: '0',
 };
 
 /**
