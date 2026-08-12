@@ -29,8 +29,6 @@ export interface User {
    */
   isAffiliate: boolean;
   affiliateCode: string | null;
-  /** Link đầy đủ để chia sẻ; null khi tài khoản chưa được cấp vai trò affiliate. */
-  referralLink: string | null;
 
   /*
    * --- Di sản gói tháng ---

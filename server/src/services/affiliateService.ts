@@ -166,8 +166,29 @@ function randomCode(length = 8): string {
   return out;
 }
 
-/** Link đầy đủ để affiliate copy đi chia sẻ. */
-export const buildReferralLink = (code: string): string => `${env.appUrl.replace(/\/+$/, '')}/?ref=${code}`;
+/**
+ * Link đầy đủ để cộng tác viên copy đi chia sẻ.
+ *
+ * `origin` nên lấy từ chính request đang gọi (xem `requestOrigin`): người đang
+ * mở trang bao giờ cũng đứng ở đúng tên miền công khai, trong khi `APP_URL`
+ * trong `.env` rất dễ bị bỏ quên ở giá trị mẫu `http://localhost:3000` — và khi
+ * đó mọi link phát ra ngoài đều chết mà không ai nhận ra cho tới lúc có khách
+ * bấm vào.
+ */
+export const buildReferralLink = (code: string, origin?: string | null): string =>
+  `${(origin || env.appUrl).replace(/\/+$/, '')}/?ref=${code}`;
+
+/**
+ * Tên miền khách đang truy cập, suy từ request.
+ *
+ * `req.protocol` đọc được `X-Forwarded-Proto` nhờ `trust proxy` đã bật trong
+ * index.ts, nên site sau nginx + SSL vẫn ra `https`. Không có header Host thì
+ * trả null để `buildReferralLink` lùi về `APP_URL`.
+ */
+export const requestOrigin = (req: { protocol: string; get(name: string): string | undefined }): string | null => {
+  const host = req.get('host');
+  return host ? `${req.protocol}://${host}` : null;
+};
 
 /**
  * Đảm bảo tài khoản có mã giới thiệu, trả về mã đang dùng.

@@ -474,7 +474,10 @@ lại nguyên vẹn.
 
 ### Đường đi của một lượt giới thiệu
 
-1. Cộng tác viên chia sẻ link `https://tên-miền/?ref=MÃ` (lấy ở tab **Affiliate** của họ).
+1. Cộng tác viên chia sẻ link `https://tên-miền/?ref=MÃ` (lấy ở tab **Affiliate** của họ). Link
+   được dựng theo **đúng tên miền người đó đang truy cập**, không phải theo `APP_URL` — biến đó
+   rất dễ bị bỏ quên ở giá trị mẫu `http://localhost:3000`, và khi đó mọi link phát ra ngoài đều
+   chết mà không ai nhận ra cho tới lúc có khách bấm vào.
 2. Khách bấm link → mã được cất vào `localStorage` của trình duyệt và **gỡ khỏi thanh địa chỉ**
    ngay (để nguyên thì khách copy link đang xem gửi cho bạn bè, lượt giới thiệu bị tính nhầm
    người). Mã sống **60 ngày**, nên khách không cần đăng ký ngay hôm đó.

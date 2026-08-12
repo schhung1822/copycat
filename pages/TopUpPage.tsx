@@ -4,6 +4,7 @@ import { Button } from '../components/Button';
 import { Alert, Badge, Card, EmptyState, PageLoader, TableWrap } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
+import { copyText } from '../lib/clipboard';
 import { countdown, formatDateTime, formatNumber, formatVnd, STATUS_LABEL } from '../lib/format';
 import { modelShortName, pickBasisPackage, pickReferenceModel, roundedImageCount } from '../lib/imageEstimate';
 import { APP_HOME } from '../lib/routes';
@@ -333,13 +334,11 @@ const PaymentPanel: React.FC<{
   const remaining = useMemo(() => countdown(order.expiresAt, now), [order.expiresAt, now]);
 
   const copy = async (value: string, key: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(key);
-      setTimeout(() => setCopied(null), 1500);
-    } catch {
-      /* trình duyệt chặn clipboard — khách vẫn đọc và gõ tay được */
-    }
+    // Qua `copyText` để còn chạy trên HTTP thuần, nơi `navigator.clipboard`
+    // không tồn tại — xem lib/clipboard.ts.
+    if (!(await copyText(value))) return; /* chép hỏng — khách vẫn đọc và gõ tay được */
+    setCopied(key);
+    setTimeout(() => setCopied(null), 1500);
   };
 
   const Row: React.FC<{ label: string; value: string; copyKey?: string; highlight?: boolean }> = ({

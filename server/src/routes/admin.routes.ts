@@ -10,6 +10,7 @@ import {
   computeCommission,
   readAffiliateSettings,
   readAffiliateStats,
+  requestOrigin,
   saveAffiliateSettings,
   serializeCommission,
   setAffiliateRole,
@@ -661,7 +662,7 @@ adminRouter.post(
       email: user.email,
       isAffiliate: enabled,
       affiliateCode: code,
-      referralLink: enabled && code ? buildReferralLink(code) : null,
+      referralLink: enabled && code ? buildReferralLink(code, requestOrigin(req)) : null,
     });
   }),
 );
@@ -721,7 +722,8 @@ adminRouter.patch(
 /** Danh sách cộng tác viên kèm số liệu tích luỹ. */
 adminRouter.get(
   '/affiliate/affiliates',
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const origin = requestOrigin(req);
     const rows = await query<RowDataPacket & Record<string, any>>(
       `SELECT id, email, full_name, affiliate_code, status, created_at
          FROM users WHERE is_affiliate = 1 ORDER BY id DESC`,
@@ -738,7 +740,7 @@ adminRouter.get(
         fullName: row.full_name,
         status: row.status,
         code: row.affiliate_code,
-        referralLink: row.affiliate_code ? buildReferralLink(row.affiliate_code) : null,
+        referralLink: row.affiliate_code ? buildReferralLink(row.affiliate_code, origin) : null,
         createdAt: row.created_at,
         stats: await readAffiliateStats(row.id),
       });

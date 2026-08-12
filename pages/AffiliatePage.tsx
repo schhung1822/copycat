@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Card, EmptyState, PageLoader, StatCard, TableWrap } from '../components/ui';
 import { api, qs } from '../lib/api';
+import { copyText } from '../lib/clipboard';
 import { formatDateTime, formatNumber, formatVnd } from '../lib/format';
 import type { AffiliateCommission, AffiliateReferral, AffiliateSummary } from '../types';
 
@@ -20,39 +21,43 @@ const STATUS_CLASS: Record<string, string> = {
 
 /** Ô hiện link giới thiệu kèm nút sao chép. */
 const ReferralLinkBox: React.FC<{ link: string }> = ({ link }) => {
-  const [copied, setCopied] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(link);
-    } catch {
-      /*
-       * `navigator.clipboard` chỉ chạy ở ngữ cảnh bảo mật (https / localhost).
-       * Trên http thì bôi đen sẵn để khách bấm Ctrl+C là xong, thay vì bấm nút
-       * mà chẳng thấy gì xảy ra.
-       */
-      document.querySelector<HTMLInputElement>('#referral-link')?.select();
-      return;
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    // Truyền thẳng ô đang hiển thị link: khi phải dùng đường lui, khách nhìn
+    // thấy đoạn chữ được bôi đen sẵn ngay trước mắt.
+    const ok = await copyText(link, inputRef.current);
+    setState(ok ? 'copied' : 'failed');
+    // Chỉ tự tắt thông báo thành công. Câu hướng dẫn khi chép hỏng phải ở lại
+    // cho tới lần bấm sau, không thì khách chưa kịp đọc nó đã biến mất.
+    if (ok) setTimeout(() => setState('idle'), 2000);
   };
 
   return (
-    <div className="flex flex-col sm:flex-row gap-2">
-      <input
-        id="referral-link"
-        readOnly
-        value={link}
-        onFocus={(e) => e.currentTarget.select()}
-        className="flex-1 bg-dark-950 border border-dark-700 rounded-xl px-3 py-2.5 text-sm text-brand-500 font-mono outline-none focus:border-brand-500"
-      />
-      <button
-        onClick={copy}
-        className="bg-brand-500 hover:bg-brand-600 text-white text-sm font-bold rounded-xl px-5 py-2.5 transition-colors whitespace-nowrap"
-      >
-        {copied ? '✓ Đã sao chép' : 'Sao chép link'}
-      </button>
+    <div className="space-y-2">
+      <div className="flex flex-col sm:flex-row gap-2">
+        <input
+          ref={inputRef}
+          readOnly
+          value={link}
+          onFocus={(e) => e.currentTarget.select()}
+          className="flex-1 bg-dark-950 border border-dark-700 rounded-xl px-3 py-2.5 text-sm text-brand-500 font-mono outline-none focus:border-brand-500"
+        />
+        <button
+          onClick={copy}
+          className="bg-brand-500 hover:bg-brand-600 text-white text-sm font-bold rounded-xl px-5 py-2.5 transition-colors whitespace-nowrap"
+        >
+          {state === 'copied' ? '✓ Đã sao chép' : 'Sao chép link'}
+        </button>
+      </div>
+
+      {state === 'failed' && (
+        <p className="text-[11px] text-amber-400">
+          Trình duyệt không cho sao chép tự động. Link đã được bôi đen sẵn — bấm <strong>Ctrl+C</strong> (hoặc{' '}
+          <strong>⌘+C</strong>) để chép.
+        </p>
+      )}
     </div>
   );
 };

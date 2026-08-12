@@ -9,6 +9,7 @@ import {
   maskEmail,
   readAffiliateSettings,
   readAffiliateStats,
+  requestOrigin,
   serializeCommission,
   type CommissionRow,
 } from '../services/affiliateService.js';
@@ -40,7 +41,7 @@ affiliateRouter.get(
       enabled: settings.enabled,
       commissionPercent: settings.commissionPercent,
       code,
-      referralLink: code && isAffiliate ? buildReferralLink(code) : null,
+      referralLink: code && isAffiliate ? buildReferralLink(code, requestOrigin(req)) : null,
       stats: await readAffiliateStats(me.id),
     });
   }),

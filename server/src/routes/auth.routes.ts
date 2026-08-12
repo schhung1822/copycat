@@ -12,7 +12,7 @@ import {
 } from '../lib/auth.js';
 import { asyncHandler, conflict, forbidden, unauthorized } from '../lib/errors.js';
 import { optionalString, requireEmail, requireString } from '../lib/validate.js';
-import { attachReferrer, buildReferralLink, resolveReferrer } from '../services/affiliateService.js';
+import { attachReferrer, resolveReferrer } from '../services/affiliateService.js';
 import {
   checkResetToken,
   requestPasswordReset,
@@ -42,10 +42,15 @@ const publicUser = (user: PublicUser) => ({
   role: user.role,
   createdAt: user.created_at,
 
-  // Tiếp thị liên kết — giao diện dựa vào đây để hiện tab Affiliate.
+  /*
+   * Tiếp thị liên kết — giao diện dựa vào đây để hiện tab Affiliate.
+   *
+   * Cố ý KHÔNG trả link đầy đủ ở đây: link được dựng theo tên miền của request
+   * đang gọi (xem `requestOrigin`), mà hàm này là một bộ tuần tự thuần không cầm
+   * request. Trang Affiliate lấy link từ `/affiliate/summary`.
+   */
   isAffiliate: user.is_affiliate === 1,
   affiliateCode: user.affiliate_code,
-  referralLink: user.is_affiliate === 1 && user.affiliate_code ? buildReferralLink(user.affiliate_code) : null,
 
   // Thuê bao và hạn mức — giao diện dựa vào đây để mở/khoá chức năng tạo ảnh.
   isSubscribed: user.state.isSubscribed,
