@@ -40,6 +40,11 @@ const FEATURES = [
     icon: 'M4 4v6h6M20 20v-6h-6M4.6 15a8 8 0 0014-3M19.4 9A8 8 0 005 12',
   },
   {
+    title: 'Xoá sạch metadata khi giao ảnh',
+    body: 'Ảnh tải về không còn EXIF, XMP hay thẻ Content Credentials của nhà cung cấp — mấy thứ khiến mạng xã hội tự gắn nhãn "Thông tin AI" lên bài đăng. Cắt trực tiếp, không nén lại nên ảnh không mất một chi tiết nào.',
+    icon: 'M12 3l7.5 3v5.2c0 4.4-3.1 7.6-7.5 8.8-4.4-1.2-7.5-4.4-7.5-8.8V6L12 3zM9.2 12l2 2 3.6-3.8',
+  },
+  {
     title: 'Lịch sử lưu đủ, tải lại bất cứ lúc nào',
     body: 'Xem lại toàn bộ ảnh đã tạo cùng ghi chú và thông số đã dùng, tải về hoặc chạy lại với ghi chú mới.',
     icon: 'M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z',
@@ -48,13 +53,15 @@ const FEATURES = [
     title: 'Ví điểm minh bạch từng lượt',
     body: 'Mỗi lần tạo ảnh đều có dòng sao kê riêng: model nào, hết bao nhiêu điểm, còn lại bao nhiêu. Ảnh lỗi hoàn điểm cũng ghi rõ.',
     icon: 'M3 8a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm13 4h2',
-    span: 'lg:col-span-2',
   },
 ];
 
 /**
- * Lưới tính năng kiểu "bento": vài ô rộng gấp đôi để mắt có điểm dừng thay vì
- * tám ô đều tăm tắp. Ô rộng dành cho hai tính năng bán hàng mạnh nhất.
+ * Lưới tính năng kiểu "bento": một ô rộng gấp đôi để mắt có điểm dừng thay vì
+ * tám ô đều tăm tắp. Ô rộng dành cho tính năng bán hàng mạnh nhất.
+ *
+ * ĐÚNG MỘT ô được đặt `span` khi có 8 thẻ: 7 ô đơn + 1 ô đôi = 9 cột, vừa khít
+ * ba hàng. Thêm ô rộng thứ hai là hàng cuối thừa ra một ô lẻ nằm trơ bên trái.
  */
 export const Features: React.FC = () => (
   <section id="tinh-nang" className="scroll-mt-20 border-y border-dark-800 bg-dark-900/40 py-14 sm:py-20 lg:py-28">
