@@ -4,6 +4,7 @@ import path from 'node:path';
 import { env } from '../env.js';
 import { badRequest } from '../lib/errors.js';
 import { stripRoleLabel } from './labelGuard.js';
+import { scrubMetadata } from './metadataScrub.js';
 
 const MIME_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -66,9 +67,15 @@ export async function saveBase64Image(input: string, fallbackMime = 'image/jpeg'
 /**
  * Tải ảnh kết quả từ nhà cung cấp về server để link không bị hết hạn.
  *
- * Cũng là nơi gỡ dải nhãn vai trò nếu model lỡ chép nó sang ảnh kết quả — đây là
- * chỗ duy nhất trong luồng có sẵn byte của ảnh. Đặt DOWNLOAD_RESULTS=false thì
- * bước dọn này không chạy được và khách có thể thấy dải nhãn.
+ * Cũng là nơi dọn ảnh trước khi giao cho khách — đây là chỗ duy nhất trong luồng
+ * có sẵn byte của ảnh:
+ *
+ *   1. Gỡ dải nhãn vai trò nếu model lỡ chép nó sang kết quả (`labelGuard.ts`).
+ *   2. Xoá metadata để mạng xã hội không tự gắn nhãn AI (`metadataScrub.ts`).
+ *
+ * Đặt DOWNLOAD_RESULTS=false thì cả hai bước này đều không chạy được: khách nhận
+ * thẳng link của nhà cung cấp, có thể thấy dải nhãn và ảnh vẫn còn nguyên
+ * metadata.
  */
 export async function downloadResult(url: string): Promise<string> {
   const res = await fetch(url);
@@ -79,8 +86,14 @@ export async function downloadResult(url: string): Promise<string> {
   const ext = MIME_EXT[contentType] ?? (['jpg', 'jpeg', 'png', 'webp'].includes(extFromUrl) ? extFromUrl : 'png');
 
   const downloaded = Buffer.from(await res.arrayBuffer());
-  const { buffer, cropped } = stripRoleLabel(downloaded);
+
+  const { buffer: unlabeled, cropped } = stripRoleLabel(downloaded);
   if (cropped) console.log('[storage] Đã cắt dải nhãn vai trò khỏi ảnh kết quả.');
+
+  // Sau bước cắt, vì cắt xong là encode lại và ảnh mới có thể mang metadata riêng
+  // của bộ mã hoá.
+  const { buffer, removed } = scrubMetadata(unlabeled);
+  if (removed.length > 0) console.log(`[storage] Đã xoá metadata khỏi ảnh kết quả: ${removed.join(', ')}.`);
 
   return writeFile(datedDir('results'), ext, buffer);
 }
