@@ -281,11 +281,16 @@ function buildPrompt(request: GenerateRequest): string {
    * Chỉ từ bản 2 mới được nới ra thành phương án sáng tạo.
    */
   const isVariation = total > 1 && index > 1;
+  /*
+   * Ảnh sản phẩm bắt đầu từ vị trí 2 khi có ảnh mẫu, từ vị trí 1 khi không —
+   * khớp cách xếp mảng ở `generate()`: [ảnh mẫu nếu có, ...ảnh sản phẩm]. Tính
+   * một lần ở đây vì câu soát cuối prompt nằm ngoài khối dựng nhiệm vụ và cũng
+   * cần gọi đúng tên dải ảnh này.
+   */
+  const products = productRange(productCount, request.referenceImage ? 2 : 1);
   const blocks: string[] = [];
 
   if (request.referenceImage) {
-    const products = productRange(productCount, 2);
-
     blocks.push(
       'Take the photograph in Image 1 and swap out the product it shows.',
 
@@ -300,7 +305,34 @@ function buildPrompt(request: GenerateRequest): string {
         'part of the photographs: never draw a label bar, its colour or its text in your result.',
 
       `Image 1 = the photograph to recreate. ${products} = the replacement product` +
-        (productCount > 1 ? ', shown from different angles or as its separate pieces.' : '.'),
+        (productCount > 1
+          ? `.\n${products} are photographs of ONE single product taken from different angles, so that you\n` +
+            'can see the whole of it. They are not several different products and not several copies of it.'
+          : '.'),
+
+      /*
+       * Chặn lỗi ĐẾM SỐ MÓN — lỗi hay gặp nhất khi khách gửi nhiều ảnh sản phẩm,
+       * mà khách thì gửi nhiều gần như mặc định vì món hàng nào cũng có vài góc
+       * chụp sẵn.
+       *
+       * Model đọc "ba tấm ảnh sản phẩm" thành "ba món" rồi bày cả ba vào kết quả,
+       * hoặc ghép chúng thành một món lai mang chi tiết của cả ba góc. Neo số
+       * lượng vào ẢNH MẪU là quy tắc dứt khoát, đúng cho cả khi các ảnh là nhiều
+       * góc chụp lẫn khi là mấy chi tiết rời của một bộ — model không phải đoán
+       * xem đang gặp trường hợp nào.
+       *
+       * Chỉ thêm khi thật sự có nhiều ảnh: prompt càng ngắn model càng bám sát,
+       * nên không bắt đường một-ảnh gánh một câu vô nghĩa với nó.
+       */
+      ...(productCount > 1
+        ? [
+            'How many items appear in your result, and how they are arranged, comes from Image 1 and from\n' +
+              'Image 1 alone. If Image 1 shows one item, your result shows one item — however many product\n' +
+              'photographs you were given. Read the shape, colours, materials, prints and lettering off\n' +
+              `whichever of ${products} shows them most clearly, and build the single item from all of them\n` +
+              'together.',
+          ]
+        : []),
 
       isVariation
         ? /*
@@ -353,18 +385,21 @@ function buildPrompt(request: GenerateRequest): string {
        * Nói thẳng rằng hai ảnh có thể giống thể loại nhau, và neo vai trò vào
        * THỨ TỰ chứ không vào nội dung.
        */
-      'The two images may look like the same kind of photograph. Do not let that confuse you and do not\n' +
-        'swap their roles: the scene always comes from Image 1, the product always comes from Image 2.',
+      'The input images may look like the same kind of photograph. Do not let that confuse you and do not\n' +
+        `swap their roles: the scene always comes from Image 1, the product always comes from ${products}.`,
     );
   } else {
     // Không có ảnh mẫu: chỉ còn nhiệm vụ dựng bối cảnh quanh sản phẩm.
-    const products = productRange(productCount, 1);
-
     blocks.push(
       'Create one finished, professional advertising photograph of the product shown in the input image(s).',
 
       `${products} = the product. Keep it exactly as it is: same shape, colours, materials, prints, logos\n` +
-        'and lettering. Do not restyle it.',
+        'and lettering. Do not restyle it.' +
+        // Không có ảnh mẫu thì không có gì neo số lượng, nên phải nói thẳng ra "một món".
+        (productCount > 1
+          ? '\nThose are photographs of ONE single product taken from different angles — show that one item,\n' +
+            'once, not one per photograph.'
+          : ''),
     );
 
     if (!userPrompt) blocks.push('Place it in a clean, well-lit commercial studio scene.');
@@ -381,8 +416,13 @@ function buildPrompt(request: GenerateRequest): string {
       [
         'USER INSTRUCTIONS — written by the customer, often in Vietnamese. Follow them whatever the language.',
         request.referenceImage
-          ? 'Where they ask for something different from Image 1 — scene, background, colours, mood, framing —\n' +
-            'follow them instead, and keep Image 1 only for what they did not mention.'
+          ? // "how many items" nằm trong danh sách này một cách CÓ CHỦ Ý: quy tắc
+            // "số món lấy theo ảnh mẫu" ở trên là để chặn model tự nhân bản sản
+            // phẩm theo số ảnh được đưa, không phải để cấm khách. Khách gõ "cho
+            // cả hai màu vào ảnh" thì vẫn phải được.
+            'Where they ask for something different from Image 1 — scene, background, colours, mood, framing,\n' +
+            'how many items are shown — follow them instead, and keep Image 1 only for what they did not\n' +
+            'mention.'
           : 'They define the scene.',
         // Bản sáng tạo vẫn phải nằm trong khuôn khách đặt: khách bảo "nền gỗ" thì
         // cả bốn bản đều nền gỗ, chỉ khác nhau ở phần khách bỏ ngỏ.
@@ -414,9 +454,15 @@ function buildPrompt(request: GenerateRequest): string {
       // Soát cả HAI chiều. Câu cũ chỉ soát "sản phẩm có đúng không", nên lúc model
       // đảo vai thì nó tự soát trên cặp đã đảo và thấy mọi thứ khớp.
       'Before you finish, check two things. First: the scene, background and setting are the ones from\n' +
-        'Image 1. Second: the product shown in it is the one from Image 2, with none of the shape, colours,\n' +
-        'logos or lettering of the product from Image 1 anywhere on it. If it came out the other way round —\n' +
-        "Image 2's scene showing Image 1's product — you have swapped them; redo it.",
+        `Image 1. Second: the product shown in it is the one from ${products}, with none of the shape,\n` +
+        'colours, logos or lettering of the product from Image 1 anywhere on it. If it came out the other\n' +
+        "way round — Image 2's scene showing Image 1's product — you have swapped them; redo it." +
+        // Soát thêm chiều thứ ba khi có nhiều ảnh sản phẩm: đúng bối cảnh, đúng
+        // món hàng, nhưng ra hai ba món thì vẫn là ảnh hỏng và vẫn phải vẽ lại.
+        (productCount > 1
+          ? '\nAnd count the items: there are as many as in Image 1, not as many as you were given product\n' +
+            'photographs.'
+          : ''),
     );
   }
 

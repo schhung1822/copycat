@@ -6,7 +6,7 @@ import { Alert, PageLoader, Spinner } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
 import { formatNumber, STATUS_LABEL } from '../lib/format';
-import { LABEL_PRODUCT, LABEL_REFERENCE, withRoleLabel } from '../lib/imageLabel';
+import { LABEL_REFERENCE, productLabel, withRoleLabel } from '../lib/imageLabel';
 import { getTabSessionId, readTabSettings, writeTabSettings } from '../lib/session';
 import type { Catalog, Generation, ImageState, ModelOption } from '../types';
 
@@ -33,6 +33,14 @@ const ASPECT_RATIOS: { value: string; label: string }[] = [
 ];
 const POLL_INTERVAL_MS = 3000;
 const SETTINGS_KEY = 'copycat-studio-settings-v3';
+
+/**
+ * Trần số ảnh đầu vào. Phải khớp `requireStringArray` trong
+ * `server/src/routes/generation.routes.ts` — gửi thừa một ảnh là server trả về
+ * lỗi 400 chứ không tự bỏ bớt.
+ */
+const MAX_REFERENCE_IMAGES = 8;
+const MAX_PRODUCT_IMAGES = 3;
 
 /**
  * Mô tả ngắn giúp khách chọn model, thay cho việc hiện số điểm.
@@ -245,14 +253,33 @@ export const StudioPage: React.FC = () => {
 
     try {
       /*
+       * Cắt đúng số ảnh server nhận, TRƯỚC khi dán nhãn.
+       *
+       * Ô tải ảnh cố ý không chặn khách chọn thêm (chỉ hiện cảnh báo), nên khách
+       * chọn 4 ảnh sản phẩm là gửi lên 4 và server trả lỗi 400 — trong khi giao
+       * diện vừa hứa "chỉ 3 ảnh đầu tiên được dùng". Cắt ở đây giữ đúng lời hứa
+       * đó, và quan trọng hơn: số ghi trên nhãn ("VIEW 1/3") mới khớp số ảnh
+       * thật sự được gửi.
+       */
+      const references = refImages.slice(0, MAX_REFERENCE_IMAGES);
+      const products = prodImages.slice(0, MAX_PRODUCT_IMAGES);
+
+      /*
        * Dán nhãn vai trò lên ảnh trước khi gửi. Không có nhãn thì model hay nhầm
        * ảnh mẫu với ảnh sản phẩm và cho ra ảnh ngược hoàn toàn — xem lib/imageLabel.ts
        * để biết số đo. Dán ở đây chứ không ở ô tải ảnh, để khách vẫn xem được
        * ảnh gốc của mình trong lúc chuẩn bị.
+       *
+       * Nhãn ảnh sản phẩm đánh số theo VỊ TRÍ THẬT trong mảng gửi đi, và vị trí
+       * đó phụ thuộc có ảnh mẫu hay không — nên phải truyền cả hai thông tin vào.
        */
       const [referenceImages, productImages] = await Promise.all([
-        Promise.all(refImages.map((image) => withRoleLabel(toDataUri(image), LABEL_REFERENCE))),
-        Promise.all(prodImages.map((image) => withRoleLabel(toDataUri(image), LABEL_PRODUCT))),
+        Promise.all(references.map((image) => withRoleLabel(toDataUri(image), LABEL_REFERENCE))),
+        Promise.all(
+          products.map((image, index) =>
+            withRoleLabel(toDataUri(image), productLabel(index, products.length, references.length > 0)),
+          ),
+        ),
       ]);
 
       const data = await api.post<{ generations: Generation[]; tokenBalance: number }>('/generations', {
@@ -342,7 +369,7 @@ export const StudioPage: React.FC = () => {
             images={refImages}
             onImagesChange={setRefImages}
             allowMultiple
-            max={8}
+            max={MAX_REFERENCE_IMAGES}
           />
 
           <div className="flex justify-center text-dark-700">
@@ -357,10 +384,30 @@ export const StudioPage: React.FC = () => {
             images={prodImages}
             onImagesChange={setProdImages}
             allowMultiple
-            max={3}
+            max={MAX_PRODUCT_IMAGES}
           />
-          {prodImages.length > 3 && (
-            <p className="text-[11px] text-amber-400 -mt-3">Chỉ 3 ảnh sản phẩm đầu tiên được sử dụng.</p>
+          {/*
+            Lời dặn xuất hiện đúng lúc khách vừa tải ảnh thứ hai.
+
+            Khách hay tải nhiều góc chụp của cùng một món, còn model thì dễ hiểu
+            thành nhiều món khác nhau và dựng ra đúng bằng ấy sản phẩm trong ảnh.
+            Prompt và nhãn dán đã nói rõ điều này với model rồi; câu này nói với
+            KHÁCH, để họ biết cái gì sẽ ra và không tải nhầm hai sản phẩm khác
+            nhau vào đây.
+
+            Không đặt vào `subText` của ô tải ảnh được: chỗ đó chỉ hiện khi chưa
+            có ảnh nào, tức biến mất đúng lúc lời dặn này mới cần đến.
+          */}
+          {prodImages.length > 1 && prodImages.length <= MAX_PRODUCT_IMAGES && (
+            <p className="text-[11px] text-gray-500 -mt-3 leading-relaxed">
+              Nhiều ảnh = nhiều góc chụp của <span className="text-gray-300">cùng một sản phẩm</span>. Ảnh kết quả vẫn
+              chỉ có một sản phẩm — số lượng món trong ảnh lấy theo ảnh mẫu.
+            </p>
+          )}
+          {prodImages.length > MAX_PRODUCT_IMAGES && (
+            <p className="text-[11px] text-amber-400 -mt-3">
+              Chỉ {MAX_PRODUCT_IMAGES} ảnh sản phẩm đầu tiên được sử dụng.
+            </p>
           )}
 
           <div className="space-y-2 pt-5 border-t border-dark-800">

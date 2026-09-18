@@ -39,7 +39,30 @@ const BAR_MIN_PX = 40;
 export const LABEL_BAR_COLOR = '#0B7A75';
 
 export const LABEL_REFERENCE = 'IMAGE 1 - REFERENCE SCENE';
-export const LABEL_PRODUCT = 'IMAGE 2 - PRODUCT ONLY';
+
+/**
+ * Nhãn cho ảnh sản phẩm thứ `index` (đếm từ 0) trong danh sách khách tải lên.
+ *
+ * SỐ TRÊN NHÃN PHẢI LÀ VỊ TRÍ THẬT của ảnh trong mảng gửi lên nhà cung cấp.
+ * Prompt dặn model "tin dải nhãn hơn mọi thứ khác" (xem `providers/kie.ts`), nên
+ * nhãn sai số là tự tay phá đúng cái cơ chế dựng ra để chống đảo vai. Trước đây
+ * mọi ảnh sản phẩm đều mang chung một nhãn "IMAGE 2": khách tải hai góc chụp là
+ * model nhận được hai tấm cùng xưng Image 2, trong khi prompt gọi chúng là Image
+ * 2 và Image 3.
+ *
+ * Không có ảnh mẫu thì ảnh sản phẩm bắt đầu từ vị trí 1 chứ không phải 2, khớp
+ * cách provider xếp mảng: `[ảnh mẫu nếu có, ...ảnh sản phẩm]`.
+ *
+ * Từ hai ảnh trở lên, nhãn ghi thêm "VIEW n/N" để nói thẳng trên pixel rằng đây
+ * là nhiều GÓC CHỤP CỦA CÙNG MỘT MÓN, không phải nhiều món khác nhau — nếu
+ * không, model hay dựng ra đúng bằng ấy món trong ảnh kết quả.
+ */
+export function productLabel(index: number, total: number, hasReference: boolean): string {
+  const position = (hasReference ? 2 : 1) + index;
+  return total > 1
+    ? `IMAGE ${position} - PRODUCT VIEW ${index + 1}/${total}`
+    : `IMAGE ${position} - PRODUCT ONLY`;
+}
 
 /**
  * Vẽ thêm một dải nhãn lên đầu ảnh và trả về data URI mới.
@@ -64,9 +87,27 @@ export async function withRoleLabel(dataUri: string, text: string): Promise<stri
     ctx.drawImage(image, 0, barHeight);
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold ${Math.round(barHeight * 0.5)}px Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+
+    /*
+     * Thu nhỏ chữ cho vừa bề ngang ảnh. `fillText` không tự xuống dòng cũng không
+     * tự co, mà thanh nhãn cao theo CHIỀU CAO ảnh — nên ảnh hẹp và cao cho ra
+     * thanh cao, chữ to, tràn ra ngoài và mất mấy ký tự cuối. Mấy ký tự cuối lại
+     * đúng là phần phân biệt "VIEW 1/2" với "VIEW 2/2".
+     *
+     * Bề rộng chữ tỉ lệ thuận với cỡ chữ nên một lượt quy đổi là đủ, không cần
+     * dò dần.
+     */
+    let fontSize = Math.round(barHeight * 0.5);
+    ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+    const maxWidth = canvas.width * 0.94;
+    const textWidth = ctx.measureText(text).width;
+    if (textWidth > maxWidth) {
+      fontSize = Math.max(10, Math.floor((fontSize * maxWidth) / textWidth));
+      ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+    }
+
     ctx.fillText(text, canvas.width / 2, barHeight / 2);
 
     // JPEG cho nhẹ; chất lượng 0.92 đủ để không thấy nhiễu nén trên ảnh sản phẩm.
